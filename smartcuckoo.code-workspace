@@ -12,18 +12,5 @@
         {
             "path": "../.cmake"
         }
-    ],
-    "settings": {
-        "files.associations": {
-            "panel_private.h": "c",
-            "gpio.h": "c",
-            "stdlib.h": "c",
-            "unistd.h": "c",
-            "fcntl.h": "c",
-            "stropts.h": "c",
-            "timeo.h": "c",
-            "cmu.h": "c",
-            "efr32_system.h": "c"
-        }
-    }
+    ]
 }
