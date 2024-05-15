@@ -4,8 +4,8 @@
             "name": "ultracore: arm-none-eabi",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/../ultracore/inc",
-                "${workspaceFolder}/../silabs/include"
+                "${workspaceFolder}/ultracore/inc",
+                "${workspaceFolder}/silabs/include"
             ],
             "defines": [],
             "cStandard": "gnu99",

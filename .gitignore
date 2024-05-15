@@ -24,6 +24,7 @@
 
 # cmake
 .cmake
+build/
 
 # this project
 obj

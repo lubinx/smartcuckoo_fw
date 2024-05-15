@@ -343,7 +343,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     }
     else
     {
-        uint16_t old_voice_id;
+        int16_t old_voice_id;
 
         switch (runtime->setting_part)
         {
@@ -354,7 +354,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
         case VOICE_SETTING_LANG:
             old_voice_id = setting.media.voice_id;
-            setting.media.voice_id = (uint16_t)VOICE_next_locale(&voice_attr);
+            setting.media.voice_id = VOICE_next_locale(&voice_attr);
 
             if (old_voice_id != setting.media.voice_id)
                 runtime->setting_is_modified = true;

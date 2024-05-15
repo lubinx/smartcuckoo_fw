@@ -3,14 +3,26 @@
         {
             "path": "."
         },
-		{
-			"path": "../silabs"
-		},
         {
-            "path": "../ultracore"
+            "path": "./silabs"
         },
         {
-            "path": "../.cmake"
+            "path": "./ultracore"
+        },
+        {
+            "path": "./.cmake"
+        },
+        {
+            "path": "./talking_button/config",
+            "name": "Talking button config"
+        },
+        {
+            "path": "./panel/b_config",
+            "name": "Panel B config"
+        },
+        {
+            "path": "./panel/c_config",
+            "name": "Panel C config"
         }
     ]
 }
