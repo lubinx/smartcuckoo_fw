@@ -67,7 +67,7 @@
             int8_t wdays;
             uint8_t alarms;
 
-            uint8_t humidity;
+            int8_t humidity;
             int16_t tmpr;
 
             uint32_t flags;
@@ -111,7 +111,7 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow))
     void PANEL_attr_set_tmpr(struct PANEL_attr_t *attr, int16_t tmpr);
 extern __attribute__((nothrow))
-    void PANEL_attr_set_humidity(struct PANEL_attr_t *attr, uint8_t humidity);
+    void PANEL_attr_set_humidity(struct PANEL_attr_t *attr, int8_t humidity);
 
 extern __attribute__((nothrow))
     int PANEL_update(struct PANEL_attr_t *attr);

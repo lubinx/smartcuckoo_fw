@@ -54,10 +54,9 @@ build_target(panel_b
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
-        "panel/drv/*.c"
     SRCS-
         "panel/lamp.c"
-        "panel/drv/panel_ml_i2c_drv.c"
+        "panel/panel_ml_i2c_drv.c"
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR
@@ -78,9 +77,8 @@ build_target(panel_c
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
-        "panel/drv/*.c"
     SRCS-
-        "panel/drv/panel_ml_i2c_drv.c"
+        "panel/panel_ml_i2c_drv.c"
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR

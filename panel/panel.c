@@ -31,7 +31,7 @@ static uint32_t __stack[1024 / sizeof(uint32_t)];
 static struct PANEL_setting_group_part_t const __setting_gp[] =
 {
     {.level = 1,    .start = SETTING_YEAR,      .end = SETTING_DAY},
-    {.level = 1,    .start = SETTING_HOUR,      .end = SETTING_MINUTE},
+    {.level = 1,    .start = SETTING_HOUR,      .end = SETTING_HOUR_FORMT},
     {.level = 1,    .start = SETTING_A_HOUR,    .end = SETTING_WDAY_START},
     {.level = 1,    .start = SETTING_A_HOUR,    .end = SETTING_WDAY_START},
     {.level = 1,    .start = SETTING_A_HOUR,    .end = SETTING_WDAY_START},
@@ -218,7 +218,10 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
     if (runtime->setting.en)
     {
         if (SETTING_TIME_GROUP == runtime->setting.group)
+        {
             PANEL_attr_set_ringtone_id(&runtime->panel_attr, -1);
+            PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+        }
 
         if (SETTING_group_is_alarms(runtime->setting.group))
         {
@@ -285,7 +288,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
     if (! (PANEL_TMPR & runtime->panel_attr.disable_parts))
         PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
     if (! (PANEL_HUMIDITY & runtime->panel_attr.disable_parts))
-        PANEL_attr_set_humidity(&runtime->panel_attr, runtime->env_sensor.humidity);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
 
     PANEL_update(&runtime->panel_attr);
 }
@@ -331,10 +334,16 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 break;
             };
 
-            if (SETTING_TIME_GROUP == runtime->setting.group)
+            if (SETTING_group_is_alarms(runtime->setting.group))
+            {
                 PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
-            else if (SETTING_group_is_alarms(runtime->setting.group))
+                PANEL_attr_set_humidity(&runtime->panel_attr, -1);
+            }
+            else if (SETTING_TIME_GROUP == runtime->setting.group)
+            {
                 PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
+                PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+            }
             else
                 PANEL_attr_set_disable(&runtime->panel_attr, 0);
         }
@@ -364,6 +373,9 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 break;
             case SETTING_MINUTE:
                 blinky = PANEL_MINUTE;
+                break;
+            case SETTING_HOUR_FORMT:
+                blinky = PANEL_HUMIDITY;
                 break;
 
             // alarm
@@ -404,6 +416,12 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
             {
             default:
                 break;
+
+            case SETTING_TIME_GROUP:
+                PANEL_attr_set_ringtone_id(&runtime->panel_attr, -1);
+                PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+                break;
+
 
             case SETTING_ALARM_1_GROUP:
                 blinky |= PANEL_IND_1;
@@ -502,7 +520,7 @@ static void MSG_button_message(struct PANEL_runtime_t *runtime)
 
 static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
 {
-    if (MSG_KEY_SETTING == msgid)
+    if (MSG_BUTTON_SETTING == msgid)
     {
         if ( ! runtime->setting.en)
         {
@@ -524,24 +542,14 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
         }
         mqueue_postv(runtime->mqd, MSG_SET_BLINKY, 0, 0);
     }
-    else if (MSG_KEY_WHITE_NOISE == msgid)
+    else if (MSG_BUTTON_NOISE == msgid)
     {
         if (! runtime->setting.en)
             NOISE_toggle(&runtime->noise_attr);
     }
-    else if (MSG_KEY_RECORD == msgid)
+    else if (MSG_BUTTON_RECORD == msgid)
     {
     }
-#ifdef PIN_LAMP
-    else if (MSG_KEY_LAMP_EN == msgid)
-    {
-        LAMP_toggle(&runtime->lamp_attr);
-    }
-    else if (MSG_KEY_LAMP == msgid)
-    {
-        LAMP_next_color(&runtime->lamp_attr);
-    }
-#endif
 }
 
 static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
@@ -554,7 +562,26 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
     default:
         break;
 
-    case MSG_KEY_OK:
+    case MSG_BUTTON_SNOOZE:
+        if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
+            SETTING_ALARM_4_GROUP >= runtime->setting.group)
+        {
+            struct CLOCK_moment_t *moment
+                = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+
+            moment->enabled = ! moment->enabled;
+            runtime->setting.part = __setting_gp[runtime->setting.group].start;
+
+            if (moment->enabled)
+                runtime->setting.level = 1;
+            else
+                runtime->setting.level = 0;
+
+            goto post_set_blinky;
+        }
+        break;
+
+    case MSG_BUTTON_OK:
         if (runtime->setting.level < __setting_gp[runtime->setting.group].level)
         {
             if (1 == ++ runtime->setting.level)
@@ -628,17 +655,11 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
                 else
                     moment->wdays |= wday;
             }
-            else if (SETTING_A_HOUR == runtime->setting.part)
-            {
-                moment->enabled = false;
-                runtime->setting.level --;
-                goto post_set_blinky;
-            }
 
             runtime->setting.alarm_is_modified = true;
             goto post_set_blinky;
         }
-        else if (SETTING_HOUR == runtime->setting.part)
+        else if (SETTING_HOUR_FORMT == runtime->setting.part)
         {
             switch (setting.locale.hfmt)
             {
@@ -655,11 +676,9 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
             goto post_set_blinky;
         }
-        else
-            goto loop_part_down;
         break;
 
-    case MSG_KEY_UP:
+    case MSG_BUTTON_UP:
         if (0 == runtime->setting.level)
         {
         loop_group_down:
@@ -692,7 +711,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         }
         break;
 
-    case MSG_KEY_DOWN:
+    case MSG_BUTTON_DOWN:
         if (0 == runtime->setting.level)
         {
         loop_group_up:
@@ -725,15 +744,14 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         }
         break;
 
-    case MSG_KEY_RIGHT:
+    case MSG_BUTTON_LEFT:
         if (0 == runtime->setting.level)
-            goto loop_group_up;
+            goto loop_group_down;
 
-        loop_part_down:
-        if (runtime->setting.part < __setting_gp[runtime->setting.group].end)
-            runtime->setting.part ++;
+        if (runtime->setting.part > __setting_gp[runtime->setting.group].start)
+            runtime->setting.part --;
         else
-            runtime->setting.part = __setting_gp[runtime->setting.group].start;
+            runtime->setting.part = __setting_gp[runtime->setting.group].end;
 
         if (SETTING_A_RINGTONE == runtime->setting.part)
         {
@@ -745,14 +763,14 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         }
         goto post_set_blinky;
 
-    case MSG_KEY_LEFT:
+    case MSG_BUTTON_RIGHT:
         if (0 == runtime->setting.level)
-            goto loop_group_down;
+            goto loop_group_up;
 
-        if (runtime->setting.part > __setting_gp[runtime->setting.group].start)
-            runtime->setting.part --;
+        if (runtime->setting.part < __setting_gp[runtime->setting.group].end)
+            runtime->setting.part ++;
         else
-            runtime->setting.part = __setting_gp[runtime->setting.group].end;
+            runtime->setting.part = __setting_gp[runtime->setting.group].start;
 
         if (SETTING_A_RINGTONE == runtime->setting.part)
         {
@@ -831,6 +849,12 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         case SETTING_MINUTE:
             RTC_minute_add(value);
             break;
+        case SETTING_HOUR_FORMT:
+            if (HFMT_12 == setting.locale.hfmt)
+                setting.locale.hfmt = HFMT_24;
+            else
+                setting.locale.hfmt = HFMT_12;
+            break;
 
         case SETTING_A_HOUR:
             CLOCK_hour_add(moment, value);
@@ -854,18 +878,18 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     default:
         break;
 
-    case MSG_KEY_LEFT:
+    case MSG_BUTTON_LEFT:
         NOISE_prev(&runtime->noise_attr);
         break;
-    case MSG_KEY_RIGHT:
+    case MSG_BUTTON_RIGHT:
         NOISE_next(&runtime->noise_attr);
         break;
 
 #ifdef PIN_LAMP
-    case MSG_KEY_UP:
+    case MSG_BUTTON_UP:
         LAMP_inc(&runtime->lamp_attr);
         break;
-    case MSG_KEY_DOWN:
+    case MSG_BUTTON_DOWN:
         LAMP_dec(&runtime->lamp_attr);
         break;
 #endif
@@ -889,14 +913,14 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     default:
         break;
 
-    case MSG_KEY_VOLUME_INC:
+    case MSG_VOLUME_INC:
         setting.media.volume = mplayer_volume_inc();
         if (! is_playing)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
         timeout_start(&timeo, runtime);
         break;
 
-    case MSG_KEY_VOLUME_DEC:
+    case MSG_VOLUME_DEC:
         setting.media.volume = mplayer_volume_dec();
         if (! is_playing)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
@@ -956,80 +980,81 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 break;
 
             case MSG_IOEXT:
-                MSG_ioext(runtime);         // => MSG_KEY_xxx
+                MSG_ioext(runtime);         // => MSG_BUTTON_xxx
                 break;
             case MSG_BUTTON_SNOOZE:
-                MSG_button_snooze(runtime);
+                if (runtime->setting.en)
+                    MSG_common_key_setting(runtime, msg->msgid);
+                else
+                    MSG_button_snooze(runtime);
                 break;
             case MSG_BUTTON_MESSAGE:
                 MSG_button_message(runtime);
                 break;
 
-            case MSG_KEY_SETTING:
+            case MSG_BUTTON_SETTING:
                 runtime->setting.activity = clock();
                 MSG_function_key(runtime, msg->msgid);
                 break;
 
-            case MSG_KEY_UP:
-            case MSG_KEY_DOWN:
-            case MSG_KEY_LEFT:
-            case MSG_KEY_RIGHT:
+            case MSG_BUTTON_OK:
+            case MSG_BUTTON_UP:
+            case MSG_BUTTON_DOWN:
+            case MSG_BUTTON_LEFT:
+            case MSG_BUTTON_RIGHT:
                 if (runtime->setting.en)
                     MSG_common_key_setting(runtime, msg->msgid);
                 else
                     MSG_common_key(runtime, msg->msgid);
                 break;
 
-            case MSG_KEY_WHITE_NOISE:
-            case MSG_KEY_RECORD:
+            case MSG_BUTTON_NOISE:
+            case MSG_BUTTON_RECORD:
                 MSG_function_key(runtime, msg->msgid);
                 break;
 
-            case MSG_KEY_OK:
-                #if defined(PANEL_B)
-                    if (runtime->setting.en)
-                        MSG_common_key_setting(runtime, msg->msgid);
-                    else    // OK => SNOOZE/VOICE
-                        MSG_button_snooze(runtime);
-                #elif defined(PANEL_C)
-                    if (runtime->setting.en)
-                        MSG_common_key_setting(runtime, msg->msgid);
-                    else
-                        MSG_common_key(runtime, msg->msgid);
-                #endif
-                break;
-
-            case MSG_KEY_VOLUME_INC:
-            #if defined(PANEL_B)
+            case MSG_VOLUME_INC:
+            #if defined(PANEL_B)        // volume inc => up
                 if (runtime->setting.en)
-                    MSG_common_key_setting(runtime, MSG_KEY_UP);
+                    MSG_common_key_setting(runtime, MSG_BUTTON_UP);
                 else
             #endif
                 MSG_volume_key(runtime, msg->msgid);
                 break;
 
-            case MSG_KEY_VOLUME_DEC:
-            #if defined(PANEL_B)
+            case MSG_VOLUME_DEC:
+            #if defined(PANEL_B)        // volume dec => down
                 if (runtime->setting.en)
-                    MSG_common_key_setting(runtime, MSG_KEY_DOWN);
+                    MSG_common_key_setting(runtime, MSG_BUTTON_DOWN);
                 else
             #endif
                 MSG_volume_key(runtime, msg->msgid);
                 break;
 
-        // PANEL B only
-            case MSG_KEY_ALM1:
-            case MSG_KEY_ALM2:
-            case MSG_KEY_USB:
+        #ifdef PANEL_B  // PANEL B only
+            case MSG_BUTTON_ALM1:
+            case MSG_BUTTON_ALM2:
                 break;
 
-        // PANEL C only
-            case MSG_KEY_LAMP_EN:
-            case MSG_KEY_LAMP:
-                MSG_function_key(runtime, msg->msgid);
+            case MSG_BUTTON_MEDIA:
+                if (NOISE_is_playing(&runtime->noise_attr))
+                    NOISE_stop(&runtime->noise_attr);
+                else
+                    NOISE_toggle(&runtime->noise_attr);
                 break;
+        #endif
+
+        #ifdef PANEL_C  // PANEL C only
+            case MSG_BUTTON_LAMP_EN:
+                LAMP_toggle(&runtime->lamp_attr);
+                break;
+            case MSG_BUTTON_LAMP:
+                LAMP_next_color(&runtime->lamp_attr);
+                break;
+        #endif
 
             default:
+                LOG_debug("unhandled message %x", msg->msgid);
                 break;
             }
             mqueue_release_pool(runtime->mqd, msg);
@@ -1068,9 +1093,9 @@ static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
         if (PIN_DIAL_CWA & pins)
         {
             if (GPIO_peek(PIN_DIAL_CWB))
-                mqueue_postv(runtime->mqd, MSG_KEY_VOLUME_DEC, 0, 0);
+                mqueue_postv(runtime->mqd, MSG_VOLUME_DEC, 0, 0);
             else
-                mqueue_postv(runtime->mqd, MSG_KEY_VOLUME_INC, 0, 0);
+                mqueue_postv(runtime->mqd, MSG_VOLUME_INC, 0, 0);
         }
     #endif
 }
@@ -1107,42 +1132,42 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
 
         // function key
         case 0xDC:
-            msgid = MSG_KEY_SETTING;
+            msgid = MSG_BUTTON_SETTING;
             break;
         case 0x82:
-            msgid = MSG_KEY_WHITE_NOISE;
+            msgid = MSG_BUTTON_NOISE;
             break;
         case 0x80:
-            msgid = MSG_KEY_VOLUME_INC;
+            msgid = MSG_VOLUME_INC;
             break;
         case 0x81:
-            msgid = MSG_KEY_VOLUME_DEC;
+            msgid = MSG_VOLUME_DEC;
             break;
         case 0x8D:
-            msgid = MSG_KEY_RECORD;
+            msgid = MSG_BUTTON_RECORD;
             break;
         case 0xD0:
-            msgid = MSG_KEY_LAMP_EN;
+            msgid = MSG_BUTTON_LAMP_EN;
             break;
         case 0x95:
-            msgid = MSG_KEY_LAMP;
+            msgid = MSG_BUTTON_LAMP;
             break;
 
         // common key
         case 0xCA:
-            msgid = MSG_KEY_UP;
+            msgid = MSG_BUTTON_UP;
             break;
         case 0xD2:
-            msgid = MSG_KEY_DOWN;
+            msgid = MSG_BUTTON_DOWN;
             break;
         case 0x99:
-            msgid = MSG_KEY_LEFT;
+            msgid = MSG_BUTTON_LEFT;
             break;
         case 0xC1:
-            msgid = MSG_KEY_RIGHT;
+            msgid = MSG_BUTTON_RIGHT;
             break;
         case 0xCE:
-            msgid = MSG_KEY_OK;
+            msgid = MSG_BUTTON_OK;
             break;
         }
 

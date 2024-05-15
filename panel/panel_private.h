@@ -27,34 +27,34 @@
     enum PANEL_message_t
     {
         MSG_ALIVE                   = 1,
-
         MSG_SET_BLINKY,
 
+        MSG_IOEXT,
         MSG_LIGHT_SENS,
         MSG_IRDA,
 
+        MSG_VOLUME_INC,
+        MSG_VOLUME_DEC,
+
+        MSG_BUTTON_SETTING,
         MSG_BUTTON_SNOOZE,
         MSG_BUTTON_MESSAGE,
+        MSG_BUTTON_NOISE,
+        MSG_BUTTON_LAMP_EN,
+        MSG_BUTTON_LAMP,
+        MSG_BUTTON_RECORD,
 
-        MSG_KEY_SETTING,
-        MSG_KEY_WHITE_NOISE,
-        MSG_KEY_VOLUME_DEC,
-        MSG_KEY_VOLUME_INC,
-        MSG_KEY_LAMP_EN,
-        MSG_KEY_LAMP,
-        MSG_KEY_RECORD,
-        MSG_KEY_UP,
-        MSG_KEY_DOWN,
-        MSG_KEY_LEFT,
-        MSG_KEY_RIGHT,
-        MSG_KEY_OK,
+        MSG_BUTTON_UP,
+        MSG_BUTTON_DOWN,
+        MSG_BUTTON_LEFT,
+        MSG_BUTTON_RIGHT,
+        MSG_BUTTON_OK,
 
         // PANEL B
-        MSG_KEY_ALM1,
-        MSG_KEY_ALM2,
-        MSG_KEY_USB,
+        MSG_BUTTON_ALM1,
+        MSG_BUTTON_ALM2,
+        MSG_BUTTON_MEDIA,
 
-        MSG_IOEXT               = 0x80,
     };
 
     enum PANEL_setting_group_t
@@ -80,6 +80,8 @@
 
         SETTING_HOUR,
         SETTING_MINUTE,
+        SETTING_HOUR_FORMT,
+
 
         /*
         SETTING_A_YEAR,
@@ -153,9 +155,9 @@ __BEGIN_DECLS
 static inline
     bool MSG_is_repeatable(enum PANEL_message_t msgid)
     {
-        return (MSG_KEY_UP <= msgid && MSG_KEY_RIGHT >= msgid) ||
-            MSG_KEY_VOLUME_INC == msgid ||
-            MSG_KEY_VOLUME_DEC == msgid;
+        return (MSG_BUTTON_UP <= msgid && MSG_BUTTON_RIGHT >= msgid) ||
+            MSG_VOLUME_INC == msgid ||
+            MSG_VOLUME_DEC == msgid;
     }
 
 static inline

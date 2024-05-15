@@ -289,16 +289,16 @@ int PANEL_update(struct PANEL_attr_t *attr)
     if (0 == retval)
     {
         if (PANEL_HUMIDITY & attr->disable_parts)
-        {
-            enum LOCALE_hfmt_t hfmt = attr->locale->hfmt;
-            if (HFMT_DEFAULT == hfmt)
-                hfmt = LOCALE_hfmt();
-
             attr->cache.flags &= ~FLAG_IND_HUMIDITY;
-            attr->cache.humidity = hfmt == HFMT_12 ? 12 : 24;
-        }
         else
             attr->cache.flags |= FLAG_IND_HUMIDITY;
+
+        if (PANEL_HUMIDITY & attr->blinky_parts)
+        {
+            attr->blinky_mask ^= PANEL_HUMIDITY & attr->blinky_parts;
+            if (PANEL_HUMIDITY & attr->blinky_mask)
+                attr->cache.humidity = -1;
+        }
 
         if (attr->cache.humidity != attr->set.humidity)
         {

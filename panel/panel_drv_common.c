@@ -95,7 +95,7 @@ void PANEL_attr_set_tmpr(struct PANEL_attr_t *attr, int16_t tmpr)
     attr->std_tmpr = tmpr;
 }
 
-void PANEL_attr_set_humidity(struct PANEL_attr_t *attr, uint8_t humidity)
+void PANEL_attr_set_humidity(struct PANEL_attr_t *attr, int8_t humidity)
 {
     attr->cache.humidity = humidity;
 }
