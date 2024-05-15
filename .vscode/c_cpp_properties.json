@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "ultracore: arm-none-eabi",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/../ultracore/inc",
+                "${workspaceFolder}/../silabs/include"
+            ],
+            "defines": [],
+            "cStandard": "gnu99",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-arm",
+            "compilerPath": "~/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcc",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+        }
+    ],
+    "version": 4
+}

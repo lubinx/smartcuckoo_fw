@@ -1,0 +1,87 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "defaults": {},
+  "configurations": [
+    {
+      "name": "Debug talking button",
+      "type": "cppdbg",
+      "request": "launch",
+      "miDebuggerServerAddress": "127.0.0.1:2331",
+      "program": "${workspaceFolder}/build/talking_button.elf",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "stopAtConnect": true,
+      "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
+          "text": "monitor reset"
+        },
+        {
+          "text": "load"
+        },
+      ],
+      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+    },
+    {
+      "name": "Debug Panel B",
+      "type": "cppdbg",
+      "request": "launch",
+      "miDebuggerServerAddress": "127.0.0.1:2331",
+      "program": "${workspaceFolder}/build/panel_b.elf",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "stopAtConnect": true,
+      "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
+          "text": "monitor reset"
+        },
+        {
+          "text": "load"
+        },
+      ],
+      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+    },
+    {
+      "name": "Debug Panel C",
+      "type": "cppdbg",
+      "request": "launch",
+      "miDebuggerServerAddress": "127.0.0.1:2331",
+      "program": "${workspaceFolder}/build/panel_c.elf",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "stopAtConnect": true,
+      "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
+          "text": "monitor reset"
+        },
+        {
+          "text": "load"
+        },
+      ],
+      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+    }
+  ]
+}

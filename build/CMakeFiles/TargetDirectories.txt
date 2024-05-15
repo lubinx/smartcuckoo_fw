@@ -1,0 +1,16 @@
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/_GLOBAL_props.dir
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/talking_button.dir
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/panel_b.dir
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/panel_c.dir
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/edit_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/CMakeFiles/rebuild_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/talking_button_driver/CMakeFiles/EFR32BG22C224F512GM40.dir
+/mnt/d/~/firmware/smartcuckoo/build/talking_button_driver/CMakeFiles/silabs_xg22_driver_talking_button.dir
+/mnt/d/~/firmware/smartcuckoo/build/talking_button_driver/CMakeFiles/edit_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/talking_button_driver/CMakeFiles/rebuild_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_b_driver/CMakeFiles/silabs_xg22_driver_panel_b.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_b_driver/CMakeFiles/edit_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_b_driver/CMakeFiles/rebuild_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_c_driver/CMakeFiles/silabs_xg22_driver_panel_c.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_c_driver/CMakeFiles/edit_cache.dir
+/mnt/d/~/firmware/smartcuckoo/build/panel_c_driver/CMakeFiles/rebuild_cache.dir

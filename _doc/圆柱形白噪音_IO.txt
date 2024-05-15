@@ -1,0 +1,22 @@
+报时按键：PB00
+
+音量+： PA06
+音量-： PC04
+上一曲：PA00
+下一曲：PC03
+POWER:  PC02
+电池电压检测：PB02 。分压电阻为750K/390K。 采用锂电池4.2V
+
+
+UART_TXD0:PB03
+UART_RXD0:PB04  Debug
+
+UART_TXD1：PC06
+UART_RXD1：PC07  操控MP3芯片
+
+MP3芯片 BUSY：PA08
+
+MP3芯片供电使能：PA04  高通电，低断电
+功放IC使能：PA07   低工作，高静音
+
+时钟校准信号输入：PB01

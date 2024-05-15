@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "defaults": {},
+  "tasks": [
+    {
+      "label": "Debug build",
+      "type": "shell",
+      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=Debug -GNinja && ninja -C./build",
+      "group": {
+        "isDefault": true,
+        "kind": "build"
+      },
+      "presentation": {
+        "clear": true,
+        "focus": false,
+        "reveal": "always"
+      },
+      "problemMatcher": {
+        "base": "$gcc",
+        "fileLocation": "autoDetect"
+      }
+    },
+    {
+      "label": "Release build",
+      "type": "shell",
+      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=MinSizeRel -GNinja && ninja -C./build",
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "clear": true,
+        "focus": false,
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": {
+        "base": "$gcc",
+        "fileLocation": "autoDetect"
+      }
+    }
+  ]
+}
