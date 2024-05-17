@@ -82,7 +82,6 @@
         SETTING_MINUTE,
         SETTING_HOUR_FORMT,
 
-
         /*
         SETTING_A_YEAR,
         SETTING_A_MONTH,
@@ -116,8 +115,8 @@
         int ioext_fd_devfd;
         int env_sensor_devfd;
 
-        struct timeout_t schedule_intv;
         struct timeout_t gpio_repeat_intv;
+        struct timeout_t schedule_intv;
 
         struct PANEL_attr_t panel_attr;
         struct PANEL_light_ad_attr_t light_sens;
@@ -128,6 +127,7 @@
         struct
         {
             bool en;
+            clock_t tick;
             uint8_t alarm_tmp_idx;      // panel c alarm 1/2 button
 
             uint8_t level;
@@ -136,7 +136,6 @@
 
             enum PANEL_setting_group_t group;
             enum PANEL_setting_part_t part;
-            clock_t activity;
         } setting;
 
         struct
@@ -146,6 +145,15 @@
 
             time_t last_ts;
         } env_sensor;
+
+        struct
+        {
+            bool en;
+            clock_t tick;
+
+            enum PANEL_setting_group_t group;
+            enum PANEL_setting_part_t part;
+        } tmp_content;
     };
 
     extern struct PANEL_runtime_t panel;

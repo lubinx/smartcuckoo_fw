@@ -135,8 +135,9 @@
         struct
         {
             uint8_t volume;
-            uint8_t brightness;
+
             int16_t voice_id;
+            int16_t noise_id;
         } media;
 
         struct SMARTCUCKOO_locale_t locale;

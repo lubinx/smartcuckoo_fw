@@ -46,8 +46,9 @@ static void IOEXT_repeat_callback(void *arg);   // startting by MSG_ioext()
 static void SCHEDULE_intv_callback(struct PANEL_runtime_t *runtime);
 static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_runtime_t *runtime);
 
-static void media_stop(void);
 static void setting_done(struct PANEL_runtime_t *runtime);
+static void setting_modify_defore_save(struct PANEL_runtime_t *runtime);
+static void media_stop(struct PANEL_runtime_t *runtime);
 
 static void MSG_alive(struct PANEL_runtime_t *runtime);
 
@@ -153,7 +154,7 @@ void PERIPHERAL_init(void)
     }
 
     // modules
-    NOISE_attr_init(&panel.noise_attr);
+    NOISE_attr_init(&panel.noise_attr, setting.media.noise_id);
     PANEL_light_ad_attr_init(&panel.light_sens);
     IrDA_init(&panel.irda, PIN_IRDA, (void *)IrDA_callback, &panel);
     #ifdef PIN_LAMP
@@ -212,21 +213,37 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 {
     time_t ts = time(NULL);
 
-    if (runtime->setting.en && SETTING_TIMEOUT < clock() - runtime->setting.activity)
+    if (runtime->setting.en && SETTING_TIMEOUT < clock() - runtime->setting.tick)
         setting_done(runtime);
 
-    if (runtime->setting.en)
+    if (runtime->tmp_content.en && SETTING_TIMEOUT / 3 < clock() - runtime->tmp_content.tick)
     {
-        if (SETTING_TIME_GROUP == runtime->setting.group)
+        runtime->tmp_content.en = false;
+
+        PANEL_attr_set_disable(&runtime->panel_attr, 0);
+        PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+    }
+
+    if (runtime->setting.en || runtime->tmp_content.en)
+    {
+        enum PANEL_setting_group_t group;
+        if (runtime->setting.en)
+            group = runtime->setting.group;
+        else
+            group = runtime->tmp_content.group;
+
+        if (SETTING_TIME_GROUP == group)
         {
             PANEL_attr_set_ringtone_id(&runtime->panel_attr, -1);
             PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
         }
 
-        if (SETTING_group_is_alarms(runtime->setting.group))
+        if (SETTING_group_is_alarms(group))
         {
-            struct CLOCK_moment_t *moment =
-                &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = &clock_setting.alarms[group - SETTING_ALARM_1_GROUP];
+
+            PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
+            PANEL_attr_set_humidity(&runtime->panel_attr, -1);
 
             if (moment->enabled)
             {
@@ -295,6 +312,9 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 
 static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 {
+    PANEL_attr_set_disable(&runtime->panel_attr, 0);
+    PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+
     if (runtime->setting.en)
     {
         for (unsigned i = 0; i < 4; i ++)
@@ -422,7 +442,6 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
                 break;
 
-
             case SETTING_ALARM_1_GROUP:
                 blinky |= PANEL_IND_1;
                 break;
@@ -440,11 +459,6 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
             PANEL_attr_set_blinky(&runtime->panel_attr, blinky);
         }
     }
-    else
-    {
-        PANEL_attr_set_disable(&runtime->panel_attr, 0);
-        PANEL_attr_set_blinky(&runtime->panel_attr, 0);
-    }
 
     mqueue_postv(runtime->mqd, MSG_ALIVE, 0, 0);
 }
@@ -458,7 +472,6 @@ static void MSG_light_sensitive(struct PANEL_runtime_t *runtime, int percent)
 static void MSG_irda(struct IrDA_t *irda)
 {
     printf("0x%08lX\n", irda->value);
-    // printf("%lu\n", irda->value);
 }
 
 static void MSG_ioext(struct PANEL_runtime_t *runtime)
@@ -493,22 +506,29 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
     static clock_t snooze_activity = 0;
     static unsigned click_count = 0;
 
-    if (CLOCK_is_alarming())
+    if (runtime->tmp_content.en)
     {
-        CLOCK_stop_current_alarm();
-        PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+        mqueue_postv(runtime->mqd, MSG_BUTTON_SETTING, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_BUTTON_SNOOZE, 0, 0);
     }
-    media_stop();
-
-    if (5000 < clock() - snooze_activity)
-        click_count = 0;
-    snooze_activity = clock();
-
-    if (0 == click_count ++ % 2)
-        VOICE_say_time_epoch(&voice_attr, time(NULL));
     else
-        VOICE_say_date_epoch(&voice_attr, time(NULL));
+    {
+        if (CLOCK_is_alarming())
+        {
+            CLOCK_stop_current_alarm();
+            PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+        }
+        media_stop(runtime);
 
+        if (5000 < clock() - snooze_activity)
+            click_count = 0;
+        snooze_activity = clock();
+
+        if (0 == click_count ++ % 2)
+            VOICE_say_time_epoch(&voice_attr, time(NULL));
+        else
+            VOICE_say_date_epoch(&voice_attr, time(NULL));
+    }
     LOG_verbose("MSG_button_snooze");
 }
 
@@ -520,17 +540,24 @@ static void MSG_button_message(struct PANEL_runtime_t *runtime)
 
 static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
 {
-    if (MSG_BUTTON_SETTING == msgid)
+    switch (msgid)
     {
+    default:
+        break;
+
+    case MSG_BUTTON_SETTING:
+        runtime->setting.tick = clock();
+
         if ( ! runtime->setting.en)
         {
             runtime->setting.en = true;
             runtime->setting.level = 0;
 
-            runtime->setting.group = 0;
+            runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
             runtime->setting.part = 0;
+            runtime->tmp_content.en = false;    // copied into setting
 
-            media_stop();
+            media_stop(runtime);
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
         }
         else
@@ -541,20 +568,21 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
                 runtime->setting.level --;
         }
         mqueue_postv(runtime->mqd, MSG_SET_BLINKY, 0, 0);
-    }
-    else if (MSG_BUTTON_NOISE == msgid)
-    {
+        break;
+
+    case MSG_BUTTON_NOISE:
         if (! runtime->setting.en)
             NOISE_toggle(&runtime->noise_attr);
-    }
-    else if (MSG_BUTTON_RECORD == msgid)
-    {
+        break;
+
+    case MSG_BUTTON_RECORD:
+        break;
     }
 }
 
 static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
 {
-    runtime->setting.activity = clock();
+    runtime->setting.tick = clock();
     int value;
 
     switch (msgid)
@@ -878,11 +906,29 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     default:
         break;
 
+    case MSG_BUTTON_OK:
+        if (runtime->tmp_content.en)
+        {
+            mqueue_postv(runtime->mqd, MSG_BUTTON_SETTING, 0, 0);
+            mqueue_postv(runtime->mqd, MSG_BUTTON_OK, 0, 0);
+        }
+        break;
+
     case MSG_BUTTON_LEFT:
-        NOISE_prev(&runtime->noise_attr);
+        if (NOISE_is_playing(&runtime->noise_attr))
+        {
+            NOISE_prev(&runtime->noise_attr);
+            setting.media.noise_id = (int16_t)runtime->noise_attr.curr_id;
+            setting_modify_defore_save(runtime);
+        }
         break;
     case MSG_BUTTON_RIGHT:
-        NOISE_next(&runtime->noise_attr);
+        if (NOISE_is_playing(&runtime->noise_attr))
+        {
+            NOISE_next(&runtime->noise_attr);
+            setting.media.noise_id = (int16_t)runtime->noise_attr.curr_id;
+            setting_modify_defore_save(runtime);
+        }
         break;
 
 #ifdef PIN_LAMP
@@ -896,17 +942,11 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     }
 }
 
-static void VOLUME_nvm_set_timeo(struct PANEL_runtime_t *runtime)
-{
-    if (! runtime->setting.en)  // ignore when setting mode
-        NVM_set(NVM_SETTING, &setting, sizeof(setting));
-}
-
 static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
 {
-    static timeout_t timeo = TIMEOUT_INITIALIZER(5000, (void *)VOLUME_nvm_set_timeo);
-    timeout_stop(&timeo);
     bool is_playing = MPLAYER_PLAYING != mplayer_stat();
+    bool modified;
+    uint8_t volume;
 
     switch (msgid)
     {
@@ -914,19 +954,32 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         break;
 
     case MSG_VOLUME_INC:
-        setting.media.volume = mplayer_volume_inc();
+        volume = mplayer_volume_inc();
+        if (volume != setting.media.volume)
+        {
+            setting.media.volume = volume;
+            modified = true;
+        }
         if (! is_playing)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-        timeout_start(&timeo, runtime);
+
+        setting_modify_defore_save(runtime);
         break;
 
     case MSG_VOLUME_DEC:
-        setting.media.volume = mplayer_volume_dec();
+        volume = mplayer_volume_dec();
+        if (volume != setting.media.volume)
+        {
+            setting.media.volume = volume;
+            modified = true;
+        }
         if (! is_playing)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-        timeout_start(&timeo, runtime);
         break;
     }
+
+    if (modified)
+        setting_modify_defore_save(runtime);
 }
 
 static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
@@ -993,7 +1046,6 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 break;
 
             case MSG_BUTTON_SETTING:
-                runtime->setting.activity = clock();
                 MSG_function_key(runtime, msg->msgid);
                 break;
 
@@ -1033,7 +1085,40 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 
         #ifdef PANEL_B  // PANEL B only
             case MSG_BUTTON_ALM1:
+                if (runtime->setting.en)
+                {
+                    runtime->setting.level = __setting_gp[SETTING_ALARM_1_GROUP].level;
+                    runtime->setting.group = SETTING_ALARM_1_GROUP;
+                    MSG_set_blinky(runtime);
+                }
+                else
+                {
+                    runtime->tmp_content.en = true;
+                    runtime->tmp_content.tick = clock();
+                    runtime->tmp_content.group = SETTING_ALARM_1_GROUP;
+
+                    PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_INDICATES);
+                    PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_1);
+                    MSG_alive(runtime);
+                }
+                break;
             case MSG_BUTTON_ALM2:
+                if (runtime->setting.en)
+                {
+                    runtime->setting.level = __setting_gp[SETTING_ALARM_2_GROUP].level;
+                    runtime->setting.group = SETTING_ALARM_2_GROUP;
+                    MSG_set_blinky(runtime);
+                }
+                else
+                {
+                    runtime->tmp_content.en = true;
+                    runtime->tmp_content.tick = clock();
+                    runtime->tmp_content.group = SETTING_ALARM_2_GROUP;
+
+                    PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_INDICATES);
+                    PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_2);
+                    MSG_alive(runtime);
+                }
                 break;
 
             case MSG_BUTTON_MEDIA:
@@ -1245,13 +1330,7 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
         else
             return EINVAL;
     }
-#else
 #endif
-
-static void media_stop(void)
-{
-    NOISE_stop(&panel.noise_attr);
-}
 
 static void setting_done(struct PANEL_runtime_t *runtime)
 {
@@ -1275,3 +1354,25 @@ static void setting_done(struct PANEL_runtime_t *runtime)
     PANEL_attr_set_disable(&runtime->panel_attr, 0);
 }
 
+static void setting_defore_store_cb(struct PANEL_runtime_t *runtime)
+{
+    if (runtime->setting.is_modified)
+    {
+        NVM_set(NVM_SETTING, &setting, sizeof(setting));
+        runtime->setting.is_modified = false;
+    }
+}
+
+static void setting_modify_defore_save(struct PANEL_runtime_t *runtime)
+{
+    static timeout_t timeo = TIMEOUT_INITIALIZER(180000, (void *)setting_defore_store_cb);
+
+    runtime->setting.is_modified = true;
+    timeout_start(&timeo, runtime);
+}
+
+static void media_stop(struct PANEL_runtime_t *runtime)
+{
+    if (NOISE_is_playing(&runtime->noise_attr))
+        NOISE_stop(&runtime->noise_attr);
+}
