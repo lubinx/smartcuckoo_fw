@@ -13,13 +13,13 @@
     struct NOISE_attr_t
     {
         bool playing;
-        struct NOISE_mapping_t *curr;
+        int curr_id;
     };
 
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    int NOISE_attr_init(struct NOISE_attr_t *attr);
+    int NOISE_attr_init(struct NOISE_attr_t *attr, int stored_idx);
 
 extern __attribute__((nothrow, const))
     bool NOISE_is_playing(struct NOISE_attr_t *attr);
