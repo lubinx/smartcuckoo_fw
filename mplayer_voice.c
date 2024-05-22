@@ -1092,7 +1092,7 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
 
     if (HFMT_DEFAULT != attr->voice->fixed_gr)
     {
-        switch(attr->voice->fixed_gr)
+        switch (attr->voice->fixed_gr)
         {
         case HFMT_DEFAULT:
             break;

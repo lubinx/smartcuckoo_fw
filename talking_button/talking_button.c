@@ -181,7 +181,7 @@ void mplayer_idle_callback(void)
 
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
-    else if(-1 != clock_setting.alarming_idx)
+    else if (-1 != clock_setting.alarming_idx)
         CLOCK_peek_start_alarms(time(NULL));
 }
 
@@ -289,7 +289,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
             {
                 CLOCK_peek_start_reminders(now);
 
-                if(! CLOCK_is_alarming())
+                if (! CLOCK_is_alarming())
                     CLOCK_peek_start_alarms(now);
             }
         }

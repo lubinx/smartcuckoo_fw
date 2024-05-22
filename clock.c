@@ -180,7 +180,7 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
     int16_t mtime = time_to_mtime(ts % 86400);
     struct CLOCK_moment_t *current_alarm = NULL;
 
-    if(-1 != clock_setting.alarming_idx)
+    if (-1 != clock_setting.alarming_idx)
     {
         current_alarm = &clock_setting.alarms[clock_setting.alarming_idx];
         time_t ts_end = (mtime_to_time(current_alarm->mtime) + 60 * ALARM_TIMEOUT_MINUTES) % 86400;

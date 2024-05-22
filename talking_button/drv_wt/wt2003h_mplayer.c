@@ -822,7 +822,7 @@ static int mplayer_marshalling_send(struct mplayer_attr_t *attr, struct mtask_t 
 
 static char const *mplayer_task_id_str(enum mtask_id_t taskid)
 {
-    switch(taskid)
+    switch (taskid)
     {
     case MPLAYER_TASK_POWER_ON:
         return "mplayer_power_on()";

@@ -604,7 +604,7 @@ static int PANEL_update_char(uint8_t offset, char const *buf, uint8_t count)
                 memcpy(&mem[memsize - i], xlat, sizeof(*xlat));
         }
 
-        if(0 != (retval = PANEL_HAL_write(PANEL_context.da0_fd, &mem, (unsigned)memsize + 1)))
+        if (0 != (retval = PANEL_HAL_write(PANEL_context.da0_fd, &mem, (unsigned)memsize + 1)))
             idx = count;
     }
 

@@ -157,7 +157,7 @@ static void WS2812B_set_24bit(uint32_t grb)
 
     for(uint8_t zz = 0; zz < 24; zz ++)
     {
-        if(0x800000 & grb)
+        if (0x800000 & grb)
         {
             *DOUT_SET = PIN_LAMP;
             __NOP(); __NOP(); __NOP(); __NOP();

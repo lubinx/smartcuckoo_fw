@@ -66,21 +66,10 @@ void PERIPHERAL_gpio_init(void)
 
     #ifdef PANEL_B
         GPIO_setdir_input_pp(PULL_UP, PIN_EXTIO, true);
+        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
     #endif
     #ifdef PANEL_C
         GPIO_setdir_input(PIN_EXTIO);
-    #endif
-    #ifdef PIN_MESSAGE
-        GPIO_setdir_input(PIN_MESSAGE);
-    #endif
-    #ifdef PIN_SNOOZE
-        GPIO_setdir_input(PIN_SNOOZE);
-    #endif
-    #ifdef PIN_DIAL_CWA
-        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
-    #endif
-
-    #ifdef PIN_LAMP
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
     #endif
 }
@@ -165,17 +154,13 @@ void PERIPHERAL_init(void)
     GPIO_intr_enable(PIN_EXTIO, TRIG_BY_FALLING_EDGE, (void *)GPIO_button_callback, &panel);
     #ifdef PANEL_B
         GPIO_debounce(PIN_EXTIO, 80);
+        GPIO_intr_enable(PIN_DIAL_CWA, TRIG_BY_FALLING_EDGE, (void *)GPIO_button_callback, &panel);
     #endif
-    #ifdef PIN_SNOOZE
+
+    #ifdef PANEL_C
         GPIO_intr_enable(PIN_SNOOZE, TRIG_BY_FALLING_EDGE, (void *)GPIO_button_callback, &panel);
         GPIO_debounce(PIN_SNOOZE, 60);
-    #endif
-    #ifdef PIN_MESSAGE
         GPIO_intr_enable(PIN_MESSAGE, TRIG_BY_FALLING_EDGE, (void *)GPIO_button_callback, &panel);
-    #endif
-    #ifdef PIN_DIAL_CWA
-        GPIO_intr_enable(PIN_DIAL_CWA, TRIG_BY_FALLING_EDGE, (void *)GPIO_button_callback, &panel);
-        // GPIO_debounce(PIN_DIAL_CWA, 1);
     #endif
 
     // start schedule intv
@@ -195,7 +180,7 @@ void mplayer_stopping_callback(void)
 
 void mplayer_idle_callback(void)
 {
-     if(CLOCK_is_alarming())
+     if (CLOCK_is_alarming())
      {
         int idx = CLOCK_peek_start_alarms(time(NULL));
 
@@ -286,7 +271,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
     {
         CLOCK_peek_start_reminders(ts);
 
-        if(! CLOCK_is_alarming())
+        if (! CLOCK_is_alarming())
         {
             int idx = CLOCK_peek_start_alarms(ts);
             if (-1 != idx)
@@ -317,6 +302,19 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 
     if (runtime->setting.en)
     {
+        if (SETTING_group_is_alarms(runtime->setting.group))
+        {
+            PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
+            PANEL_attr_set_humidity(&runtime->panel_attr, -1);
+        }
+        else if (SETTING_TIME_GROUP == runtime->setting.group)
+        {
+            PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
+            PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+        }
+        else
+            PANEL_attr_set_disable(&runtime->panel_attr, 0);
+
         for (unsigned i = 0; i < 4; i ++)
         {
             struct CLOCK_moment_t *moment = &clock_setting.alarms[i];
@@ -353,19 +351,6 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_4 | PANEL_TIME);
                 break;
             };
-
-            if (SETTING_group_is_alarms(runtime->setting.group))
-            {
-                PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
-                PANEL_attr_set_humidity(&runtime->panel_attr, -1);
-            }
-            else if (SETTING_TIME_GROUP == runtime->setting.group)
-            {
-                PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
-                PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
-            }
-            else
-                PANEL_attr_set_disable(&runtime->panel_attr, 0);
         }
         else if (1 == runtime->setting.level)
         {
@@ -597,6 +582,9 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             struct CLOCK_moment_t *moment
                 = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
 
+            if (0 == moment->mdate && 0 >= moment->wdays)
+                moment->wdays = 0x3E;
+
             moment->enabled = ! moment->enabled;
             runtime->setting.part = __setting_gp[runtime->setting.group].start;
 
@@ -607,8 +595,11 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
             goto post_set_blinky;
         }
+        else
+            goto msg_button_ok;
         break;
 
+    msg_button_ok:
     case MSG_BUTTON_OK:
         if (runtime->setting.level < __setting_gp[runtime->setting.group].level)
         {
@@ -704,6 +695,15 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
             goto post_set_blinky;
         }
+        else
+        {
+            if (runtime->setting.level)
+            {
+                runtime->setting.level --;
+                goto post_set_blinky;
+            }
+        }
+
         break;
 
     case MSG_BUTTON_UP:
@@ -822,7 +822,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         struct CLOCK_moment_t *moment;
 
     ringtone_inc_dec:
-        mplayer_stop();
+        media_stop(runtime);
 
         moment = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
         if (0 < value)
@@ -1068,7 +1068,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
             case MSG_VOLUME_INC:
             #if defined(PANEL_B)        // volume inc => up
                 if (runtime->setting.en)
-                    MSG_common_key_setting(runtime, MSG_BUTTON_UP);
+                    MSG_common_key_setting(runtime, MSG_BUTTON_DOWN);
                 else
             #endif
                 MSG_volume_key(runtime, msg->msgid);
@@ -1077,7 +1077,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
             case MSG_VOLUME_DEC:
             #if defined(PANEL_B)        // volume dec => down
                 if (runtime->setting.en)
-                    MSG_common_key_setting(runtime, MSG_BUTTON_DOWN);
+                    MSG_common_key_setting(runtime, MSG_BUTTON_UP);
                 else
             #endif
                 MSG_volume_key(runtime, msg->msgid);
@@ -1158,29 +1158,26 @@ static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
     if (PIN_EXTIO & pins)
         mqueue_postv(runtime->mqd, MSG_IOEXT, 0, 0);
 
-    #ifdef PIN_SNOOZE
+    #ifdef PANEL_B
+        if (PIN_DIAL_CWA & pins)
+        {
+            if (GPIO_peek(PIN_DIAL_CWB))
+                mqueue_postv(runtime->mqd, MSG_VOLUME_INC, 0, 0);
+            else
+                mqueue_postv(runtime->mqd, MSG_VOLUME_DEC, 0, 0);
+        }
+    #endif
+
+    #ifdef PANEL_C
         if (PIN_SNOOZE & pins)
         {
             mqueue_remove_id(runtime->mqd, MSG_BUTTON_SNOOZE);
             mqueue_postv(runtime->mqd, MSG_BUTTON_SNOOZE, 0, 0);
         }
-    #endif
-
-    #ifdef PIN_MESSAGE
         if (PIN_MESSAGE & pins)
         {
             mqueue_remove_id(runtime->mqd, MSG_BUTTON_MESSAGE);
             mqueue_postv(runtime->mqd, MSG_BUTTON_MESSAGE, 0, 0);
-        }
-    #endif
-
-    #ifdef PIN_DIAL_CWA
-        if (PIN_DIAL_CWA & pins)
-        {
-            if (GPIO_peek(PIN_DIAL_CWB))
-                mqueue_postv(runtime->mqd, MSG_VOLUME_DEC, 0, 0);
-            else
-                mqueue_postv(runtime->mqd, MSG_VOLUME_INC, 0, 0);
         }
     #endif
 }
@@ -1375,4 +1372,6 @@ static void media_stop(struct PANEL_runtime_t *runtime)
 {
     if (NOISE_is_playing(&runtime->noise_attr))
         NOISE_stop(&runtime->noise_attr);
+    else
+        mplayer_stop();
 }
