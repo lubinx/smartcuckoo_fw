@@ -24,7 +24,7 @@ build_target(talking_button
     DEVICE
         "EFR32BG22C224F512GM40"
     DRIVER
-        "../silabs"
+        "../efr32xg22"
     CONFIG_DIR
         "talking_button/config"
     INCLUDE_DIRS
@@ -44,7 +44,7 @@ build_target(panel_b
     DEVICE
         "EFR32BG22C224F512GM40"
     DRIVER
-        "../silabs"
+        "../efr32xg22"
     CONFIG_DIR
         "panel/b_config"
     INCLUDE_DIRS
@@ -67,7 +67,7 @@ build_target(panel_c
     DEVICE
         "EFR32BG22C224F512GM40"
     DRIVER
-        "../silabs"
+        "../efr32xg22"
     CONFIG_DIR
         "panel/c_config"
     INCLUDE_DIRS

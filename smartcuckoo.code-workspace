@@ -4,10 +4,10 @@
             "path": "."
         },
         {
-            "path": "./silabs"
+            "path": "./ultracore"
         },
         {
-            "path": "./ultracore"
+            "path": "../efr32xg22"
         },
         {
             "path": "./.cmake"

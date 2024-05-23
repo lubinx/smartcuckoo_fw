@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/ultracore/inc",
-                "${workspaceFolder}/silabs/include"
+                "${workspaceFolder}/efr32xg22/include"
             ],
             "defines": [],
             "cStandard": "gnu99",

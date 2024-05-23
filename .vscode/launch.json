@@ -29,7 +29,7 @@
           "text": "load"
         },
       ],
-      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
     },
     {
       "name": "Debug Panel B",
@@ -55,7 +55,7 @@
           "text": "load"
         },
       ],
-      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
     },
     {
       "name": "Debug Panel C",
@@ -81,7 +81,7 @@
           "text": "load"
         },
       ],
-      "svdPath": "${workspaceFolder}/../silabs/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
     }
   ]
 }
