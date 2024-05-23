@@ -163,26 +163,16 @@ static void WS2812B_set_24bit(uint32_t grb)
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            __NOP(); __NOP();
+            __NOP();
         }
         else
         {
             *DOUT_SET = PIN_LAMP;
-            __NOP(); __NOP();
+            __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();

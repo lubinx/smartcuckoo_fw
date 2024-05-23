@@ -83,7 +83,8 @@ void PERIPHERAL_shell_init(void)
 
 void PERIPHERAL_ota_init(void)
 {
-    GPIO_intr_disable_cb((void *)GPIO_button_callback);
+    NVIC_DisableIRQ(GPIO_EVEN_IRQn);
+    NVIC_DisableIRQ(GPIO_ODD_IRQn);
 }
 
 void PERIPHERAL_init(void)

@@ -57,23 +57,6 @@ static enum IrDA_frame_t MOD_get_frame(uint32_t diff)
     return IRDA_NONE;
 }
 
-/*
-static inline bool MOD_is_sync(uint32_t diff)
-{
-    return MOD_ERR(MOD_SYNC_DA) > abs((int)(MOD_SYNC_DA - diff));
-}
-
-static inline bool MOD_is_logic_1(uint32_t diff)
-{
-    return MOD_ERR(MOD_LOGIC_1) > absl((int)(MOD_LOGIC_1 - diff));
-}
-
-static inline bool MOD_is_logic_0(uint32_t diff)
-{
-    return MOD_ERR(MOD_LOGIC_0) > absl((int)(MOD_LOGIC_0 - diff));
-}
-*/
-
 static void IrDA_gpio_callback(uint32_t pins, struct IrDA_attr_t *attr)
 {
     ARG_UNUSED(pins);
