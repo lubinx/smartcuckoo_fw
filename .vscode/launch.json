@@ -20,13 +20,16 @@
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
-          "text": "set mem inaccessible-by-default off"
-        },
-        {
           "text": "monitor reset"
         },
         {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
           "text": "load"
+        },
+        {
+          "text": "monitor reset"
         },
       ],
       "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
@@ -46,13 +49,16 @@
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
-          "text": "set mem inaccessible-by-default off"
-        },
-        {
           "text": "monitor reset"
         },
         {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
           "text": "load"
+        },
+        {
+          "text": "monitor reset"
         },
       ],
       "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
@@ -72,13 +78,16 @@
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
-          "text": "set mem inaccessible-by-default off"
-        },
-        {
           "text": "monitor reset"
         },
         {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
           "text": "load"
+        },
+        {
+          "text": "monitor reset"
         },
       ],
       "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
