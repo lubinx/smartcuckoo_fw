@@ -112,6 +112,7 @@
     struct PANEL_runtime_t
     {
         int mqd;
+        int mp3_uartfd;
         int ioext_fd_devfd;
         int env_sensor_devfd;
 

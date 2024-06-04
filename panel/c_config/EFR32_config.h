@@ -333,7 +333,7 @@
 //      </h>
 //      <h> PMU
 //          <q> OS tickless goes EM2
-    #define PMU_EM2_EN                  (0)
+    #define PMU_EM2_EN                  (1)
 //      </h>
 //      <h> Radio
 //          <h> Blueooth

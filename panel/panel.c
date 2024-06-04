@@ -24,7 +24,6 @@ struct PANEL_setting_group_part_t
  ****************************************************************************/
 // var
 struct PANEL_runtime_t panel = {0};
-static bool PMU_power_is_required = false;
 static uint32_t __stack[1024 / sizeof(uint32_t)];
 
 // const
@@ -62,16 +61,6 @@ static void MSG_alive(struct PANEL_runtime_t *runtime);
 void PERIPHERAL_gpio_init(void)
 {
     GPIO_setdir_input(PIN_EXT_5V_DET);
-    GPIO_setdir_input_pp(PULL_UP, PIN_IRDA, true);
-
-    #ifdef PANEL_B
-        GPIO_setdir_input_pp(PULL_UP, PIN_EXTIO, true);
-        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
-    #endif
-    #ifdef PANEL_C
-        GPIO_setdir_input(PIN_EXTIO);
-        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
-    #endif
 }
 
 void PERIPHERAL_shell_init(void)
@@ -90,11 +79,20 @@ void PERIPHERAL_ota_init(void)
 void PERIPHERAL_init(void)
 {
     CLOCK_init();
-    PMU_power_acquire();
 
     // waitfor ext 5V is connected
     while (0 == GPIO_peek(PIN_EXT_5V_DET)) msleep(500);
-    PMU_power_is_required = true;
+    PMU_power_acquire();
+
+    GPIO_setdir_input_pp(PULL_UP, PIN_IRDA, true);
+    #ifdef PANEL_B
+        GPIO_setdir_input_pp(PULL_UP, PIN_EXTIO, true);
+        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
+    #endif
+    #ifdef PANEL_C
+        GPIO_setdir_input(PIN_EXTIO);
+        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
+    #endif
 
     panel.mqd = mqueue_create(MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display
@@ -117,8 +115,8 @@ void PERIPHERAL_init(void)
     timeout_init(&panel.gpio_repeat_intv, 500, IOEXT_repeat_callback, TIMEOUT_FLAG_REPEAT);
 
     // mp3 chip
-    int uart_fd = UART_createfd(USART0, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
+    panel.mp3_uartfd = UART_createfd(USART0, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    mplayer_initlaize(panel.mp3_uartfd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media.volume);
@@ -990,35 +988,22 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
         struct MQ_message_t *msg = mqueue_timedrecv(runtime->mqd, 500);
         BURAM->RET[31].REG = BURTC->CNT;    // RTC
 
+        if (0 == GPIO_peek(PIN_EXT_5V_DET))
+            NVIC_SystemReset();
+
         if (NULL != msg)
         {
             WDOG_feed();
 
-            if (0 == GPIO_peek(PIN_EXT_5V_DET))
-            {
-                if (PMU_power_is_required)
-                {
-                    mplayer_gpio_mute();
-                    #ifdef PIN_LAMP
-                        LAMP_off(&runtime->lamp_attr);
-                    #endif
-
-                    PMU_power_is_required = false;
-                    PMU_power_release();
-                }
-
-                mqueue_release_pool(runtime->mqd, msg);
-                continue;
-            }
-            else
-            {
-                if (! PMU_power_is_required)
-                    NVIC_SystemReset();
-            }
+            if (MSG_ALIVE == msg->msgid)
+                goto msg_alive;
+            if (MSG_LIGHT_SENS == msg->msgid)
+                goto msg_light_sens;
 
             switch ((enum PANEL_message_t)msg->msgid)
             {
             case MSG_ALIVE:
+            msg_alive:
                 MSG_alive(runtime);             // => update display
                 break;
 
@@ -1027,6 +1012,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 break;
 
             case MSG_LIGHT_SENS:
+            msg_light_sens:
                 MSG_light_sensitive(runtime, msg->payload.as_i32[0]);
                 break;
             case MSG_IRDA:
@@ -1156,11 +1142,11 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
  ****************************************************************************/
 static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
 {
-    if (PIN_EXTIO & pins)
+    if (PIN_EXTIO == (PIN_EXTIO & pins))
         mqueue_postv(runtime->mqd, MSG_IOEXT, 0, 0);
 
     #ifdef PANEL_B
-        if (PIN_DIAL_CWA & pins)
+        if (PIN_DIAL_CWA == (PIN_DIAL_CWA & pins))
         {
             if (GPIO_peek(PIN_DIAL_CWB))
                 mqueue_postv(runtime->mqd, MSG_VOLUME_INC, 0, 0);
@@ -1170,12 +1156,12 @@ static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
     #endif
 
     #ifdef PANEL_C
-        if (PIN_SNOOZE & pins)
+        if (PIN_SNOOZE == (PIN_SNOOZE & pins))
         {
             mqueue_remove_id(runtime->mqd, MSG_BUTTON_SNOOZE);
             mqueue_postv(runtime->mqd, MSG_BUTTON_SNOOZE, 0, 0);
         }
-        if (PIN_MESSAGE & pins)
+        if (PIN_MESSAGE == (PIN_MESSAGE & pins))
         {
             mqueue_remove_id(runtime->mqd, MSG_BUTTON_MESSAGE);
             mqueue_postv(runtime->mqd, MSG_BUTTON_MESSAGE, 0, 0);

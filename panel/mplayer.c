@@ -11,6 +11,8 @@
 #include <pmu.h>
 #include "mplayer.h"
 
+#include "smartcuckoo.h"
+
 /****************************************************************************
  *  @def
  ****************************************************************************/
@@ -211,6 +213,9 @@ ssize_t SHELL_readln(int fd, char *buf, size_t bufsize)
 
     while ((size_t)readed < bufsize)
     {
+        if (0 == GPIO_peek(PIN_EXT_5V_DET))
+            NVIC_SystemReset();
+
         char CH;
 
         if (0 > read(fd, &CH, sizeof(CH)))
