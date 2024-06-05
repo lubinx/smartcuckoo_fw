@@ -61,6 +61,16 @@ static void MSG_alive(struct PANEL_runtime_t *runtime);
 void PERIPHERAL_gpio_init(void)
 {
     GPIO_setdir_input(PIN_EXT_5V_DET);
+    GPIO_setdir_input_pp(PULL_UP, PIN_IRDA, true);
+
+    #ifdef PANEL_B
+        GPIO_setdir_input_pp(PULL_UP, PIN_EXTIO, true);
+        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
+    #endif
+    #ifdef PANEL_C
+        GPIO_setdir_input(PIN_EXTIO);
+        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
+    #endif
 }
 
 void PERIPHERAL_shell_init(void)
@@ -81,18 +91,13 @@ void PERIPHERAL_init(void)
     CLOCK_init();
 
     // waitfor ext 5V is connected
-    while (0 == GPIO_peek(PIN_EXT_5V_DET)) msleep(500);
+    while (0 == GPIO_peek(PIN_EXT_5V_DET))
+    {
+        WDOG_feed();
+        BURAM->RET[31].REG = BURTC->CNT;
+        msleep(500);
+    }
     PMU_power_acquire();
-
-    GPIO_setdir_input_pp(PULL_UP, PIN_IRDA, true);
-    #ifdef PANEL_B
-        GPIO_setdir_input_pp(PULL_UP, PIN_EXTIO, true);
-        GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
-    #endif
-    #ifdef PANEL_C
-        GPIO_setdir_input(PIN_EXTIO);
-        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
-    #endif
 
     panel.mqd = mqueue_create(MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display
@@ -110,13 +115,9 @@ void PERIPHERAL_init(void)
     // bootstap update display once
     MSG_alive(&panel);
 
-    // touch pad
-    panel.ioext_fd_devfd = IOEXT_createfd(I2C1);
-    timeout_init(&panel.gpio_repeat_intv, 500, IOEXT_repeat_callback, TIMEOUT_FLAG_REPEAT);
-
     // mp3 chip
-    panel.mp3_uartfd = UART_createfd(USART0, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    mplayer_initlaize(panel.mp3_uartfd, PIN_PLAY_BUSYING);
+    int uart_fd = UART_createfd(USART0, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media.volume);
@@ -126,6 +127,24 @@ void PERIPHERAL_init(void)
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     RTC_calibration_init();
+
+    // touch pad
+    panel.ioext_fd_devfd = IOEXT_createfd(I2C1);
+    #ifdef PANEL_B
+        while (1)
+        {
+            if (0 == GPIO_peek(PIN_EXT_5V_DET))
+                NVIC_SystemReset();
+
+            uint32_t key;
+            if (0 == IOEXT_read_key(panel.ioext_fd_devfd, &key) && 0 == key)
+                break;
+
+            LOG_warning("IOEXT: %04x", key);
+            msleep(500);
+        }
+    #endif
+    timeout_init(&panel.gpio_repeat_intv, 500, IOEXT_repeat_callback, TIMEOUT_FLAG_REPEAT);
 
     // init locales
     setting.media.voice_id = VOICE_init_locales(&voice_attr, setting.media.voice_id, false);
@@ -995,15 +1014,9 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
         {
             WDOG_feed();
 
-            if (MSG_ALIVE == msg->msgid)
-                goto msg_alive;
-            if (MSG_LIGHT_SENS == msg->msgid)
-                goto msg_light_sens;
-
             switch ((enum PANEL_message_t)msg->msgid)
             {
             case MSG_ALIVE:
-            msg_alive:
                 MSG_alive(runtime);             // => update display
                 break;
 
@@ -1012,7 +1025,6 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 break;
 
             case MSG_LIGHT_SENS:
-            msg_light_sens:
                 MSG_light_sensitive(runtime, msg->payload.as_i32[0]);
                 break;
             case MSG_IRDA:
