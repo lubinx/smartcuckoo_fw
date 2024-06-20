@@ -38,19 +38,19 @@ static struct PANEL_setting_group_part_t const __setting_gp[] =
     {.level = 0},
 };
 
-static __attribute__((noreturn)) void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime);
 static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime);
 static void IOEXT_repeat_callback(void *arg);   // startting by MSG_ioext()
-
 static void SCHEDULE_intv_callback(struct PANEL_runtime_t *runtime);
 static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_runtime_t *runtime);
+
+static __attribute__((noreturn)) void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime);
+static void MSG_alive(struct PANEL_runtime_t *runtime);
 
 static void setting_done(struct PANEL_runtime_t *runtime);
 static void setting_modify_defore_save(struct PANEL_runtime_t *runtime);
 static void media_stop(struct PANEL_runtime_t *runtime);
 
-static void MSG_alive(struct PANEL_runtime_t *runtime);
-
+static int SHELL_dim(struct UCSH_env *env);
 #ifdef PIN_LAMP
     static int SHELL_lamp(struct UCSH_env *env);
 #endif
@@ -75,6 +75,7 @@ void PERIPHERAL_gpio_init(void)
 
 void PERIPHERAL_shell_init(void)
 {
+    UCSH_register("dim", SHELL_dim);
 #ifdef PIN_LAMP
     UCSH_register("lamp", SHELL_lamp);
 #endif
@@ -107,7 +108,9 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
-        setting.media.volume = 70;
+
+        setting.media_volume = 70;
+        setting.dim = 40;
     }
 
     // environment sensor
@@ -120,7 +123,7 @@ void PERIPHERAL_init(void)
     mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
-    mplayer_set_volume(setting.media.volume);
+    mplayer_set_volume(setting.media_volume);
 
     // init voice with using alt folder
     VOICE_init(&voice_attr, &setting.locale, true);
@@ -147,7 +150,7 @@ void PERIPHERAL_init(void)
     timeout_init(&panel.gpio_repeat_intv, 500, IOEXT_repeat_callback, TIMEOUT_FLAG_REPEAT);
 
     // init locales
-    setting.media.voice_id = VOICE_init_locales(&voice_attr, setting.media.voice_id, false);
+    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, false);
 
     if (true)
     {
@@ -161,7 +164,7 @@ void PERIPHERAL_init(void)
     }
 
     // modules
-    NOISE_attr_init(&panel.noise_attr, setting.media.noise_id);
+    NOISE_attr_init(&panel.noise_attr, setting.last_noise_id);
     PANEL_light_ad_attr_init(&panel.light_sens);
     IrDA_init(&panel.irda, PIN_IRDA, (void *)IrDA_callback, &panel);
     #ifdef PIN_LAMP
@@ -468,8 +471,7 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 
 static void MSG_light_sensitive(struct PANEL_runtime_t *runtime, int percent)
 {
-    PANEL_set_brightness(&runtime->panel_attr, (uint8_t)percent);
-    // LOG_verbose("light sensor: %d => %d", val, percent);
+    PANEL_set_dim(&runtime->panel_attr, setting.dim, (uint8_t)percent);
 }
 
 static void MSG_irda(struct IrDA_t *irda)
@@ -936,7 +938,7 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         if (NOISE_is_playing(&runtime->noise_attr))
         {
             NOISE_prev(&runtime->noise_attr);
-            setting.media.noise_id = (int16_t)runtime->noise_attr.curr_id;
+            setting.last_noise_id = (int16_t)runtime->noise_attr.curr_id;
             setting_modify_defore_save(runtime);
         }
         break;
@@ -944,7 +946,7 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         if (NOISE_is_playing(&runtime->noise_attr))
         {
             NOISE_next(&runtime->noise_attr);
-            setting.media.noise_id = (int16_t)runtime->noise_attr.curr_id;
+            setting.last_noise_id = (int16_t)runtime->noise_attr.curr_id;
             setting_modify_defore_save(runtime);
         }
         break;
@@ -973,9 +975,9 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
 
     case MSG_VOLUME_INC:
         volume = mplayer_volume_inc();
-        if (volume != setting.media.volume)
+        if (volume != setting.media_volume)
         {
-            setting.media.volume = volume;
+            setting.media_volume = volume;
             modified = true;
         }
         if (! is_playing)
@@ -986,9 +988,9 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
 
     case MSG_VOLUME_DEC:
         volume = mplayer_volume_dec();
-        if (volume != setting.media.volume)
+        if (volume != setting.media_volume)
         {
-            setting.media.volume = volume;
+            setting.media_volume = volume;
             modified = true;
         }
         if (! is_playing)
@@ -1276,6 +1278,24 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
     }
 }
 
+static int SHELL_dim(struct UCSH_env *env)
+{
+    if (2 == env->argc)
+    {
+        unsigned dim = strtoul(env->argv[1], NULL, 10);
+        dim = dim > 100 ? 100 : dim;
+
+        if (setting.dim != dim)
+        {
+            setting.dim = (uint8_t)dim;
+            PANEL_set_dim(&panel.panel_attr, setting.dim, panel.light_sens.percent);
+        }
+    }
+
+    UCSH_printf(env, "dim=%d\n\n", setting.dim);
+    return 0;
+}
+
 #ifdef PIN_LAMP
     static void lamp_color_enum_callback(unsigned id, uint8_t R, uint8_t G, uint8_t B, void *arg, bool final)
     {
@@ -1305,6 +1325,7 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
             else
                 LAMP_off(&panel.lamp_attr);
 
+            UCSH_puts(env, "\n");
             return 0;
         }
         else if (3 == env->argc)
@@ -1321,6 +1342,7 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
             else
                 LAMP_off(&panel.lamp_attr);
 
+            UCSH_puts(env, "\n");
             return 0;
         }
         else
@@ -1361,7 +1383,7 @@ static void setting_defore_store_cb(struct PANEL_runtime_t *runtime)
 
 static void setting_modify_defore_save(struct PANEL_runtime_t *runtime)
 {
-    static timeout_t timeo = TIMEOUT_INITIALIZER(180000, (void *)setting_defore_store_cb);
+    static timeout_t timeo = TIMEOUT_INITIALIZER(360000, (void *)setting_defore_store_cb);
 
     runtime->setting.is_modified = true;
     timeout_start(&timeo, runtime);

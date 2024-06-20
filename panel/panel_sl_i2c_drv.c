@@ -103,11 +103,11 @@ void PANEL_HAL_init(struct PANEL_attr_t *attr, void *const dev)
     }
 }
 
-void PANEL_set_brightness(struct PANEL_attr_t *attr, uint8_t value)
+void PANEL_set_dim(struct PANEL_attr_t *attr, uint8_t percent, uint8_t dyn_percent)
 {
     static uint8_t pwm_set = 0;
 
-    uint8_t pwm = PWM((uint8_t)(5 + value * 10 / 100));
+    uint8_t pwm = PWM((uint8_t)(percent * 5 / 100 + dyn_percent * 10 / 100));
     if (pwm_set != pwm)
     {
         pwm_set = pwm;

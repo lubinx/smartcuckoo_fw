@@ -117,7 +117,7 @@ extern __attribute__((nothrow))
     int PANEL_update(struct PANEL_attr_t *attr);
 
 extern __attribute__((nothrow))
-    void PANEL_set_brightness(struct PANEL_attr_t *attr, uint8_t value);
+    void PANEL_set_dim(struct PANEL_attr_t *attr, uint8_t percent, uint8_t dyn_percent);
 
 /****************************************************************************
  *  @CHIP impl

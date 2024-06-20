@@ -179,20 +179,20 @@ static int SHELL_locale(struct UCSH_env *env)
     {
         char *end_ptr = env->argv[1];
         int id = strtol(env->argv[1], &end_ptr, 10);
-        int16_t old_voice_id = setting.media.voice_id;
+        int16_t old_voice_id = setting.sel_voice_id;
 
         if ('\0' == *end_ptr)
-            setting.media.voice_id = VOICE_select_voice(&voice_attr, (int16_t)id);
+            setting.sel_voice_id = VOICE_select_voice(&voice_attr, (int16_t)id);
         else
-            setting.media.voice_id = VOICE_select_lcid(&voice_attr, env->argv[1]);
+            setting.sel_voice_id = VOICE_select_lcid(&voice_attr, env->argv[1]);
 
-        if (old_voice_id != setting.media.voice_id)
+        if (old_voice_id != setting.sel_voice_id)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
         VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
     }
 
-    UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.media.voice_id);
+    UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
     VOICE_enum_avail_locales(voice_avail_locales_callback, env);
     UCSH_puts(env, "]}\n\n");
 
@@ -459,9 +459,9 @@ static int SHELL_volume(struct UCSH_env *env)
         if (100 < percent)
             percent = 100;
 
-        if (setting.media.volume != percent)
+        if (setting.media_volume != percent)
         {
-            setting.media.volume = (uint8_t)percent;
+            setting.media_volume = (uint8_t)percent;
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
         }
 
@@ -469,7 +469,7 @@ static int SHELL_volume(struct UCSH_env *env)
         VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
     }
 
-    UCSH_printf(env, "volume=%d%%\n", setting.media.volume);
+    UCSH_printf(env, "volume=%d%%\n", setting.media_volume);
     return 0;
 }
 

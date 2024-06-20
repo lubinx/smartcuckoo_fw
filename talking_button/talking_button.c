@@ -96,13 +96,13 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
-        setting.media.volume = 90;
+        setting.media_volume = 90;
     }
 
     mplayer_initlaize(talking_button.mp3_uartfd, PIN_MP3_BUSY);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
-    mplayer_set_volume(setting.media.volume);
+    mplayer_set_volume(setting.media_volume);
 
     VOICE_init(&voice_attr, &setting.locale, false);
     // startting RTC calibration if PIN is connected
@@ -110,7 +110,7 @@ void PERIPHERAL_init(void)
     RTC_calibration_init();
 
     // init locales
-    setting.media.voice_id = VOICE_init_locales(&voice_attr, setting.media.voice_id, true);
+    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
 
     talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
@@ -202,8 +202,8 @@ static void mplayer_sync_batt_ad_value(void)
         if (BATT_EMPTY_MV > volt)
             batt_ctrl_volume = 30;
 
-        if (batt_ctrl_volume > setting.media.volume)
-            batt_ctrl_volume = setting.media.volume;
+        if (batt_ctrl_volume > setting.media_volume)
+            batt_ctrl_volume = setting.media_volume;
 
         if (talking_button.batt_ctrl_volume != batt_ctrl_volume)
         {
@@ -214,9 +214,9 @@ static void mplayer_sync_batt_ad_value(void)
     else
     {
         if (0 != talking_button.batt_ctrl_volume &&
-            talking_button.batt_ctrl_volume != setting.media.volume)
+            talking_button.batt_ctrl_volume != setting.media_volume)
         {
-            mplayer_set_volume(setting.media.volume);
+            mplayer_set_volume(setting.media_volume);
         }
         talking_button.batt_ctrl_volume = 0;
     }
@@ -354,10 +354,10 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             break;
 
         case VOICE_SETTING_LANG:
-            old_voice_id = setting.media.voice_id;
-            setting.media.voice_id = VOICE_next_locale(&voice_attr);
+            old_voice_id = setting.sel_voice_id;
+            setting.sel_voice_id = VOICE_next_locale(&voice_attr);
 
-            if (old_voice_id != setting.media.voice_id)
+            if (old_voice_id != setting.sel_voice_id)
                 runtime->setting_is_modified = true;
             break;
 

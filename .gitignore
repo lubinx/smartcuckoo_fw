@@ -24,9 +24,14 @@
 
 # cmake
 .cmake
-build/
+build
+efr32xg22
 
 # this project
 obj
 bin
 voices/
+
+# vscode search & open symlink dir
+!.cmake/
+!efr32xg22/

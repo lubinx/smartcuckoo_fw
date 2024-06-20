@@ -8,6 +8,7 @@
     {
         struct ADC_attr_t attr;
         clock_t activity;
+        uint8_t percent;
 
         int cumul;
         int cumul_count;

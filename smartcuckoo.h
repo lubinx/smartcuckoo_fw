@@ -132,13 +132,11 @@
 
     struct SMARTCUCKOO_setting_t
     {
-        struct
-        {
-            uint8_t volume;
+        uint8_t media_volume;
+        uint8_t dim;
 
-            int16_t voice_id;
-            int16_t noise_id;
-        } media;
+        int16_t sel_voice_id;
+        int16_t last_noise_id;
 
         struct SMARTCUCKOO_locale_t locale;
     };
