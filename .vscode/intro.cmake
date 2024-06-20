@@ -8,7 +8,7 @@ if(NOT EXISTS "${PROJECT_DIR}/.cmake")
 
         execute_process(
             COMMAND
-                ln -s "${PROJECT_DIR}/../.cmake" "${PROJECT_DIR}/.cmake"
+                ln -s  "../.cmake"
             WORKING_DIRECTORY
                 ${PROJECT_DIR}
             COMMAND_ERROR_IS_FATAL ANY
