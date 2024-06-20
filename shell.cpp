@@ -1,3 +1,5 @@
+#include <ultracore/syscon.h>
+
 #include "smartcuckoo.h"
 #include "ble.hpp"
 #include "EFR32_config.h"
@@ -143,7 +145,7 @@ static int SHELL_batt(struct UCSH_env *env)
 
 static int SHELL_heap(struct UCSH_env *env)
 {
-    UCSH_printf(env, "heap approximately: %d\n", HEAP_avail());
+    UCSH_printf(env, "heap approximately: %d\n", SYSCON_get_heap_avail());
     return 0;
 }
 
