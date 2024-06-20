@@ -145,7 +145,7 @@ static int SHELL_batt(struct UCSH_env *env)
 
 static int SHELL_heap(struct UCSH_env *env)
 {
-    UCSH_printf(env, "heap approximately: %d\n", SYSCON_get_heap_avail());
+    UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
     return 0;
 }
 
