@@ -317,7 +317,7 @@
 //                  <7=> Peek 130mA / Load 52mA
 //                  <8=> Peek 140mA / Load 56mA
 //                  <9=> Peek 150mA / Load 60mA
-    #define DCDC_EM01_CTRL              (265)
+    #define DCDC_EM01_CTRL              (777)
 //          </h>
 //          <h> EM 2/3 Control
 //              <o.8..9>  Efficiency(Drive Speed)

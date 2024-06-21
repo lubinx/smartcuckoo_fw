@@ -7,7 +7,7 @@
             "path": "./ultracore"
         },
         {
-            "path": "../efr32xg22"
+            "path": "./efr32xg22"
         }
     ]
 }

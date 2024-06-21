@@ -304,12 +304,12 @@
 //          <q> DCM only mode
     #define DCDC_DCM_ONLY               (1)
 //          <h> EM 0/1 Control
-//              <o.8..9>  Efficiency(Drive Speed)
+//              <o.8..9> Efficiency(Drive Speed)
 //                  <0=> Lowest / Best EMI
 //                  <1=> Default
 //                  <2=> Intermediate
 //                  <3=> Best
-//              <o.0..3>  EM 0/1 Peak Current
+//              <o.0..3> EM 0/1 Peak Current
 //                  <3=> Peek  90mA / Load 36mA
 //                  <4=> Peek 100mA / Load 40mA
 //                  <5=> Peek 110mA / Load 44mA
@@ -320,12 +320,12 @@
     #define DCDC_EM01_CTRL              (777)
 //          </h>
 //          <h> EM 2/3 Control
-//              <o.8..9>  Efficiency(Drive Speed)
+//              <o.8..9> Efficiency(Drive Speed)
 //                  <0=> Lowest / Best EMI
 //                  <1=> Default
 //                  <2=> Intermediate
 //                  <3=> Best
-//              <o.0..3>  EM 0/1 Peak Current
+//              <o.0..3> EM 0/1 Peak Current
 //                  <3=> Peek  90mA / Load  5mA
 //                  <9=> Peek 150mA / Load 10mA
     #define DCDC_EM23_CTRL              (771)

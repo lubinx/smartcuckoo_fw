@@ -123,6 +123,7 @@ static struct VOICE_t const __voices[] =
         .fixed_gr = HFMT_24,
         .wfmt = WFMT_TAIL,
     },
+#ifndef DEBUG
     {
         .lcid = "fr",
         .lcidx = 19,
@@ -602,6 +603,7 @@ static struct VOICE_t const __voices[] =
         .default_hfmt = HFMT_24,
         .fixed_gr = HFMT_24,
     },
+#endif
 };
 
 static char const *common_folder_alt = "voice/";

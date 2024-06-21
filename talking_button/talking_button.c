@@ -68,9 +68,11 @@ static uint32_t __stack[1024 / sizeof(uint32_t)];
  ****************************************************************************/
 void PERIPHERAL_gpio_init(void)
 {
-    GPIO_setdir_input(PIN_VOICE_BUTTON);
-    GPIO_setdir_input(PIN_SETTING_BUTTON);
-    GPIO_setdir_input(PIN_ALARM_ON);
+    /*
+    GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
+    GPIO_setdir_input_pp(HIGH_Z, PIN_SETTING_BUTTON, true);
+    */
+    GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
 
     // mp3 chip
     talking_button.mp3_uartfd = UART_createfd(USART0, 9600, UART_PARITY_NONE, UART_STOP_BITS_ONE);
@@ -139,7 +141,11 @@ void PERIPHERAL_init(void)
     // VOICE_say_time_epoch(&voice_attr, time(NULL));
 
     #if 0 == PMU_EM2_EN
-        #pragma GCC warning "talking button: PMU is not enabled"
+        #ifdef RELEASE
+            #pragma GCC error "talking button: PMU is not enabled"
+        #else
+            #pragma GCC warning "talking button: PMU is not enabled"
+        #endif
 
         static timeout_t intv;
         timeout_init(&intv, 500, (void *)PERIPHERAL_on_wakeup, TIMEOUT_FLAG_REPEAT);
@@ -150,16 +156,14 @@ void PERIPHERAL_init(void)
 /****************************************************************************
  *  @implements: overrides
  ****************************************************************************/
+void PERIPHERAL_on_sleep(void)
+{
+    GPIO_disable(PIN_VOICE_BUTTON);
+    GPIO_disable(PIN_SETTING_BUTTON);
+}
+
 void PERIPHERAL_on_wakeup(void)
 {
-    static time_t ts;
-
-    if (ts != time(NULL))
-    {
-        ts = time(NULL);
-        LOG_verbose("ts: %u", ts);
-    }
-
     mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
 
@@ -229,12 +233,12 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 {
     timeout_stop(&talking_button.setting_timeo);
 
-    if (PIN_SETTING_BUTTON & pins)
+    if (PIN_SETTING_BUTTON == (PIN_SETTING_BUTTON & pins))
         mqueue_postv(ctx->mqd, MSG_BUTTON_SETTING, 0, 0);
-    if (PIN_VOICE_BUTTON & pins)
+    if (PIN_VOICE_BUTTON == (PIN_VOICE_BUTTON & pins))
         mqueue_postv(ctx->mqd, MSG_BUTTON_VOICE, 0, 0);
 
-    if ((PIN_ALARM_ON & pins))
+    if (PIN_ALARM_ON == (PIN_ALARM_ON & pins))
     {
         if (talking_button.alarm_is_on != (0 != GPIO_peek(PIN_ALARM_ON)))
             mqueue_postv(ctx->mqd, MSG_ALARM_SW, 0, 1, ! talking_button.alarm_is_on);

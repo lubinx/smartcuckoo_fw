@@ -61,7 +61,7 @@ int main(void)
     #endif
 
     extern int __stdout_fd;
-    __stdout_fd = UART_createfd(CONSOLE_DEV, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     PERIPHERAL_gpio_init();
 
 #ifdef PIN_BATT_ADC

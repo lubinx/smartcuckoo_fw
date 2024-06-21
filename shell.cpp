@@ -2,6 +2,7 @@
 
 #include "smartcuckoo.h"
 #include "ble.hpp"
+
 #include "EFR32_config.h"
 
 /*****************************************************************************/
@@ -95,10 +96,12 @@ void PERIPHERAL_ota_init(void)
 {
 }
 
-__attribute__((weak))
 void PERIPHERAL_write_tlv(TMemStream &scanrsp)
 {
-    ARG_UNUSED(scanrsp);
+    time_t ts = time(NULL);
+
+    BluetoothTLV tlv(ATT_UNIT_UNITLESS, 1, (uint32_t)ts);
+    scanrsp.Write(&tlv, tlv.size());
 }
 
 /***************************************************************************/
