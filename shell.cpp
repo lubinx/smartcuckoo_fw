@@ -5,6 +5,12 @@
 
 #include "EFR32_config.h"
 
+#if defined(PANEL_B) || defined(PANEL_C)
+    #include "panel_private.h"
+    #define PANEL_APPLICATION
+#endif
+
+
 /*****************************************************************************/
 /** @imports
 *****************************************************************************/
@@ -96,12 +102,27 @@ void PERIPHERAL_ota_init(void)
 {
 }
 
-void PERIPHERAL_write_tlv(TMemStream &scanrsp)
+void PERIPHERAL_write_tlv(TMemStream &advs)
 {
-    time_t ts = time(NULL);
+    if (1)
+    {
+        BluetoothTLV tlv(ATT_UNIT_UNITLESS, 0, (uint32_t)time(NULL));
+        advs.Write(&tlv, tlv.size());
+    }
 
-    BluetoothTLV tlv(ATT_UNIT_UNITLESS, 1, (uint32_t)ts);
-    scanrsp.Write(&tlv, tlv.size());
+    #ifdef PANEL_APPLICATION
+    if (1)
+    {
+        BluetoothTLV tlv(ATT_UNIT_CELSIUS, 1, panel.env_sensor.tmpr);
+        advs.Write(&tlv, tlv.size());
+    }
+
+    if (1)
+    {
+        BluetoothTLV tlv(ATT_UNIT_PERCENTAGE, 0, panel.env_sensor.humidity);
+        advs.Write(&tlv, tlv.size());
+    }
+    #endif
 }
 
 /***************************************************************************/
