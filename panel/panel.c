@@ -51,6 +51,7 @@ static void setting_modify_defore_save(struct PANEL_runtime_t *runtime);
 static void media_stop(struct PANEL_runtime_t *runtime);
 
 static int SHELL_dim(struct UCSH_env *env);
+static int SHELL_env_sensor(struct UCSH_env *env);
 #ifdef PIN_LAMP
     static int SHELL_lamp(struct UCSH_env *env);
 #endif
@@ -76,6 +77,8 @@ void PERIPHERAL_gpio_init(void)
 void PERIPHERAL_shell_init(void)
 {
     UCSH_register("dim", SHELL_dim);
+    UCSH_register("env", SHELL_env_sensor);
+
 #ifdef PIN_LAMP
     UCSH_register("lamp", SHELL_lamp);
 #endif
@@ -303,6 +306,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
     if (0 == runtime->env_sensor.last_ts || ENV_SENSOR_UPDATE_SECONDS < ts - runtime->env_sensor.last_ts)
     {
         runtime->env_sensor.last_ts = ts;
+        PERIPHERAL_adv_update();
 
         ENV_sensor_read(runtime->env_sensor_devfd,
             &runtime->env_sensor.tmpr, &runtime->env_sensor.humidity);
@@ -1293,6 +1297,13 @@ static int SHELL_dim(struct UCSH_env *env)
     }
 
     UCSH_printf(env, "dim=%d\n\n", setting.dim);
+    return 0;
+}
+
+static int SHELL_env_sensor(struct UCSH_env *env)
+{
+    UCSH_printf(env, "tmpr=%d.%d\n", panel.env_sensor.tmpr / 10, abs(panel.env_sensor.tmpr) % 10);
+    UCSH_printf(env, "humidity=%d\n\n", panel.env_sensor.humidity);
     return 0;
 }
 

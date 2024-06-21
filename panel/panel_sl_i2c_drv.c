@@ -81,6 +81,7 @@
  *  @internal
  ****************************************************************************/
 static int PANEL_update_wday(struct PANEL_attr_t *attr, int8_t wday);
+static int PANEL_update_tmpr(struct PANEL_attr_t *attr, int16_t tmpr);
 static int PANEL_update_digit(struct PANEL_attr_t *attr, uint8_t seg, int no, size_t count, bool lead_zero);
 
 /****************************************************************************
@@ -355,8 +356,10 @@ int PANEL_update(struct PANEL_attr_t *attr)
         {
             attr->set.tmpr = attr->cache.tmpr;
 
-            retval = PANEL_update_digit(attr, SEG(16), attr->cache.tmpr, 3,
-                0 == (PANEL_TMPR_UNIT & attr->disable_parts));
+            if (0 == (PANEL_TMPR_UNIT & attr->disable_parts))
+                retval = PANEL_update_tmpr(attr, attr->cache.tmpr);
+            else
+                retval = PANEL_update_digit(attr, SEG(16), attr->cache.tmpr, 3, true);
         }
     }
 
@@ -500,35 +503,72 @@ static int PANEL_update_wday(struct PANEL_attr_t *attr, int8_t wdays)
     return retval;
 }
 
+static uint8_t const __xlat_digit[] =
+{
+    [0] = COM_A | COM_B | COM_C | COM_D | COM_E | COM_F,
+    [1] = COM_B | COM_C,
+    [2] = COM_A | COM_B | COM_G | COM_E | COM_D,
+    [3] = COM_A | COM_B | COM_C | COM_D | COM_G,
+    [4] = COM_F | COM_G | COM_B | COM_C,
+    [5] = COM_A | COM_F | COM_G | COM_C | COM_D,
+    [6] = COM_A | COM_F | COM_G | COM_E | COM_C | COM_D,
+    [7] = COM_A | COM_B | COM_C,
+    [8] = COM_A | COM_B | COM_C | COM_D | COM_E | COM_F | COM_G,
+    [9] = COM_A | COM_B | COM_C | COM_D | COM_F | COM_G,
+};
+static uint16_t const __xlat_digit_b[] =
+{
+    [0] = COM_AA | COM_BB | COM_CC | COM_DD | COM_EE | COM_FF,
+    [1] = COM_BB | COM_CC,
+    [2] = COM_AA | COM_BB | COM_GG | COM_EE | COM_DD,
+    [3] = COM_AA | COM_BB | COM_CC | COM_DD | COM_GG,
+    [4] = COM_FF | COM_GG | COM_BB | COM_CC,
+    [5] = COM_AA | COM_FF | COM_GG | COM_CC | COM_DD,
+    [6] = COM_AA | COM_FF | COM_GG | COM_EE | COM_CC | COM_DD,
+    [7] = COM_AA | COM_BB | COM_CC,
+    [8] = COM_AA | COM_BB | COM_CC | COM_DD | COM_EE | COM_FF | COM_GG,
+    [9] = COM_AA | COM_BB | COM_CC | COM_DD | COM_FF | COM_GG,
+};
+
+static int PANEL_update_tmpr(struct PANEL_attr_t *attr, int16_t tmpr)
+{
+    // max display is -9.9
+    if (-99 > tmpr)
+        tmpr = attr->set.tmpr = attr->cache.tmpr = -99;
+    if (999 < tmpr)
+        tmpr = attr->set.tmpr = attr->cache.tmpr = 999;
+
+    uint8_t buf[8] = {0};
+    unsigned idx = 1;
+
+    buf[0] = SEG(16);
+
+    if (0 > tmpr)
+    {
+        buf[idx] = COM_G;
+
+        tmpr = (int16_t)abs(tmpr);
+        idx += 2;
+    }
+    if (100 < tmpr)
+    {
+        buf[idx] = __xlat_digit[tmpr / 100];
+        idx += 2;
+        tmpr %= 100;
+    }
+    if (10 < tmpr)
+    {
+        buf[idx] = __xlat_digit[tmpr / 10];
+        idx += 2;
+        tmpr %= 10;
+    }
+    buf[idx] = __xlat_digit[tmpr];
+
+    return PANEL_HAL_write(attr->da0_fd, &buf, 7);
+}
+
 static int PANEL_update_digit(struct PANEL_attr_t *attr, uint8_t seg, int no, size_t count, bool lead_zero)
 {
-    static uint8_t const __xlat_digit[] =
-    {
-        [0] = COM_A | COM_B | COM_C | COM_D | COM_E | COM_F,
-        [1] = COM_B | COM_C,
-        [2] = COM_A | COM_B | COM_G | COM_E | COM_D,
-        [3] = COM_A | COM_B | COM_C | COM_D | COM_G,
-        [4] = COM_F | COM_G | COM_B | COM_C,
-        [5] = COM_A | COM_F | COM_G | COM_C | COM_D,
-        [6] = COM_A | COM_F | COM_G | COM_E | COM_C | COM_D,
-        [7] = COM_A | COM_B | COM_C,
-        [8] = COM_A | COM_B | COM_C | COM_D | COM_E | COM_F | COM_G,
-        [9] = COM_A | COM_B | COM_C | COM_D | COM_F | COM_G,
-    };
-    static uint16_t const __xlat_digit_b[] =
-    {
-        [0] = COM_AA | COM_BB | COM_CC | COM_DD | COM_EE | COM_FF,
-        [1] = COM_BB | COM_CC,
-        [2] = COM_AA | COM_BB | COM_GG | COM_EE | COM_DD,
-        [3] = COM_AA | COM_BB | COM_CC | COM_DD | COM_GG,
-        [4] = COM_FF | COM_GG | COM_BB | COM_CC,
-        [5] = COM_AA | COM_FF | COM_GG | COM_CC | COM_DD,
-        [6] = COM_AA | COM_FF | COM_GG | COM_EE | COM_CC | COM_DD,
-        [7] = COM_AA | COM_BB | COM_CC,
-        [8] = COM_AA | COM_BB | COM_CC | COM_DD | COM_EE | COM_FF | COM_GG,
-        [9] = COM_AA | COM_BB | COM_CC | COM_DD | COM_FF | COM_GG,
-    };
-
     uint8_t buf[1 + count * sizeof(uint16_t)];
     memset(buf, 0, 1 + count * sizeof(uint16_t));
 
