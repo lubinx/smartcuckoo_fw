@@ -149,5 +149,6 @@ uint8_t WT2003H_fill_play_payload(void *payload, char const *path)
 
     packet->cmd = WT2003H_CMD_PLAY_FLASH;
     strncpy((char *)&packet->data, path, 4);
+
     return WT2003H_fill_packet(packet, 4);
 }
