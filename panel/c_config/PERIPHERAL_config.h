@@ -5,8 +5,8 @@
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"
-    #define PROJECT_VERSION             VERSION_INFO(1, 0, 1)
-    #define PROJECT_ID                  "pnlc"
+    #define PROJECT_VERSION             VERSION_INFO(1, 0, 2)
+    #define PROJECT_ID                  "pnc"
     #define PANEL_C
 
     #define SETTING_TIMEOUT             (15000)

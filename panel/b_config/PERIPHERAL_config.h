@@ -5,7 +5,7 @@
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"
-    #define PROJECT_VERSION             VERSION_INFO(1, 0, 1)
+    #define PROJECT_VERSION             VERSION_INFO(1, 0, 2)
     #define PROJECT_ID                  "pnlb"
     #define PANEL_B
 
