@@ -1,8 +1,7 @@
 ## dt 设置/返回 日期时间
 
-    dt
-
-    dt yyyy/mm/dd hh:nn:ss
+    dt                              返回日期时钟
+    dt yyyy/mm/dd hh:nn:ss          返回日期时钟
 
 ## loc / locale 设置/返回语言
 
@@ -19,10 +18,10 @@
     loc <lcid>
 
 示例:
-    loc         返回语言设置和列表
-    loc en      设置英文
-    loc en-AU   设置英文-AU
-    loc 4       设置英文-US
+    loc                             返回语言设置和列表
+    loc en                          设置英文
+    loc en-AU                       设置英文-AU
+    loc 4                           设置英文-US
 
 # hfmt 设置时间格式
 
@@ -78,3 +77,6 @@
 命令:
     dim                             返回当前亮度 (20 / 40 / 60 / 80 / 100) %
     dim [20 / 40 / 60 / 80 / 100]   设置亮度
+
+
+# env 读取温湿度
