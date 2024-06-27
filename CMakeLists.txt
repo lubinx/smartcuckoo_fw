@@ -37,7 +37,7 @@ build_target(talking_button
     DEFINITIONS
         NVM_TAG="talking button"
     OUTPUT_DIR
-        "bin"
+        "../_bin"
 )
 
 build_target(panel_b
@@ -60,7 +60,7 @@ build_target(panel_b
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR
-        "bin"
+        "../_bin"
 )
 
 build_target(panel_c
@@ -82,7 +82,7 @@ build_target(panel_c
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR
-        "bin"
+        "../_bin"
 )
 
 print_targets()
