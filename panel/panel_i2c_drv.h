@@ -83,7 +83,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    void PANEL_attr_init(struct PANEL_attr_t *attr, void *const dev, struct SMARTCUCKOO_locale_t const *locale);
+    void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct SMARTCUCKOO_locale_t const *locale);
 
 extern __attribute__((nothrow))
     void PANEL_attr_set_blinky(struct PANEL_attr_t *attr, uint32_t parts);
@@ -123,7 +123,7 @@ extern __attribute__((nothrow))
  *  @CHIP impl
  ****************************************************************************/
 extern __attribute__((nothrow))
-    void PANEL_HAL_init(struct PANEL_attr_t *attr, void *const dev);
+    void PANEL_HAL_init(struct PANEL_attr_t *attr, void *i2c_dev);
 
 extern __attribute__((nothrow))
     int PANEL_HAL_write(int fd, void const *buf, size_t count);

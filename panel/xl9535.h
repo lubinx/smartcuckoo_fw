@@ -6,7 +6,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    int XL9535_createfd(void *const dev, uint16_t kbps);
+    int XL9535_createfd(void *i2c_dev, uint16_t kbps);
 
 extern __attribute__((nothrow))
     int XL9535_read_key(int devfd, uint32_t *key);

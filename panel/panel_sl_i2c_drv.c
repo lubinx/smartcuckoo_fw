@@ -87,9 +87,9 @@ static int PANEL_update_digit(struct PANEL_attr_t *attr, uint8_t seg, int no, si
 /****************************************************************************
  *  @implements: HAL
  ****************************************************************************/
-void PANEL_HAL_init(struct PANEL_attr_t *attr, void *const dev)
+void PANEL_HAL_init(struct PANEL_attr_t *attr, void *i2c_dev)
 {
-    attr->da0_fd = I2C_createfd(dev, DA, I2C_BUS_SPEED, 0, 0);
+    attr->da0_fd = I2C_createfd(i2c_dev, DA, I2C_BUS_SPEED, 0, 0);
 
     uint32_t timeo = 500;
     ioctl(attr->da0_fd, OPT_WR_TIMEO, &timeo);

@@ -14,9 +14,9 @@
 /****************************************************************************
  *  @implements
  ****************************************************************************/
-int XL9535_createfd(void *const dev, uint16_t kbps)
+int XL9535_createfd(void *i2c_dev, uint16_t kbps)
 {
-    int fd = I2C_createfd(dev, DA, kbps, 0, 0x7);
+    int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0x7);
 
     uint32_t timeo = 500;
     ioctl(fd, OPT_RD_TIMEO, &timeo);

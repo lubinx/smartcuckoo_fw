@@ -26,10 +26,10 @@ struct SHT4X_context SHT4X_context;
 /***************************************************************************
  *  @export
  ***************************************************************************/
-int SHT4X_open(void *const dev, uint16_t da, uint16_t kbps)
+int SHT4X_open(void *i2c_dev, uint16_t da, uint16_t kbps)
 {
     msleep(SHT4X_POWER_UP_TIMEO);
-    int fd = I2C_createfd(dev, da, kbps, 0, 0);
+    int fd = I2C_createfd(i2c_dev, da, kbps, 0, 0);
     int timeout = 10;
 
     ioctl(fd, OPT_RD_TIMEO, &timeout);

@@ -16,7 +16,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    int SHT4X_open(void *const dev, uint16_t da, uint16_t kbps);
+    int SHT4X_open(void *i2c_dev, uint16_t da, uint16_t kbps);
 
 extern __attribute((nothrow))
     int SHT4X_start_convert(int fd);

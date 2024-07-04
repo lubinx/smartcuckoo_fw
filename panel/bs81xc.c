@@ -13,9 +13,9 @@
 /****************************************************************************
  *  @implements
  ****************************************************************************/
-int BS81xC_createfd(void *const dev, uint16_t kbps)
+int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
 {
-    int fd = I2C_createfd(dev, DA, kbps, 0, 0xFF);
+    int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0xFF);
 
     uint32_t timeo = 500;
     ioctl(fd, OPT_RD_TIMEO, &timeo);

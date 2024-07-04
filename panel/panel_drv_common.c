@@ -8,13 +8,13 @@
 /****************************************************************************
  *  attributes
  ****************************************************************************/
-void PANEL_attr_init(struct PANEL_attr_t *attr, void *const dev, struct SMARTCUCKOO_locale_t const *locale)
+void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct SMARTCUCKOO_locale_t const *locale)
 {
     memset(attr, 0, sizeof(*attr));
     memset(&attr->set, 0xFF, sizeof(attr->set));
 
     attr->locale = locale;
-    PANEL_HAL_init(attr, dev);
+    PANEL_HAL_init(attr, i2c_dev);
 }
 
 void PANEL_attr_set_blinky(struct PANEL_attr_t *attr, uint32_t parts)
