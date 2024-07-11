@@ -7,11 +7,11 @@
 
 #include <i2c.h>
 #include "panel_i2c_drv.h"
+#include "PERIPHERAL_config.h"
 
 /****************************************************************************
  *  @def
  ****************************************************************************/
-    #define I2C_BUS_SPEED               (100)
     #define DA                          (0x73)
     #define DEF_PWM                     (5)
 

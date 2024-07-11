@@ -4,10 +4,16 @@
             "path": "."
         },
         {
-            "path": "./ultracore"
+            "path": "../ultracore"
         },
         {
-            "path": "./efr32xg22"
+            "path": "../efr32xg22"
         }
-    ]
+    ],
+    "settings": {
+        "files.associations": {
+            "panel_i2c_drv.h": "c",
+            "peripheral_config.h": "c"
+        }
+    }
 }

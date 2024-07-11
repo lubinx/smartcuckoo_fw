@@ -189,8 +189,8 @@ static uint32_t PANEL_clock_thread_stack[2048 / sizeof(uint32_t)];
  ****************************************************************************/
 void PANEL_attr_init()
 {
-    PANEL_context.da0_fd = I2C_createfd(I2C_DEV, DA0, 200, 0, 0);
-    PANEL_context.da1_fd = I2C_createfd(I2C_DEV, DA1, 200, 0, 0);
+    PANEL_context.da0_fd = I2C_createfd(I2C_DEV, DA0, 100, 0, 0);
+    PANEL_context.da1_fd = I2C_createfd(I2C_DEV, DA1, 100, 0, 0);
 
     if (0 < PANEL_context.da0_fd)
     {

@@ -184,7 +184,7 @@ static inline
 static inline
     int ENV_sensor_createfd(void *i2c_dev)
     {
-        return SHT4X_open(i2c_dev, SHT4X_A_DA, 100);
+        return SHT4X_open(i2c_dev, SHT4X_A_DA, I2C_BUS_SPEED);
     }
 
 static inline
@@ -197,9 +197,9 @@ static inline
     int IOEXT_createfd(void *i2c_dev)
     {
         #ifdef PANEL_C
-            return BS81xC_createfd(i2c_dev, 100);
+            return BS81xC_createfd(i2c_dev, I2C_BUS_SPEED);
         #else
-            return XL9535_createfd(i2c_dev, 100);
+            return XL9535_createfd(i2c_dev, I2C_BUS_SPEED);
         #endif
     }
 
