@@ -39,10 +39,8 @@ void LAMP_attr_init(struct LAMP_attr_t *attr)
     WS2812B_set(0);
 }
 
-void LAMP_enum_colors(struct LAMP_attr_t *attr, LAMP_color_callback_t callback, void *arg)
+void LAMP_enum_colors(LAMP_color_callback_t callback, void *arg)
 {
-    (void)attr;
-
     for (size_t i = 0; i < lengthof(__color_xlat); i ++)
     {
         uint32_t color = __color_xlat[i];
