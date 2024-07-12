@@ -13,7 +13,8 @@
     "settings": {
         "files.associations": {
             "panel_i2c_drv.h": "c",
-            "peripheral_config.h": "c"
+            "peripheral_config.h": "c",
+            "new": "c"
         }
     }
 }

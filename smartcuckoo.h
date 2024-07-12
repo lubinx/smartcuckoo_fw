@@ -134,7 +134,7 @@
         uint8_t dim;
 
         int16_t sel_voice_id;
-        int16_t last_noise_id;
+        uint16_t last_noise_id;
 
         struct SMARTCUCKOO_locale_t locale;
     };

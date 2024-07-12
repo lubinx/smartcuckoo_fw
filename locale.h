@@ -41,5 +41,11 @@ extern __attribute__((nothrow, const))
 extern __attribute__((nothrow, const))
     enum LOCALE_hfmt_t LOCALE_hfmt(void);
 
+static inline
+    int16_t TMPR_fahrenheit(int16_t celsius_tmpr)
+    {
+        return (int16_t)((celsius_tmpr * 9 / 5) + 320);
+    }
+
 __END_DECLS
 #endif

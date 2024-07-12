@@ -86,8 +86,8 @@ int main(void)
     }
 #endif
     WDOG_init(4000);
-    PERIPHERAL_init();
 
+    PERIPHERAL_init();
     SHELL_bootstrap();
 }
 
