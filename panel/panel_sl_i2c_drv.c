@@ -9,6 +9,10 @@
 #include "panel_i2c_drv.h"
 #include "PERIPHERAL_config.h"
 
+#ifndef NDEBUG
+    #pragma GCC optimize("O0")
+#endif
+
 /****************************************************************************
  *  @def
  ****************************************************************************/
@@ -318,7 +322,7 @@ int PANEL_update(struct PANEL_attr_t *attr)
             if (FAHRENHEIT == attr->locale->tmpr_unit)
             {
                 attr->cache.flags |= FLAG_IND_TMPR_F;
-                attr->cache.tmpr = (int16_t)((attr->std_tmpr * 9 / 5) + 320);
+                attr->cache.tmpr = TMPR_fahrenheit(attr->std_tmpr);
             }
             else
             {
@@ -546,23 +550,26 @@ static int PANEL_update_tmpr(struct PANEL_attr_t *attr, int16_t tmpr)
     if (0 > tmpr)
     {
         buf[idx] = COM_G;
+        idx += 2;
 
         tmpr = (int16_t)abs(tmpr);
-        idx += 2;
     }
-    if (100 < tmpr)
+
+    if (99 < tmpr)
     {
         buf[idx] = __xlat_digit[tmpr / 100];
         idx += 2;
-        tmpr %= 100;
+
+        buf[idx] = __xlat_digit[tmpr % 100 / 10];
+        idx += 2;
     }
-    if (10 < tmpr)
+    else
     {
+        idx = 3;
         buf[idx] = __xlat_digit[tmpr / 10];
         idx += 2;
-        tmpr %= 10;
     }
-    buf[idx] = __xlat_digit[tmpr];
+    buf[idx] = __xlat_digit[tmpr % 10];
 
     return PANEL_HAL_write(attr->da0_fd, &buf, 7);
 }
