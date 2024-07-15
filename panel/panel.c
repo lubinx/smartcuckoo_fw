@@ -1350,7 +1350,7 @@ static int SHELL_dim(struct UCSH_env *env)
 static void noise_theme_enum_callback(uint16_t id, char const *theme, void *arg, bool final)
 {
     UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
-    UCSH_printf((struct UCSH_env *)arg, "\"theme\":%s", theme);
+    UCSH_printf((struct UCSH_env *)arg, "\"theme\":\"%s\"", theme);
 
     if (final)
         UCSH_puts((struct UCSH_env *)arg, "\n");
