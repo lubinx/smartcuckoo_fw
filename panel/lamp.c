@@ -2,7 +2,6 @@
 #include <stddef.h>
 
 #include "PERIPHERAL_config.h"
-#include "cmu.h"
 #include "lamp.h"
 
 #define RGB(R, G, B)                    ((uint32_t)(G) << 16U | (uint32_t)(R) << 8 | (uint32_t)(B))
@@ -146,34 +145,38 @@ void LAMP_dec(struct LAMP_attr_t *attr)
 /****************************************************************************
  *  @internal
  ****************************************************************************/
-__attribute__((optimize("O0"))) static void WS2812B_set_24bit(uint32_t grb)
+__attribute__((optimize("O0")))
+static void WS2812B_set_24bit(uint32_t grb)
 {
     static uint32_t volatile *DOUT_SET = &GPIO->P_SET[0].DOUT;
     static uint32_t volatile *DOUT_CLR = &GPIO->P_CLR[0].DOUT;
-    #define US  (SYSCLK_FREQ / 100000U)
 
     for(uint8_t zz = 0; zz < 24; zz ++)
     {
         if (0x800000 & (grb << zz))
         {
             *DOUT_SET = PIN_LAMP;
-            for (unsigned i = 0; i < US * 90 / 1000; i += 6) {}
+            __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); __NOP(); __NOP(); __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            for (unsigned i = 0; i < US * 110 / 1000; i += 6) {}
+            __NOP();
         }
         else
         {
             *DOUT_SET = PIN_LAMP;
-            for (unsigned i = 0; i < US * 28 / 1000; i += 6) {}
+            __NOP(); __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            for (unsigned i = 0; i < US * 172 / 1000; i += 6) {}
+            __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); __NOP(); __NOP(); __NOP();
         }
     }
 }
 
-__attribute__((optimize("Ofast"))) static void WS2812B_set(uint32_t color)
+__attribute__((optimize("Ofast")))
+static void WS2812B_set(uint32_t color)
 {
     __disable_irq();
 
