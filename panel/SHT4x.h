@@ -8,10 +8,10 @@
     #define SHT4X_B_DA                  (0x45)
 
 /// other parameters
-    #define SHT4X_POWER_UP_TIMEO        (2)
-    #define SHT4X_HIGH_PRECISION_TIMEO  (9)
-    #define SHT4X_MED_PRECISION_TIMEO   (5)
-    #define SHT4X_LOW_PRECISION_TIMEO   (2)
+    #define SHT4X_POWER_UP_TIMEO        (2 + 10)
+    #define SHT4X_HIGH_PRECISION_TIMEO  (9 + 10)
+    #define SHT4X_MED_PRECISION_TIMEO   (5 + 10)
+    #define SHT4X_LOW_PRECISION_TIMEO   (2 + 10)
 
 __BEGIN_DECLS
 

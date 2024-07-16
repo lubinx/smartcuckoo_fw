@@ -69,7 +69,9 @@ int SHT4X_start_convert(int fd)
     if (0 < fd)
     {
         SHT4X_context.timeout = SHT4X_HIGH_PRECISION_TIMEO;
-        int retval = write_command(fd, 0xE0);
+        int retval = write_command(fd, 0xFD);
+        // int retval = write_command(fd, 0xF6);
+        // int retval = write_command(fd, 0xE0);
 
         if (0 == retval)
             SHT4X_context.tick = clock();
@@ -97,20 +99,23 @@ int SHT4X_read(int fd, int16_t *tmpr, uint8_t *humidity)
     {
         SHT4X_context.tmpr = (int16_t)(d1 * 1750 / 65535 - 450);
         SHT4X_context.uncropped_humidity = d2 * 1250 / 65535 - 60;
+
+        if (SHT4X_context.uncropped_humidity < 0 || SHT4X_context.uncropped_humidity > 1000)
+        {
+            if (SHT4X_context.uncropped_humidity < 0)
+                SHT4X_context.uncropped_humidity = 0;
+            else if (SHT4X_context.uncropped_humidity > 1000)
+                SHT4X_context.uncropped_humidity = 1000;
+        }
+
+        *tmpr = (int16_t)SHT4X_context.tmpr;
+        *humidity = (uint8_t)((SHT4X_context.uncropped_humidity + 5) / 10);
     }
-    if (SHT4X_context.uncropped_humidity < 0 || SHT4X_context.uncropped_humidity > 1000)
+    else
     {
+        // SEND SOFT-RESET
         write_command(fd, 0x94);
-
-        if (SHT4X_context.uncropped_humidity < 0)
-            SHT4X_context.uncropped_humidity = 0;
-        else if (SHT4X_context.uncropped_humidity > 1000)
-            SHT4X_context.uncropped_humidity = 1000;
     }
-
-    *tmpr = (int16_t)SHT4X_context.tmpr;
-    *humidity = (uint8_t)((SHT4X_context.uncropped_humidity + 5) / 10);
-
     return retval;
 }
 
