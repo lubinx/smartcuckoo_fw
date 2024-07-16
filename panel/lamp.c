@@ -145,9 +145,7 @@ void LAMP_dec(struct LAMP_attr_t *attr)
 /****************************************************************************
  *  @internal
  ****************************************************************************/
-#pragma GCC diagnostic push
-#pragma GCC optimize("O0")
-
+__attribute__((optimize("O0")))
 static void WS2812B_set_24bit(uint32_t grb)
 {
     static uint32_t volatile *DOUT_SET = &GPIO->P_SET[0].DOUT;
@@ -155,15 +153,14 @@ static void WS2812B_set_24bit(uint32_t grb)
 
     for(uint8_t zz = 0; zz < 24; zz ++)
     {
-        if (0x800000 & grb)
+        if (0x800000 & (grb << zz))
         {
             *DOUT_SET = PIN_LAMP;
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            __NOP();
+            // __NOP();
         }
         else
         {
@@ -172,19 +169,21 @@ static void WS2812B_set_24bit(uint32_t grb)
 
             *DOUT_CLR = PIN_LAMP;
             __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); // __NOP(); // __NOP(); __NOP();
         }
-        grb <<= 1;
     }
 }
 
+__attribute__((optimize("Ofast")))
 static void WS2812B_set(uint32_t color)
 {
+    __disable_irq();
+
     for (int i = 0; i < 12; i ++)
         WS2812B_set_24bit(color);
+
+    __enable_irq();
 }
-#pragma GCC diagnostic pop
 
 static uint32_t color_trans(uint32_t color, int8_t percent)
 {
