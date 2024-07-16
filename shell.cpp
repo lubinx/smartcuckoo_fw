@@ -53,16 +53,22 @@ void SHELL_bootstrap(void)
     UCSH_register("ota",        SHELL_ota);
     UCSH_register("rtcc",       SHELL_rtc_calibration);
 
+    // locale
     UCSH_register("loc",        SHELL_locale);
     UCSH_register("locale",     SHELL_locale);
+    // alarm
     UCSH_register("alm",        SHELL_alarm);
     UCSH_register("alarm",      SHELL_alarm);
+    // reminder
     UCSH_register("rmd",        SHELL_reminder);
     UCSH_register("reminder",   SHELL_reminder);
+    // volume
     UCSH_register("vol",        SHELL_volume);
     UCSH_register("volume",     SHELL_volume);
-    UCSH_register("dfmt",       SHELL_dfmt);
+    // hour format
     UCSH_register("hfmt",       SHELL_hfmt);
+    // date format: voice only
+    UCSH_register("dfmt",       SHELL_dfmt);
 
     PERIPHERAL_shell_init();
 
@@ -497,6 +503,39 @@ static int SHELL_volume(struct UCSH_env *env)
     return 0;
 }
 
+static int SHELL_hfmt(struct UCSH_env *env)
+{
+    if (2 == env->argc)
+    {
+        unsigned fmt = strtoul(env->argv[1], NULL, 10);
+        enum LOCALE_hfmt_t old_fmt = setting.locale.hfmt;
+
+        switch (fmt)
+        {
+        default:
+            return EINVAL;
+
+        case 0:
+            setting.locale.hfmt = HFMT_DEFAULT;
+            break;
+        case 12:
+            setting.locale.hfmt = HFMT_12;
+            break;
+        case 24:
+            setting.locale.hfmt = HFMT_24;
+            break;
+        }
+
+        if (old_fmt != fmt)
+            NVM_set(NVM_SETTING, &setting, sizeof(setting));
+
+        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+    }
+
+    UCSH_printf(env, "hfmt=%d\n", voice_attr.locale->hfmt);
+    return 0;
+}
+
 static int SHELL_dfmt(struct UCSH_env *env)
 {
     if (2 == env->argc)
@@ -545,38 +584,5 @@ static int SHELL_dfmt(struct UCSH_env *env)
         // no possiable value
         break;
     }
-    return 0;
-}
-
-static int SHELL_hfmt(struct UCSH_env *env)
-{
-    if (2 == env->argc)
-    {
-        unsigned fmt = strtoul(env->argv[1], NULL, 10);
-        enum LOCALE_hfmt_t old_fmt = setting.locale.hfmt;
-
-        switch (fmt)
-        {
-        default:
-            return EINVAL;
-
-        case 0:
-            setting.locale.hfmt = HFMT_DEFAULT;
-            break;
-        case 12:
-            setting.locale.hfmt = HFMT_12;
-            break;
-        case 24:
-            setting.locale.hfmt = HFMT_24;
-            break;
-        }
-
-        if (old_fmt != fmt)
-            NVM_set(NVM_SETTING, &setting, sizeof(setting));
-
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-
-    UCSH_printf(env, "hfmt=%d\n", voice_attr.locale->hfmt);
     return 0;
 }

@@ -181,6 +181,9 @@ static inline
         return SETTING_ALARM_1_GROUP <= group &&  SETTING_ALARM_4_GROUP >= group;
     }
 
+extern __attribute__((nothrow))
+    void SETTING_defer_save(struct PANEL_runtime_t *);
+
 static inline
     int ENV_sensor_createfd(void *i2c_dev)
     {
