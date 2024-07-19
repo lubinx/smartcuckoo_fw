@@ -37,7 +37,9 @@ struct mplayer_attr_t
  ****************************************************************************/
 static struct mplayer_attr_t attr = {0};
 
+static int SHELL_execute_cb(char const *cmdline, SH_callback_t cb, void *arg);
 static int SHELL_execute(char const *cmdline);
+
 static int SHELL_post(char const *cmdline);
 static void GPIO_busy_callback(uint32_t pins, void *arg);
 static void TIMEO_execute_callback(void *arg);
@@ -203,6 +205,9 @@ uint8_t mplayer_volume_dec(void)
     return attr.volume;
 }
 
+int mplayer_commnad_cb(char const *cmdline, SH_callback_t line_cb, void *arg)
+    __attribute__((alias("SHELL_execute_cb")));
+
 /****************************************************************************
  *  @internal
  ****************************************************************************/
@@ -272,7 +277,7 @@ static int SHELL_post(char const *cmdline)
     return retval;
 }
 
-static int SHELL_execute(char const *cmdline)
+static int SHELL_execute_cb(char const *cmdline, SH_callback_t line_cb, void *arg)
 {
     pthread_mutex_lock(&attr.lock);
     int retval = SHELL_post(cmdline);
@@ -297,7 +302,15 @@ static int SHELL_execute(char const *cmdline)
                 break;
             }
             else
-                LOG_verbose("%s", attr.line);
+            {
+                if (line_cb)
+                {
+                    if (0 != line_cb(attr.line, arg))
+                        goto execute_exit;
+                }
+                else
+                    LOG_verbose("%s", attr.line);
+            }
         };
         // recevie #<errno>
         if (0 == retval)
@@ -322,8 +335,16 @@ static int SHELL_execute(char const *cmdline)
             };
         }
     }
+
+execute_exit:
     pthread_mutex_unlock(&attr.lock);
     return retval;
+
+}
+
+static int SHELL_execute(char const *cmdline)
+{
+    return SHELL_execute_cb(cmdline, NULL, NULL);
 }
 
 static void TIMEO_execute_callback(void *arg)
