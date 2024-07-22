@@ -29,6 +29,7 @@ static int SHELL_reminder(struct UCSH_env *env);
 static int SHELL_volume(struct UCSH_env *env);
 static int SHELL_dfmt(struct UCSH_env *env);
 static int SHELL_hfmt(struct UCSH_env *env);
+static int SHELL_rec(struct UCSH_env *env);
 
 /// @var
 TUltraCorePeripheral *BLE;
@@ -47,6 +48,7 @@ static uint32_t BLE_sh_stack[1200 / sizeof(uint32_t)];
 void SHELL_bootstrap(void)
 {
     UCSH_init();
+    UCSH_register_fileio();
 
     UCSH_register("batt",       SHELL_batt);
     UCSH_register("heap",       SHELL_heap);
@@ -62,6 +64,8 @@ void SHELL_bootstrap(void)
     // reminder
     UCSH_register("rmd",        SHELL_reminder);
     UCSH_register("reminder",   SHELL_reminder);
+    // rec
+    UCSH_register("rec",        SHELL_rec);
     // volume
     UCSH_register("vol",        SHELL_volume);
     UCSH_register("volume",     SHELL_volume);
@@ -584,5 +588,11 @@ static int SHELL_dfmt(struct UCSH_env *env)
         // no possiable value
         break;
     }
+    return 0;
+}
+
+static int SHELL_rec(struct UCSH_env *env)
+{
+    (void)env;
     return 0;
 }

@@ -119,6 +119,8 @@ void PERIPHERAL_init(void)
     // volume
     mplayer_set_volume(setting.media_volume);
 
+    // mplayer_commnad_cb("ls -all", line_callback, NULL);
+
     // init voice with using alt folder
     VOICE_init(&voice_attr, &setting.locale, true);
     // startting RTC calibration if PIN is connected
@@ -296,18 +298,28 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 
     if (0 == runtime->env_sensor.last_ts || ENV_SENSOR_UPDATE_SECONDS < ts - runtime->env_sensor.last_ts)
     {
-        ENV_sensor_read(runtime->env_sensor_devfd,
-            &runtime->env_sensor.tmpr, &runtime->env_sensor.humidity);
+        if (runtime->env_sensor.converting)
+        {
+            if (0 == ENV_sensor_read(runtime->env_sensor_devfd,
+                &runtime->env_sensor.tmpr, &runtime->env_sensor.humidity))
+            {
+                if (! (PANEL_TMPR & runtime->panel_attr.disable_parts))
+                    PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
+                if (! (PANEL_HUMIDITY & runtime->panel_attr.disable_parts))
+                    PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
+            }
 
-        runtime->env_sensor.last_ts = ts;
+            runtime->env_sensor.last_ts = ts;
+            runtime->env_sensor.converting = false;
+        }
+        else
+        {
+            if (0 == ENV_sensor_start_convert(runtime->env_sensor_devfd))
+                runtime->env_sensor.converting = true;
+        }
+
         PERIPHERAL_adv_update();
     }
-
-    if (! (PANEL_TMPR & runtime->panel_attr.disable_parts))
-        PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
-    if (! (PANEL_HUMIDITY & runtime->panel_attr.disable_parts))
-        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
-
     PANEL_update(&runtime->panel_attr);
 }
 
@@ -1314,7 +1326,7 @@ static void setting_defore_store_cb(struct PANEL_runtime_t *runtime)
 
 void SETTING_defer_save(struct PANEL_runtime_t *runtime)
 {
-    static timeout_t timeo = TIMEOUT_INITIALIZER(360000, (void *)setting_defore_store_cb);
+    static timeout_t timeo = TIMEOUT_INITIALIZER(360000, (void *)setting_defore_store_cb, 0);
 
     runtime->setting.is_modified = true;
     timeout_start(&timeo, runtime);

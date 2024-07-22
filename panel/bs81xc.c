@@ -13,14 +13,8 @@
 /****************************************************************************
  *  @implements
  ****************************************************************************/
-int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
+static void BS81xC_initialize(int fd)
 {
-    int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0xFF);
-
-    uint32_t timeo = 500;
-    ioctl(fd, OPT_RD_TIMEO, &timeo);
-    ioctl(fd, OPT_WR_TIMEO, &timeo);
-
     char buf[22] = {0};
     lseek(fd, 0xB0, SEEK_SET);
     read(fd, buf, sizeof(buf));
@@ -36,7 +30,18 @@ int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
 
     lseek(fd, 0xB0, SEEK_SET);
     write(fd, buf, sizeof(buf));
+}
 
+
+int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
+{
+    int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0xFF);
+
+    uint32_t timeo = 500;
+    ioctl(fd, OPT_RD_TIMEO, &timeo);
+    ioctl(fd, OPT_WR_TIMEO, &timeo);
+
+    BS81xC_initialize(fd);
     return fd;
 }
 

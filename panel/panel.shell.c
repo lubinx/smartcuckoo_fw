@@ -2,7 +2,7 @@
 
 
 /****************************************************************************
- *  @private
+ * @private
  ****************************************************************************/
 static int SHELL_env_sensor(struct UCSH_env *env);
 static int SHELL_dim(struct UCSH_env *env);
@@ -13,7 +13,7 @@ static int SHELL_noise(struct UCSH_env *env);
 #endif
 
 /****************************************************************************
- *  @implements
+ * @implements
  ****************************************************************************/
 void PERIPHERAL_shell_init(void)
 {
@@ -27,7 +27,7 @@ void PERIPHERAL_shell_init(void)
 }
 
 /****************************************************************************
- *  @private
+ * @private
  ****************************************************************************/
 static int SHELL_env_sensor(struct UCSH_env *env)
 {

@@ -2,11 +2,13 @@
 
 #include <stdbool.h>
 #include <stropts.h>
+#include <gpio.h>
 #include <i2c.h>
 #include <hash/crc8.h>
 
 #include "SHT4x.h"
 
+#pragma GCC optimize("O0")
 /***************************************************************************
  *  @internal
  ***************************************************************************/
@@ -28,36 +30,12 @@ struct SHT4X_context SHT4X_context;
  ***************************************************************************/
 int SHT4X_open(void *i2c_dev, uint16_t da, uint16_t kbps)
 {
-    msleep(SHT4X_POWER_UP_TIMEO);
     int fd = I2C_createfd(i2c_dev, da, kbps, 0, 0);
     int timeout = 10;
 
     ioctl(fd, OPT_RD_TIMEO, &timeout);
     ioctl(fd, OPT_WR_TIMEO, &timeout);
 
-    if (0 < fd)
-    {
-        if (0 != write_command(fd, 0x94))       // soft reset
-            goto sht4x_init_failure;
-
-        msleep(SHT4X_POWER_UP_TIMEO);
-
-        /*
-        write_command(fd, 0x89);
-        msleep(SHT4X_POWER_UP_TIMEO);
-
-        uint16_t d1, d2;
-        if (-1 == read_reponse(fd, &d1, &d2))
-            goto sht4x_init_failure;
-        */
-
-        if (false)
-        {
-sht4x_init_failure:
-            close(fd);
-            fd = -1;
-        }
-    }
     return fd;
 }
 
@@ -70,11 +48,20 @@ int SHT4X_start_convert(int fd)
     {
         SHT4X_context.timeout = SHT4X_HIGH_PRECISION_TIMEO;
         int retval = write_command(fd, 0xFD);
+
+        // SHT4X_context.timeout = SHT4X_MED_PRECISION_TIMEO;
         // int retval = write_command(fd, 0xF6);
+
+        // SHT4X_context.timeout = SHT4X_LOW_PRECISION_TIMEO;
         // int retval = write_command(fd, 0xE0);
+
+        // SHT4X_context.timeout = 100;        // heater 0.1s
+        // int retval = write_command(fd, 0x32);
 
         if (0 == retval)
             SHT4X_context.tick = clock();
+        else
+            NVIC_SystemReset();
 
         return retval;
     }
@@ -86,9 +73,6 @@ int SHT4X_read(int fd, int16_t *tmpr, uint8_t *humidity)
 {
     if (0 >= fd)
         return __set_errno_neg(ENODEV);
-
-    if (0 == SHT4X_context.tick)
-        SHT4X_start_convert(fd);
 
     uint16_t d1 = 0, d2 = 0;
 
@@ -111,11 +95,7 @@ int SHT4X_read(int fd, int16_t *tmpr, uint8_t *humidity)
         *tmpr = (int16_t)SHT4X_context.tmpr;
         *humidity = (uint8_t)((SHT4X_context.uncropped_humidity + 5) / 10);
     }
-    else
-    {
-        // SEND SOFT-RESET
-        write_command(fd, 0x94);
-    }
+
     return retval;
 }
 
@@ -140,12 +120,7 @@ static int read_reponse(int fd, uint16_t *d1, uint16_t *d2)
     }
 
     if (sizeof(buf) != read(fd, buf, sizeof(buf)))
-    {
-        int err = errno;
-        write_command(fd, 0x94);
-
-        return __set_errno_neg(err);
-    }
+        return -1;
 
     if (d1)
     {

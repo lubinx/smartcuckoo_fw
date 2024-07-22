@@ -143,6 +143,7 @@
         {
             int16_t tmpr;
             uint8_t humidity;
+            bytebool_t converting;
 
             time_t last_ts;
         } env_sensor;
@@ -188,6 +189,12 @@ static inline
     int ENV_sensor_createfd(void *i2c_dev)
     {
         return SHT4X_open(i2c_dev, SHT4X_A_DA, I2C_BUS_SPEED);
+    }
+
+static inline
+    int ENV_sensor_start_convert(int env_sensor_fd)
+    {
+        return SHT4X_start_convert(env_sensor_fd);
     }
 
 static inline

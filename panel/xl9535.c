@@ -22,12 +22,6 @@ int XL9535_createfd(void *i2c_dev, uint16_t kbps)
     ioctl(fd, OPT_RD_TIMEO, &timeo);
     ioctl(fd, OPT_WR_TIMEO, &timeo);
 
-    /*
-    uint8_t buf[2] = {0};
-    lseek(fd, 6, SEEK_SET);
-    read(fd, buf, sizeof(buf));
-    */
-
     return fd;
 }
 
@@ -43,6 +37,8 @@ int XL9535_read_key(int devfd, uint32_t *key)
     }
     else
     {
+        I2C_generic_reset(devfd);
+
         *key = 0;
         return errno;
     }

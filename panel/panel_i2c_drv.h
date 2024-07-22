@@ -84,13 +84,18 @@ __BEGIN_DECLS
 
 extern __attribute__((nothrow))
     void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct SMARTCUCKOO_locale_t const *locale);
+extern __attribute__((nothrow))
+    void PANEL_test(struct PANEL_attr_t *attr);
+
+extern __attribute__((nothrow))
+    void PANEL_set_dim(struct PANEL_attr_t *attr, uint8_t percent, uint8_t dyn_percent);
+extern __attribute__((nothrow))
+    void PANEL_attr_set_hfmt(struct PANEL_attr_t *attr, enum LOCALE_hfmt_t hfmt);
 
 extern __attribute__((nothrow))
     void PANEL_attr_set_blinky(struct PANEL_attr_t *attr, uint32_t parts);
 extern __attribute__((nothrow))
     void PANEL_attr_set_disable(struct PANEL_attr_t *attr, uint32_t parts);
-extern __attribute__((nothrow))
-    void PANEL_attr_set_hfmt(struct PANEL_attr_t *attr, enum LOCALE_hfmt_t hfmt);
 
 extern __attribute__((nothrow))
     void PANEL_attr_set_datetime(struct PANEL_attr_t *attr, time_t ts);
@@ -115,9 +120,6 @@ extern __attribute__((nothrow))
 
 extern __attribute__((nothrow))
     int PANEL_update(struct PANEL_attr_t *attr);
-
-extern __attribute__((nothrow))
-    void PANEL_set_dim(struct PANEL_attr_t *attr, uint8_t percent, uint8_t dyn_percent);
 
 /****************************************************************************
  *  @CHIP impl

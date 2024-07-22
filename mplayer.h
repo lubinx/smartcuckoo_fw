@@ -75,6 +75,14 @@ extern __attribute__((nothrow))
     int mplayer_playlist_clear(void);
 
 /****************************************************************************
+ *  @def: mplayer command & callback
+ ****************************************************************************/
+    typedef int (*SH_callback_t)(char const *line, void *arg);
+
+extern __attribute__((nothrow))
+    int mplayer_commnad_cb(char const *cmdline, SH_callback_t line_cb, void *arg);
+
+/****************************************************************************
  *  @def: overridable
  ****************************************************************************/
 extern __attribute__((nothrow))

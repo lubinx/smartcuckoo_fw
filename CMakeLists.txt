@@ -18,6 +18,8 @@ set(COMMON_SRCS
     "main.c"
     "shell.cpp"
     "shell_ota.c"
+    # ${ULTRACORE_ROOT}/src/sh/ucsh.c
+    # ${ULTRACORE_ROOT}/src/sh/impl/file.c
 )
 
 build_target(talking_button
@@ -49,11 +51,13 @@ build_target(panel_b
         "panel/b_config"
     INCLUDE_DIRS
         "."
+        "./sensors"
         "./panel"
         "./panel/drv"
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
+        "sensors/*.c"
     SRCS-
         "panel/lamp.c"
         "panel/panel_ml_i2c_drv.c"
@@ -72,11 +76,13 @@ build_target(panel_c
         "panel/c_config"
     INCLUDE_DIRS
         "."
+        "./sensors"
         "./panel"
         "./panel/drv"
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
+        "sensors/*.c"
     SRCS-
         "panel/panel_ml_i2c_drv.c"
     DEFINITIONS
