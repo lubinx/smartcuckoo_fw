@@ -13,16 +13,10 @@
 #include "panel_i2c_drv.h"
 
 #include "irda.h"
+#include "ioext.h"
 #include "SHT4x.h"
 #include "lamp.h"
 #include "mplayer_noise.h"
-
-#if defined(PANEL_B)
-    #include "xl9535.h"
-#elif defined(PANEL_C)
-    #include "bs81xc.h"
-#else
-#endif
 
     enum PANEL_message_t
     {
@@ -201,26 +195,6 @@ static inline
     int ENV_sensor_read(int env_sensor_fd, int16_t *tmpr, uint8_t *humidity)
     {
         return SHT4X_read(env_sensor_fd, tmpr, humidity);
-    }
-
-static inline
-    int IOEXT_createfd(void *i2c_dev)
-    {
-        #ifdef PANEL_C
-            return BS81xC_createfd(i2c_dev, I2C_BUS_SPEED);
-        #else
-            return XL9535_createfd(i2c_dev, I2C_BUS_SPEED);
-        #endif
-    }
-
-static inline
-    int IOEXT_read_key(int ioext_fd, uint32_t *key)
-    {
-        #ifdef PANEL_C
-            return BS81xC_read_key(ioext_fd, key);
-        #else
-            return XL9535_read_key(ioext_fd, key);
-        #endif
     }
 
 __END_DECLS

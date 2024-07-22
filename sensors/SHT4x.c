@@ -8,7 +8,14 @@
 
 #include "SHT4x.h"
 
-#pragma GCC optimize("O0")
+/***************************************************************************
+ *  @def
+ ***************************************************************************/
+    #define SHT4X_POWER_UP_TIMEO        (2)
+    #define SHT4X_HIGH_PRECISION_TIMEO  (9)
+    #define SHT4X_MED_PRECISION_TIMEO   (5)
+    #define SHT4X_LOW_PRECISION_TIMEO   (2)
+
 /***************************************************************************
  *  @internal
  ***************************************************************************/
@@ -31,11 +38,12 @@ struct SHT4X_context SHT4X_context;
 int SHT4X_open(void *i2c_dev, uint16_t da, uint16_t kbps)
 {
     int fd = I2C_createfd(i2c_dev, da, kbps, 0, 0);
-    int timeout = 10;
+    {
+        int timeout = 10;
 
-    ioctl(fd, OPT_RD_TIMEO, &timeout);
-    ioctl(fd, OPT_WR_TIMEO, &timeout);
-
+        ioctl(fd, OPT_RD_TIMEO, &timeout);
+        ioctl(fd, OPT_WR_TIMEO, &timeout);
+    }
     return fd;
 }
 

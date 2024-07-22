@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include <i2c.h>
-#include "xl9535.h"
+#include "ioext.h"
 
 /****************************************************************************
  *  @def
@@ -14,7 +14,7 @@
 /****************************************************************************
  *  @implements
  ****************************************************************************/
-int XL9535_createfd(void *i2c_dev, uint16_t kbps)
+int IOEXT_createfd(void *i2c_dev, uint16_t kbps)
 {
     int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0x7);
 
@@ -25,7 +25,7 @@ int XL9535_createfd(void *i2c_dev, uint16_t kbps)
     return fd;
 }
 
-int XL9535_read_key(int devfd, uint32_t *key)
+int IOEXT_read_key(int devfd, uint32_t *key)
 {
     uint16_t val;
     lseek(devfd, 0, SEEK_SET);

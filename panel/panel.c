@@ -119,8 +119,6 @@ void PERIPHERAL_init(void)
     // volume
     mplayer_set_volume(setting.media_volume);
 
-    // mplayer_commnad_cb("ls -all", line_callback, NULL);
-
     // init voice with using alt folder
     VOICE_init(&voice_attr, &setting.locale, true);
     // startting RTC calibration if PIN is connected
@@ -128,7 +126,7 @@ void PERIPHERAL_init(void)
     RTC_calibration_init();
 
     // touch pad
-    panel.ioext_fd_devfd = IOEXT_createfd(I2C1);
+    panel.ioext_fd_devfd = IOEXT_createfd(I2C1, I2C_BUS_SPEED);
     #ifdef PANEL_B
         while (1)
         {

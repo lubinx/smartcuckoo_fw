@@ -6,10 +6,10 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    int BS81xC_createfd(void *i2c_dev, uint16_t kbps);
+    int IOEXT_createfd(void *i2c_dev, uint16_t kbps);
 
 extern __attribute__((nothrow))
-    int BS81xC_read_key(int devfd, uint32_t *key);
+    int IOEXT_read_key(int devfd, uint32_t *key);
 
 __END_DECLS
 #endif

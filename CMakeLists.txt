@@ -52,12 +52,14 @@ build_target(panel_b
     INCLUDE_DIRS
         "."
         "./sensors"
+        "./io_ext"
         "./panel"
         "./panel/drv"
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
         "sensors/*.c"
+        "io_ext/xl9535.c"
     SRCS-
         "panel/lamp.c"
         "panel/panel_ml_i2c_drv.c"
@@ -77,12 +79,14 @@ build_target(panel_c
     INCLUDE_DIRS
         "."
         "./sensors"
+        "./io_ext"
         "./panel"
         "./panel/drv"
     SRCS
         ${COMMON_SRCS}
         "panel/*.c"
         "sensors/*.c"
+        "io_ext/bs81xc.c"
     SRCS-
         "panel/panel_ml_i2c_drv.c"
     DEFINITIONS

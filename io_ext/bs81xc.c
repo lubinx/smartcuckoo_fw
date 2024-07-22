@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include <i2c.h>
-#include "bs81xc.h"
+#include "ioext.h"
 
 /****************************************************************************
  *  @def
@@ -32,8 +32,7 @@ static void BS81xC_initialize(int fd)
     write(fd, buf, sizeof(buf));
 }
 
-
-int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
+int IOEXT_createfd(void *i2c_dev, uint16_t kbps)
 {
     int fd = I2C_createfd(i2c_dev, DA, kbps, 0, 0xFF);
 
@@ -45,7 +44,7 @@ int BS81xC_createfd(void *i2c_dev, uint16_t kbps)
     return fd;
 }
 
-int BS81xC_read_key(int devfd, uint32_t *key)
+int IOEXT_read_key(int devfd, uint32_t *key)
 {
     uint16_t val;
     lseek(devfd, 0x08, SEEK_SET);
