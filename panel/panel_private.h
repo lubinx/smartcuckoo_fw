@@ -13,8 +13,8 @@
 #include "panel_i2c_drv.h"
 
 #include "irda.h"
+#include "env.h"
 #include "ioext.h"
-#include "SHT4x.h"
 #include "lamp.h"
 #include "mplayer_noise.h"
 
@@ -178,24 +178,6 @@ static inline
 
 extern __attribute__((nothrow))
     void SETTING_defer_save(struct PANEL_runtime_t *);
-
-static inline
-    int ENV_sensor_createfd(void *i2c_dev)
-    {
-        return SHT4X_open(i2c_dev, SHT4X_A_DA, I2C_BUS_SPEED);
-    }
-
-static inline
-    int ENV_sensor_start_convert(int env_sensor_fd)
-    {
-        return SHT4X_start_convert(env_sensor_fd);
-    }
-
-static inline
-    int ENV_sensor_read(int env_sensor_fd, int16_t *tmpr, uint8_t *humidity)
-    {
-        return SHT4X_read(env_sensor_fd, tmpr, humidity);
-    }
 
 __END_DECLS
 #endif

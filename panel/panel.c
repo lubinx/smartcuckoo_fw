@@ -77,6 +77,26 @@ void PERIPHERAL_init(void)
 {
     CLOCK_init();
 
+    /*
+    if (true)
+    {
+        int fd = I2C_createfd(I2C1, 0x38, 10, 0, 0);
+        if (0 < fd)
+        {
+            while (1)
+            {
+                msleep(500);
+                uint8_t stat;
+                if (sizeof(stat) == read(fd, &stat, sizeof(stat)))
+                {
+                    break;
+                }
+            }
+        }
+
+    }
+    */
+
     // waitfor ext 5V is connected
     while (0 == GPIO_peek(PIN_EXT_5V_DET))
     {
@@ -108,7 +128,7 @@ void PERIPHERAL_init(void)
     }
 
     // environment sensor
-    panel.env_sensor_devfd = ENV_sensor_createfd(I2C1);
+    panel.env_sensor_devfd = ENV_sensor_createfd(I2C1, I2C_BUS_SPEED);
     // bootstap update display once
     MSG_alive(&panel);
 
@@ -489,7 +509,9 @@ static void MSG_ioext(struct PANEL_runtime_t *runtime)
     timeout_stop(&panel.gpio_repeat_intv);
 
     uint32_t key;
-    IOEXT_read_key(runtime->ioext_fd_devfd, &key);
+    int retval = IOEXT_read_key(runtime->ioext_fd_devfd, &key);
+    if (0 != retval)
+        LOG_error("IOEXT read key error: %d", retval);
 
     if (0 != key)
     {

@@ -171,6 +171,7 @@ static void WS2812B_set_24bit(uint32_t grb)
             *DOUT_CLR = PIN_LAMP;
             __NOP(); __NOP(); __NOP(); __NOP();
             __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); __NOP(); __NOP(); __NOP();
         }
     }
 }

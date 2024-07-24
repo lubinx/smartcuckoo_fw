@@ -21,7 +21,7 @@
 /****************************************************************************
  * @implements
  ****************************************************************************/
-int FILE_open(struct UCSH_env *env)
+int UCSH_fopen(struct UCSH_env *env)
 {
     if (3 != env->argc)
         return EINVAL;
@@ -29,14 +29,38 @@ int FILE_open(struct UCSH_env *env)
         return EINVAL;
 
     sprintf(env->buf, "fopen %s %s\r\n", env->argv[1], env->argv[2]);
-        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    return mplayer_commnad_cb(env->buf, NULL, NULL);
 }
 
-int FILE_seek(struct UCSH_env *env)
+int UCSH_fseek(struct UCSH_env *env)
 {
     if (3 != env->argc)
         return EINVAL;
 
     sprintf(env->buf, "fseek %s %s\r\n", env->argv[1], env->argv[2]);
-        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    return mplayer_commnad_cb(env->buf, NULL, NULL);
+}
+
+int UCSH_fread(struct UCSH_env *env)
+{
+    if (3 != env->argc)
+        return EINVAL;
+
+    return ENOSYS;
+}
+
+int UCSH_write(struct UCSH_env *env)
+{
+    if (3 != env->argc)
+        return EINVAL;
+
+    return ENOSYS;
+}
+
+int UCSH_freadln(struct UCSH_env *env)
+{
+    if (2 != env->argc)
+        return EINVAL;
+
+    return ENOSYS;
 }

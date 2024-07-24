@@ -19,7 +19,7 @@ set(COMMON_SRCS
     "shell.cpp"
     "shell_ota.c"
     # ${ULTRACORE_ROOT}/src/sh/ucsh.c
-    # ${ULTRACORE_ROOT}/src/sh/impl/file.c
+    # ${ULTRACORE_ROOT}/src/hw/common_i2c.c
 )
 
 build_target(talking_button
@@ -63,6 +63,7 @@ build_target(panel_b
     SRCS-
         "panel/lamp.c"
         "panel/panel_ml_i2c_drv.c"
+        "sensors/env_sht4x.c"
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR
@@ -89,6 +90,7 @@ build_target(panel_c
         "io_ext/bs81xc.c"
     SRCS-
         "panel/panel_ml_i2c_drv.c"
+        "sensors/env_sht4x.c"
     DEFINITIONS
         NVM_TAG="panel_c"
     OUTPUT_DIR

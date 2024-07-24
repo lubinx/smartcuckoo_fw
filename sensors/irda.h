@@ -11,7 +11,6 @@
         uint32_t value;
     };
 
-
     // https://www.sbprojects.net/knowledge/ir/nec.php
     struct IrDA_nec_t
     {
@@ -19,7 +18,7 @@
         {
             uint16_t addr_ext;
 
-            struct 
+            struct
             {
                 uint8_t addr;
                 uint8_t addr_inv;
