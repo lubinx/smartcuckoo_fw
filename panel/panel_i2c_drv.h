@@ -55,8 +55,6 @@
         uint32_t blinky_mask;
 
         struct SMARTCUCKOO_locale_t const *locale;
-        int16_t std_tmpr;
-
         struct
         {
             int16_t mtime;

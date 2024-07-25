@@ -83,7 +83,6 @@
         */
         SETTING_A_HOUR,
         SETTING_A_MINUTE,
-        SETTING_A_RINGTONE,
 
         SETTING_WDAY_MONDAY,
         SETTING_WDAY_THESDAY,
@@ -92,9 +91,10 @@
         SETTING_WDAY_FRIDAY,
         SETTING_WDAY_SATURDAY,
         SETTING_WDAY_SUNDAY,
-
         #define SETTING_WDAY_START      SETTING_WDAY_MONDAY
         #define SETTING_WDAY_END        SETTING_WDAY_SUNDAY
+
+        SETTING_A_RINGTONE,
     };
 
     struct TOUCH_keymap_t

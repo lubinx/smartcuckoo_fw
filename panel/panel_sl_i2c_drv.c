@@ -293,45 +293,70 @@ int PANEL_update(struct PANEL_attr_t *attr)
     // update humidity
     if (0 == retval)
     {
-        if (PANEL_HUMIDITY & attr->disable_parts)
-            attr->cache.flags &= ~FLAG_IND_HUMIDITY;
-        else
+        if (0 == (PANEL_HUMIDITY & attr->disable_parts))
+        {
             attr->cache.flags |= FLAG_IND_HUMIDITY;
+
+            if (attr->cache.humidity != attr->set.humidity)
+            {
+                attr->set.humidity = attr->cache.humidity;
+                retval = PANEL_update_digit(attr, SEG(14), attr->cache.humidity, 2, false);
+            }
+        }
+        else
+        {
+            attr->cache.flags &= ~FLAG_IND_HUMIDITY;
+            retval = PANEL_update_digit(attr, SEG(14), attr->set.humidity, 2, false);
+        }
 
         if (PANEL_HUMIDITY & attr->blinky_parts)
         {
             attr->blinky_mask ^= PANEL_HUMIDITY & attr->blinky_parts;
-            if (PANEL_HUMIDITY & attr->blinky_mask)
-                attr->cache.humidity = -1;
-        }
 
-        if (attr->cache.humidity != attr->set.humidity)
-        {
-            attr->set.humidity = attr->cache.humidity;
-            retval = PANEL_update_digit(attr, SEG(14), attr->cache.humidity, 2, false);
+            if ((PANEL_HUMIDITY & attr->blinky_mask) && -1 != attr->set.humidity)
+            {
+                attr->set.humidity = -1;
+                retval = PANEL_update_digit(attr, SEG(14), attr->set.humidity, 2, false);
+            }
         }
     }
 
     // update tmpr
     if (0 == retval)
     {
-        if (! (PANEL_TMPR & attr->disable_parts))
+        if (0 == (PANEL_TMPR & attr->disable_parts))
         {
             attr->cache.flags = (attr->cache.flags & ~(FLAG_IND_TMPR_F | FLAG_IND_TMPR_C)) | FLAG_IND_TMPR;
 
             if (FAHRENHEIT == attr->locale->tmpr_unit)
             {
                 attr->cache.flags |= FLAG_IND_TMPR_F;
-                attr->cache.tmpr = TMPR_fahrenheit(attr->std_tmpr);
+                attr->cache.tmpr = TMPR_fahrenheit(attr->cache.tmpr);
             }
             else
             {
                 attr->cache.flags |= FLAG_IND_TMPR_C;
-                attr->cache.tmpr = attr->std_tmpr;
             }
+
+            if (attr->cache.tmpr != attr->set.tmpr)
+                retval = PANEL_update_tmpr(attr, attr->cache.tmpr);
         }
         else
+        {
             attr->cache.flags &= ~(FLAG_IND_TMPR_F | FLAG_IND_TMPR_C | FLAG_IND_TMPR);
+            retval = PANEL_update_digit(attr, SEG(16), attr->set.tmpr, 3, true);
+        }
+
+        if (PANEL_TMPR & attr->blinky_parts)
+        {
+            attr->blinky_mask ^= PANEL_TMPR & attr->blinky_parts;
+
+            if ((PANEL_TMPR & attr->blinky_mask) && -1 != attr->set.tmpr)
+            {
+                attr->set.tmpr = -1;
+                retval = PANEL_update_digit(attr, SEG(16), attr->set.tmpr, 3, true);
+            }
+        }
 
         // blinky tmpr unit
         if (PANEL_TMPR_UNIT & attr->blinky_parts)
@@ -347,23 +372,6 @@ int PANEL_update(struct PANEL_attr_t *attr)
             }
             else
                 attr->cache.flags = attr->cache.flags & ~(FLAG_IND_TMPR_C | FLAG_IND_TMPR_F);
-        }
-
-        if (PANEL_TMPR & attr->blinky_parts)
-        {
-            attr->blinky_mask ^= PANEL_TMPR & attr->blinky_parts;
-            if (PANEL_TMPR & attr->blinky_mask)
-                attr->cache.tmpr = -1;
-        }
-
-        if (attr->cache.tmpr != attr->set.tmpr)
-        {
-            attr->set.tmpr = attr->cache.tmpr;
-
-            if (0 == (PANEL_TMPR_UNIT & attr->disable_parts))
-                retval = PANEL_update_tmpr(attr, attr->cache.tmpr);
-            else
-                retval = PANEL_update_digit(attr, SEG(16), attr->cache.tmpr, 3, true);
         }
     }
 
@@ -539,8 +547,10 @@ static int PANEL_update_tmpr(struct PANEL_attr_t *attr, int16_t tmpr)
     // max display is -9.9
     if (-99 > tmpr)
         tmpr = attr->set.tmpr = attr->cache.tmpr = -99;
-    if (999 < tmpr)
+    else if (999 < tmpr)
         tmpr = attr->set.tmpr = attr->cache.tmpr = 999;
+
+    attr->set.tmpr = tmpr;
 
     uint8_t buf[8] = {0};
     unsigned idx = 1;

@@ -87,17 +87,23 @@ void PANEL_attr_set_wdays(struct PANEL_attr_t *attr, int8_t wdays)
 
 void PANEL_attr_set_ringtone_id(struct PANEL_attr_t *attr, int16_t id)
 {
-    attr->cache.tmpr = id;
+    attr->set.tmpr = id;
 }
 
 void PANEL_attr_set_tmpr(struct PANEL_attr_t *attr, int16_t tmpr)
 {
-    attr->std_tmpr = tmpr;
+    if (0 == (PANEL_TMPR & attr->disable_parts))
+        attr->cache.tmpr = tmpr;
+    else
+        attr->set.tmpr = tmpr;
 }
 
 void PANEL_attr_set_humidity(struct PANEL_attr_t *attr, int8_t humidity)
 {
-    attr->cache.humidity = humidity;
+    if (0 == (PANEL_HUMIDITY & attr->disable_parts))
+        attr->cache.humidity = humidity;
+    else
+        attr->set.humidity = humidity;
 }
 
 /****************************************************************************

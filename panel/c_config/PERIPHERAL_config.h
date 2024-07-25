@@ -20,7 +20,7 @@
     #define DISPLAY_I2C                 (I2C0)
 
 // environment sensor update seconds
-    #define ENV_SENSOR_UPDATE_SECONDS   (1)
+    #define ENV_SENSOR_UPDATE_SECONDS   (5)
 
 // buttons
     #define PIN_SNOOZE                  PC05
