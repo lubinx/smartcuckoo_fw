@@ -10,6 +10,8 @@
     #define PANEL_B
 
     #define SETTING_TIMEOUT             (15000)
+    #define TMP_CONTENT_TIMEOUT         (3000)
+
     // common key and volume+/- is hold to repeat
     #define COMMON_KEY_REPEAT_INTV      (300)
     // light sensor det intv
