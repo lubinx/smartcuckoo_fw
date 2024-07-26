@@ -47,8 +47,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct PANEL_runtime_
 static void MSG_alive(struct PANEL_runtime_t *runtime);
 
 static void setting_done(struct PANEL_runtime_t *runtime);
-static void disable_tmp_content(struct PANEL_runtime_t *runtime);
 static void media_stop(struct PANEL_runtime_t *runtime);
+
+static void tmp_content_start(struct PANEL_runtime_t *runtime, enum PANEL_setting_group_t, uint32_t, uint32_t);
+static void tmp_content_disable(struct PANEL_runtime_t *runtime);
 
 /****************************************************************************
  *  @implements
@@ -77,26 +79,6 @@ void PERIPHERAL_ota_init(void)
 void PERIPHERAL_init(void)
 {
     CLOCK_init();
-
-    /*
-    if (true)
-    {
-        int fd = I2C_createfd(I2C1, 0x38, 10, 0, 0);
-        if (0 < fd)
-        {
-            while (1)
-            {
-                msleep(500);
-                uint8_t stat;
-                if (sizeof(stat) == read(fd, &stat, sizeof(stat)))
-                {
-                    break;
-                }
-            }
-        }
-
-    }
-    */
 
     // waitfor ext 5V is connected
     while (0 == GPIO_peek(PIN_EXT_5V_DET))
@@ -127,6 +109,9 @@ void PERIPHERAL_init(void)
         setting.media_volume = 70;
         setting.dim = 40;
     }
+
+    // tmp content
+    timeout_init(&panel.tmp_content.disable_timeo, TMP_CONTENT_TIMEOUT, (void *)tmp_content_disable, 0);
 
     // environment sensor
     panel.env_sensor_devfd = ENV_sensor_createfd(I2C1, I2C_BUS_SPEED);
@@ -203,13 +188,9 @@ void PERIPHERAL_init(void)
     timeout_init(&panel.schedule_intv, 380, (void *)SCHEDULE_intv_callback, TIMEOUT_FLAG_REPEAT);
     timeout_start(&panel.schedule_intv, &panel);
 
-    /*
-    panel.tmp_content.en = true;
-    panel.tmp_content.tick = clock();
-    panel.tmp_content.group = SETTING_ALARM_1_GROUP;
-    PANEL_attr_unset_flags(&panel.panel_attr, PANEL_INDICATES);
-    PANEL_attr_set_blinky(&panel.panel_attr, PANEL_IND_1);
-    */
+    // tmp_content_start(&panel, SETTING_ALARM_1_GROUP, PANEL_HUMIDITY, PANEL_HUMIDITY);
+    // PANEL_attr_unset_flags(&panel.panel_attr, PANEL_HUM);
+    // PANEL_attr_set_blinky(&panel.panel_attr, PANEL_IND_1);
 }
 
 void mplayer_stopping_callback(void)
@@ -224,7 +205,7 @@ void mplayer_stopping_callback(void)
 
 void mplayer_idle_callback(void)
 {
-    disable_tmp_content(&panel);
+    tmp_content_disable(&panel);
 
     if (CLOCK_is_alarming())
     {
@@ -263,9 +244,11 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         }
         else
         {
-            PANEL_attr_set_disable(&runtime->panel_attr, 0);
-            PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
-            PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
+            // PANEL_attr_set_disable(&runtime->panel_attr, 0);
+            if (! (PANEL_TMPR & runtime->panel_attr.disable_parts))
+                PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
+            if (! (PANEL_HUMIDITY & runtime->panel_attr.disable_parts))
+                PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
         }
 
         if (SETTING_TIME_GROUP == group)
@@ -322,7 +305,12 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         if (! CLOCK_is_alarming())
         {
             int idx = CLOCK_peek_start_alarms(ts);
-            if (-1 != idx)
+            if (-1 == idx)
+            {
+                if (! runtime->tmp_content.en)
+                    PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+            }
+            else
                 PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_1 << idx);
         }
     }
@@ -361,6 +349,8 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 
     if (runtime->setting.en)
     {
+        PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_PERCENT);
+
         if (SETTING_group_is_alarms(runtime->setting.group))
         {
             PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
@@ -565,16 +555,14 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
 
     if (0 == click_count ++ % 2)
     {
-        PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_TIME);
+        tmp_content_start(runtime, PANEL_TIME, 0, PANEL_TIME);
         VOICE_say_time_epoch(&voice_attr, time(NULL));
     }
     else
     {
-        PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_DATE);
+        tmp_content_start(runtime, PANEL_TIME, 0, PANEL_DATE);
         VOICE_say_date_epoch(&voice_attr, time(NULL));
     }
-
-    runtime->tmp_content.en = true;
 }
 
 static void MSG_button_message(struct PANEL_runtime_t *runtime)
@@ -591,7 +579,6 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
         break;
 
     case MSG_BUTTON_SETTING:
-        disable_tmp_content(runtime);
         runtime->setting.tick = clock();
 
         if ( ! runtime->setting.en)
@@ -601,7 +588,6 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
 
             runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
             runtime->setting.part = 0;
-            runtime->tmp_content.en = false;    // copied into setting
 
             media_stop(runtime);
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
@@ -613,6 +599,8 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             else
                 runtime->setting.level --;
         }
+
+        tmp_content_disable(runtime);
         mqueue_postv(runtime->mqd, MSG_SET_BLINKY, 0, 0);
         break;
 
@@ -662,7 +650,33 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
     msg_button_ok:
     case MSG_BUTTON_OK:
-        if (runtime->setting.level < __setting_gp[runtime->setting.group].level)
+        if (SETTING_TMPR_UNIT_GROUP == runtime->setting.group)
+        {
+            if (CELSIUS == setting.locale.tmpr_unit)
+                setting.locale.tmpr_unit = FAHRENHEIT;
+            else
+                setting.locale.tmpr_unit = CELSIUS;
+
+            runtime->setting.is_modified = true;
+        }
+        else if (SETTING_HOUR_FORMT == runtime->setting.part)
+        {
+            switch (setting.locale.hfmt)
+            {
+            case HFMT_DEFAULT:
+            case HFMT_24:
+                setting.locale.hfmt = HFMT_12;
+                break;
+
+            case HFMT_12:
+                setting.locale.hfmt = HFMT_24;
+                break;
+            }
+            runtime->setting.is_modified = true;
+
+            goto post_set_blinky;
+        }
+        else if (runtime->setting.level < __setting_gp[runtime->setting.group].level)
         {
             if (1 == ++ runtime->setting.level)
                runtime->setting.part = __setting_gp[runtime->setting.group].start;
@@ -681,15 +695,6 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
                 }
             }
             goto post_set_blinky;
-        }
-        else if (SETTING_TMPR_UNIT_GROUP == runtime->setting.group)
-        {
-            if (CELSIUS == setting.locale.tmpr_unit)
-                setting.locale.tmpr_unit = FAHRENHEIT;
-            else
-                setting.locale.tmpr_unit = CELSIUS;
-
-            runtime->setting.is_modified = true;
         }
         else if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
             SETTING_ALARM_4_GROUP >= runtime->setting.group)
@@ -737,23 +742,6 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             }
 
             runtime->setting.alarm_is_modified = true;
-            goto post_set_blinky;
-        }
-        else if (SETTING_HOUR_FORMT == runtime->setting.part)
-        {
-            switch (setting.locale.hfmt)
-            {
-            case HFMT_DEFAULT:
-            case HFMT_24:
-                setting.locale.hfmt = HFMT_12;
-                break;
-
-            case HFMT_12:
-                setting.locale.hfmt = HFMT_24;
-                break;
-            }
-            runtime->setting.is_modified = true;
-
             goto post_set_blinky;
         }
         else
@@ -1037,8 +1025,6 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         if (! is_playing)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
         */
-
-        SETTING_defer_save(runtime);
         break;
 
     case MSG_VOLUME_DEC:
@@ -1054,6 +1040,10 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         */
         break;
     }
+
+    tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
+    PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.media_volume);
+    PANEL_update(&runtime->panel_attr);
 
     if (modified)
         SETTING_defer_save(runtime);
@@ -1151,12 +1141,8 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 }
                 else
                 {
-                    runtime->tmp_content.en = true;
-                    runtime->tmp_content.tick = clock();
-                    runtime->tmp_content.group = SETTING_ALARM_1_GROUP;
-
+                    tmp_content_start(runtime, SETTING_ALARM_1_GROUP, 0, PANEL_IND_1);
                     PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_INDICATES);
-                    PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_1);
                     MSG_alive(runtime);
                 }
                 break;
@@ -1169,10 +1155,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 }
                 else
                 {
-                    runtime->tmp_content.en = true;
-                    runtime->tmp_content.tick = clock();
-                    runtime->tmp_content.group = SETTING_ALARM_2_GROUP;
-
+                    tmp_content_start(runtime, SETTING_ALARM_2_GROUP, 0, PANEL_IND_2);
                     PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_INDICATES);
                     PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_IND_2);
                     MSG_alive(runtime);
@@ -1357,7 +1340,19 @@ static void setting_done(struct PANEL_runtime_t *runtime)
     PANEL_attr_set_disable(&runtime->panel_attr, 0);
 }
 
-static void disable_tmp_content(struct PANEL_runtime_t *runtime)
+static void tmp_content_start(struct PANEL_runtime_t *runtime, enum PANEL_setting_group_t grp,
+    uint32_t disable_parts, uint32_t blinky_parts)
+{
+    runtime->tmp_content.en = true;
+
+    runtime->tmp_content.group = grp;
+    PANEL_attr_set_disable(&runtime->panel_attr, disable_parts);
+    PANEL_attr_set_blinky(&runtime->panel_attr, blinky_parts);
+
+    timeout_start(&runtime->tmp_content.disable_timeo, runtime);
+}
+
+static void tmp_content_disable(struct PANEL_runtime_t *runtime)
 {
     if (runtime->tmp_content.en)
     {
@@ -1365,7 +1360,13 @@ static void disable_tmp_content(struct PANEL_runtime_t *runtime)
 
         PANEL_attr_set_disable(&runtime->panel_attr, 0);
         PANEL_attr_set_blinky(&runtime->panel_attr, 0);
+
+        PANEL_attr_set_tmpr(&runtime->panel_attr, runtime->env_sensor.tmpr);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)runtime->env_sensor.humidity);
+
+        PANEL_update(&runtime->panel_attr);
     }
+    timeout_stop(&runtime->tmp_content.disable_timeo);
 }
 
 static void media_stop(struct PANEL_runtime_t *runtime)
