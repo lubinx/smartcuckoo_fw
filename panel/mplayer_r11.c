@@ -59,7 +59,7 @@ int mplayer_initlaize(int devfd, uint32_t pin_busy)
         pthread_mutex_init(&attr.lock, &mutex_attr);
         pthread_mutexattr_destroy(&mutex_attr);
     }
-    timeout_init(&attr.timeo_execute, 100, TIMEO_execute_callback, 0);
+    timeout_init(&attr.timeo_execute, 10, TIMEO_execute_callback, 0);
 
     attr.devfd = devfd;
     attr.pin_busy = pin_busy;
@@ -73,7 +73,7 @@ int mplayer_initlaize(int devfd, uint32_t pin_busy)
 
 enum mplayer_stat_t mplayer_stat(void)
 {
-    if (0 != GPIO_peek(attr.pin_busy))
+    if (0 == GPIO_peek(attr.pin_busy))
         return MPLAYER_PLAYING;
     else
         return MPLAYER_STOPPED;

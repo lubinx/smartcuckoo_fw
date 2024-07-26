@@ -205,8 +205,6 @@ void mplayer_stopping_callback(void)
 
 void mplayer_idle_callback(void)
 {
-    tmp_content_disable(&panel);
-
     if (CLOCK_is_alarming())
     {
         int idx = CLOCK_peek_start_alarms(time(NULL));
@@ -560,7 +558,7 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
     }
     else
     {
-        tmp_content_start(runtime, PANEL_TIME, 0, PANEL_DATE);
+        tmp_content_start(runtime, PANEL_DATE, 0, PANEL_DATE);
         VOICE_say_date_epoch(&voice_attr, time(NULL));
     }
 }
@@ -1041,9 +1039,34 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         break;
     }
 
-    tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
-    PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.media_volume);
-    PANEL_update(&runtime->panel_attr);
+    if (! runtime->setting.en)
+    {
+        tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.media_volume);
+        PANEL_update(&runtime->panel_attr);
+    }
+
+    // playing something...
+    if (MPLAYER_PLAYING != mplayer_stat())
+    {
+        int ringtone_id = -1;
+
+        for (unsigned i = 0; i < lengthof(clock_setting.alarms); i ++)
+        {
+            struct CLOCK_moment_t *moment = &clock_setting.alarms[i];
+
+            if (moment->enabled)
+            {
+                ringtone_id = moment->ringtone_id;
+                break;
+            }
+        }
+
+        if (-1 == ringtone_id)
+            ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, ringtone_id);
+
+        VOICE_play_ringtone(&voice_attr, ringtone_id);
+    }
 
     if (modified)
         SETTING_defer_save(runtime);
@@ -1344,6 +1367,7 @@ static void tmp_content_start(struct PANEL_runtime_t *runtime, enum PANEL_settin
     uint32_t disable_parts, uint32_t blinky_parts)
 {
     runtime->tmp_content.en = true;
+    timeout_stop(&runtime->tmp_content.disable_timeo);
 
     runtime->tmp_content.group = grp;
     PANEL_attr_set_disable(&runtime->panel_attr, disable_parts);
