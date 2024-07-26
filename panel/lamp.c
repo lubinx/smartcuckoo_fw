@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <timer.h>
 #include <stddef.h>
 
@@ -145,7 +146,7 @@ void LAMP_dec(struct LAMP_attr_t *attr)
 /****************************************************************************
  *  @internal
  ****************************************************************************/
-__attribute__((optimize("O0")))
+__attribute__((optimize("Ofast")))
 static void WS2812B_set_24bit(uint32_t grb)
 {
     static uint32_t volatile *DOUT_SET = &GPIO->P_SET[0].DOUT;
@@ -156,22 +157,18 @@ static void WS2812B_set_24bit(uint32_t grb)
         if (0x800000 & (grb << zz))
         {
             *DOUT_SET = PIN_LAMP;
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
+            usleep(2);
 
             *DOUT_CLR = PIN_LAMP;
-            __NOP();
+            __NOP(); __NOP();
         }
         else
         {
             *DOUT_SET = PIN_LAMP;
-            __NOP();
+            __NOP(); __NOP();
 
             *DOUT_CLR = PIN_LAMP;
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
-            __NOP(); __NOP(); __NOP(); __NOP();
+            usleep(2);
         }
     }
 }
