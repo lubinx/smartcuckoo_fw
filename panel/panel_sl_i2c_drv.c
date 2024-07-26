@@ -73,8 +73,8 @@
     #define FLAG_IND_4                  (1UL << 12)
     #define FLAG_INDICATES              (FLAG_IND_1 | FLAG_IND_2 | FLAG_IND_3 | FLAG_IND_4)
 
-    // #define FLAG_IND_PERCENT            (1UL << 17)
-    #define FLAG_IND_HUMIDITY           (1UL << 14 | 1UL << 15 | 1UL << 17)
+    #define FLAG_IND_PERCENT            (1UL << 17)
+    #define FLAG_IND_HUMIDITY           (1UL << 14 | 1UL << 15)
 
     #define FLAG_IND_TMPR               (1UL << 18 | 1UL << 19 | 1UL << 28)
     // #define FLAG_IND_DOT                (1UL << 28)
@@ -150,6 +150,8 @@ void PANEL_attr_set_flags(struct PANEL_attr_t *attr, uint32_t flags)
         attr->cache.flags = attr->cache.flags | FLAG_IND_ALARM | FLAG_IND_3;
     if (PANEL_IND_4 & flags)
         attr->cache.flags = attr->cache.flags | FLAG_IND_ALARM | FLAG_IND_4;
+    if (PANEL_PERCENT & flags)
+        attr->cache.flags = attr->cache.flags | FLAG_IND_PERCENT;
 }
 
 void PANEL_attr_unset_flags(struct PANEL_attr_t *attr, uint32_t flags)
@@ -162,6 +164,8 @@ void PANEL_attr_unset_flags(struct PANEL_attr_t *attr, uint32_t flags)
         attr->cache.flags &= ~FLAG_IND_3;
     if (PANEL_IND_4 & flags)
         attr->cache.flags &= ~FLAG_IND_4;
+    if (PANEL_PERCENT & flags)
+        attr->cache.flags &= ~FLAG_IND_PERCENT;
 
     if (0 == (attr->cache.flags & FLAG_INDICATES))
         attr->cache.flags &= ~FLAG_IND_ALARM;
@@ -295,17 +299,21 @@ int PANEL_update(struct PANEL_attr_t *attr)
     {
         if (0 == (PANEL_HUMIDITY & attr->disable_parts))
         {
-            attr->cache.flags |= FLAG_IND_HUMIDITY;
+            attr->cache.flags = attr->cache.flags | FLAG_IND_HUMIDITY | FLAG_IND_PERCENT;
 
             if (attr->cache.humidity != attr->set.humidity)
             {
                 attr->set.humidity = attr->cache.humidity;
-                retval = PANEL_update_digit(attr, SEG(14), attr->cache.humidity, 2, false);
+
+                if (100 <= attr->set.humidity) attr->set.humidity = 99;
+                retval = PANEL_update_digit(attr, SEG(14), attr->set.humidity, 2, false);
             }
         }
         else
         {
             attr->cache.flags &= ~FLAG_IND_HUMIDITY;
+
+            if (100 <= attr->set.humidity) attr->set.humidity = 99;
             retval = PANEL_update_digit(attr, SEG(14), attr->set.humidity, 2, false);
         }
 
@@ -328,18 +336,20 @@ int PANEL_update(struct PANEL_attr_t *attr)
         {
             attr->cache.flags = (attr->cache.flags & ~(FLAG_IND_TMPR_F | FLAG_IND_TMPR_C)) | FLAG_IND_TMPR;
 
+            int16_t tmpr;
             if (FAHRENHEIT == attr->locale->tmpr_unit)
             {
                 attr->cache.flags |= FLAG_IND_TMPR_F;
-                attr->cache.tmpr = TMPR_fahrenheit(attr->cache.tmpr);
+                tmpr = TMPR_fahrenheit(attr->cache.tmpr);
             }
             else
             {
                 attr->cache.flags |= FLAG_IND_TMPR_C;
+                tmpr = attr->cache.tmpr;
             }
 
-            if (attr->cache.tmpr != attr->set.tmpr)
-                retval = PANEL_update_tmpr(attr, attr->cache.tmpr);
+            if (tmpr != attr->set.tmpr)
+                retval = PANEL_update_tmpr(attr, tmpr);
         }
         else
         {

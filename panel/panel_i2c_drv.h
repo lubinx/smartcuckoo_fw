@@ -30,9 +30,10 @@
         PANEL_WDAY_FRIDAY       = 1U << 15,
         PANEL_WDAY_SATURDAY     = 1U << 16,
         // env sensors
-        PANEL_TMPR_UNIT         = 1U << 17,
-        PANEL_TMPR              = 1U << 18,
-        PANEL_HUMIDITY          = 1U << 19,
+        PANEL_TMPR              = 1U << 17,
+        PANEL_HUMIDITY          = 1U << 18,
+        PANEL_TMPR_UNIT         = 1U << 19,
+        PANEL_PERCENT           = 1U << 20,
 
         // date group
         #define PANEL_DATE      (PANEL_YEAR | PANEL_MONTH | PANEL_DAY)

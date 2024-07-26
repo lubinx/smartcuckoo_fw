@@ -61,6 +61,7 @@
         SETTING_ALARM_4_GROUP,
         SETTING_TMPR_UNIT_GROUP,
 
+        SETTING_GROUP_MIN           = SETTING_DATE_GROUP,
         SETTING_GROUP_MAX           = SETTING_TMPR_UNIT_GROUP,
     };
 
@@ -145,10 +146,8 @@
         struct
         {
             bool en;
-            clock_t tick;
-
+            timeout_t disable_timeo;
             enum PANEL_setting_group_t group;
-            enum PANEL_setting_part_t part;
         } tmp_content;
     };
 
