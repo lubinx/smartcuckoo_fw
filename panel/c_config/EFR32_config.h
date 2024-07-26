@@ -9,7 +9,7 @@
 //          <1=>FSRCO (no BLE support)
 //          <2=>Digital-PLL
 //          <3=>HFXO
-    #define SYSCLK_SEL                  (3)
+    #define SYSCLK_SEL                  (2)
 //          <n> ---> SYSCLK / HCLK DIV(1 performance) ==> HCLK (CPU)
 //          <n> ---> HCLK / PCLK DIV(1/2 calculated) ==> PCLK (Peripherial)
 //          <n> ---> PCLK / LSPCLK DIV(2) ==> LSPCLK (Low Speed Peripheral)
