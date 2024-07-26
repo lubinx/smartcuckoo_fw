@@ -86,7 +86,7 @@ int ENV_sensor_read(int fd, int16_t *tmpr, uint8_t *humidity)
         // RAW => tmpr
         val = (int16_t)(val * (200 * 10) / 1048576 - 500);
 
-        if (-200 < val)     // set range to -20.0 °C
+        if (-200 < val && 1000 > val)   // validate tmpr range -20.0 ~ 100 °C
         {
             *tmpr = (int16_t)val;
 
