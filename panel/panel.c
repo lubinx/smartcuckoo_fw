@@ -1220,7 +1220,10 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
 {
     if (PIN_EXTIO == (PIN_EXTIO & pins))
+    {
+        mqueue_flush(runtime->mqd);
         mqueue_postv(runtime->mqd, MSG_IOEXT, 0, 0);
+    }
 
     #ifdef PANEL_B
         if (PIN_DIAL_CWA == (PIN_DIAL_CWA & pins))
@@ -1235,12 +1238,12 @@ static void GPIO_button_callback(uint32_t pins, struct PANEL_runtime_t *runtime)
     #ifdef PANEL_C
         if (PIN_SNOOZE == (PIN_SNOOZE & pins))
         {
-            mqueue_remove_id(runtime->mqd, MSG_BUTTON_SNOOZE);
+            mqueue_flush(runtime->mqd);
             mqueue_postv(runtime->mqd, MSG_BUTTON_SNOOZE, 0, 0);
         }
         if (PIN_MESSAGE == (PIN_MESSAGE & pins))
         {
-            mqueue_remove_id(runtime->mqd, MSG_BUTTON_MESSAGE);
+            mqueue_flush(runtime->mqd);
             mqueue_postv(runtime->mqd, MSG_BUTTON_MESSAGE, 0, 0);
         }
     #endif
