@@ -77,8 +77,14 @@ extern __attribute__((nothrow))
 /****************************************************************************
  *  @def: mplayer command & callback
  ****************************************************************************/
-    typedef int (*SH_callback_t)(char const *line, void *arg);
+extern __attribute__((nothrow))
+    int mplayer_command_post(char const *cmdline);
+extern __attribute__((nothrow))
+    int mplayer_sendbuf(void *buf, size_t bufsize);
+extern __attribute__((nothrow))
+    int mplayer_recvbuf(void *buf, size_t bufsize);
 
+    typedef int (*SH_callback_t)(char const *line, void *arg);
 extern __attribute__((nothrow))
     int mplayer_commnad_cb(char const *cmdline, SH_callback_t line_cb, void *arg);
 

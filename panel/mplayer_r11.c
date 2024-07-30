@@ -172,7 +172,6 @@ int mplayer_set_volume(uint8_t percent)
         attr.volume = percent;
 
     pthread_mutex_unlock(&attr.lock);
-
     return retval;
 }
 
@@ -205,13 +204,26 @@ uint8_t mplayer_volume_dec(void)
     return attr.volume;
 }
 
+int mplayer_sendbuf(void *buf, size_t bufsize)
+{
+    return writebuf(attr.devfd, buf, bufsize);
+}
+
+int mplayer_recvbuf(void *buf, size_t bufsize)
+{
+    return readbuf(attr.devfd, buf, bufsize);
+}
+
+int mplayer_command_post(char const *cmdline)
+    __attribute__((alias("SHELL_post")));
+
 int mplayer_commnad_cb(char const *cmdline, SH_callback_t line_cb, void *arg)
     __attribute__((alias("SHELL_execute_cb")));
 
 /****************************************************************************
  *  @internal
  ****************************************************************************/
-ssize_t SHELL_readln(int fd, char *buf, size_t bufsize)
+static ssize_t SHELL_readln(int fd, char *buf, size_t bufsize)
 {
     int readed = 0;
     uint32_t tick = clock();
@@ -264,7 +276,7 @@ ssize_t SHELL_readln(int fd, char *buf, size_t bufsize)
 
 static int SHELL_post(char const *cmdline)
 {
-    LOG_info("%s", cmdline);
+    LOG_debug("%s", cmdline);
     int retval = 0;
 
     pthread_mutex_lock(&attr.lock);
@@ -318,28 +330,31 @@ static int SHELL_execute_cb(char const *cmdline, SH_callback_t line_cb, void *ar
             while (true)
             {
                 ssize_t line_size = SHELL_readln(attr.devfd, attr.err, sizeof(attr.err));
-
                 if (-1 == line_size)
-                    continue;
-                else
-                    LOG_verbose("%s", attr.err);
-
-                if (2 > line_size || '#' != attr.err[0])
                 {
-                    retval = ECMD;
+                    retval = ETIMEDOUT;
                     break;
                 }
+                else
+                    LOG_debug("%s", attr.err);
 
-                retval = (int)strtoul((char *)&attr.err[1], NULL, 10);
-                break;
-            };
+                if (2 <= line_size && '#' == attr.err[0])
+                {
+                    retval = (int)strtoul((char *)&attr.err[1], NULL, 10);
+                    break;
+                }
+                else
+                {
+                    retval = 0;
+                    break;
+                }
+            }
         }
     }
 
 execute_exit:
     pthread_mutex_unlock(&attr.lock);
     return retval;
-
 }
 
 static int SHELL_execute(char const *cmdline)

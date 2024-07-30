@@ -7,60 +7,167 @@
 #include "sh/ucsh.h"
 
 /****************************************************************************
- * @def
- ****************************************************************************/
-#define BLKSIZE                         (128)
-
-/*
-    fwrite <filename> <len> [append|trunc]\r\n      return 0 - errno
-    fseek <filename> <0/1/2> <pos>
-    fread  <filename> <len>\r\n                     return len
-    fclose <filename>
-*/
-
-/****************************************************************************
  * @implements
  ****************************************************************************/
+static void join_cmd(struct UCSH_env *env)
+{
+    int len = 0;
+    for (int i = 0; i < env->argc; i ++)
+        len += sprintf(&env->buf[len], "%s ", env->argv[i]);
+
+    env->buf[len - 1] = '\r';
+    env->buf[len] = '\n';
+    env->buf[len + 1] = '\0';
+}
+
+static int line_cb(char const *line, void *arg)
+{
+    UCSH_printf((void *)arg, "%s\n", line);
+    return 0;
+}
+
+int UCSH_pwd(struct UCSH_env *env)
+{
+    join_cmd(env);
+
+    return mplayer_commnad_cb(env->buf, line_cb, env);
+    return 0;
+}
+
+int UCSH_ls(struct UCSH_env *env)
+{
+    join_cmd(env);
+    return mplayer_commnad_cb(env->buf, line_cb, env);
+}
+
+int UCSH_unlink(struct UCSH_env *env)
+{
+    join_cmd(env);
+    return mplayer_commnad_cb(env->buf, NULL, NULL);
+}
+
+int UCSH_cat(struct UCSH_env *env)
+{
+    if (2 == env->argc)
+    {
+        int retval;
+
+        // open
+        sprintf(env->buf, "fopen %s r\r\n", env->argv[1]);
+        retval = mplayer_commnad_cb(env->buf, NULL, NULL);
+        if (0 != retval)
+            return retval;
+
+        // read until 0
+        while (1)
+        {
+            sprintf(env->buf, "fread %s 128\r\n", env->argv[1]);
+            retval = mplayer_commnad_cb(env->buf, NULL, NULL);
+
+            if (0 != retval)
+            {
+                mplayer_recvbuf(env->buf, (size_t)retval);
+                writebuf(env->fd, env->buf, (size_t)retval);
+            }
+            else
+                break;
+        }
+
+        // close
+        sprintf(env->buf, "fclose %s\r\n", env->argv[1]);
+        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    }
+    else
+        return EINVAL;
+}
+
 int UCSH_fopen(struct UCSH_env *env)
 {
-    if (3 != env->argc)
+    if (3 == env->argc)
+    {
+        sprintf(env->buf, "fopen %s %s\r\n", env->argv[1], env->argv[2]);
+        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    }
+    else
         return EINVAL;
-    if (0 != strcmp("append", env->argv[2])  && 0 != strcmp("trunc", env->argv[2]))
-        return EINVAL;
+}
 
-    sprintf(env->buf, "fopen %s %s\r\n", env->argv[1], env->argv[2]);
-    return mplayer_commnad_cb(env->buf, NULL, NULL);
+int UCSH_close(struct UCSH_env *env)
+{
+    if (2 == env->argc)
+    {
+        join_cmd(env);
+        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    }
+    else
+        return EINVAL;
 }
 
 int UCSH_fseek(struct UCSH_env *env)
 {
-    if (3 != env->argc)
+    if (4 == env->argc)
+    {
+        sprintf(env->buf, "fseek %s %s\r\n", env->argv[1], env->argv[2]);
+        return mplayer_commnad_cb(env->buf, NULL, NULL);
+    }
+    else
         return EINVAL;
-
-    sprintf(env->buf, "fseek %s %s\r\n", env->argv[1], env->argv[2]);
-    return mplayer_commnad_cb(env->buf, NULL, NULL);
 }
 
 int UCSH_fread(struct UCSH_env *env)
 {
-    if (3 != env->argc)
-        return EINVAL;
+    if (3 == env->argc)
+    {
+        join_cmd(env);
+        int retval = mplayer_commnad_cb(env->buf, NULL, NULL);
+        UCSH_printf(env, "%d\n", retval);
 
-    return ENOSYS;
+        if (0 != retval)
+        {
+            mplayer_recvbuf(env->buf, (size_t)retval);
+            writebuf(env->fd, env->buf, (size_t)retval);
+        }
+        return 0;
+    }
+    else
+        return EINVAL;
 }
 
 int UCSH_write(struct UCSH_env *env)
 {
-    if (3 != env->argc)
-        return EINVAL;
+    if (3 == env->argc)
+    {
+        join_cmd(env);
+        int retval = mplayer_commnad_cb(env->buf, NULL, NULL);
+        UCSH_printf(env, "%d\n", retval);
 
-    return ENOSYS;
+        if (0 == retval)
+        {
+            int len = strtol(env->argv[2], NULL, 10);
+
+            while (0 != len)
+            {
+                int readed = read(env->fd, env->buf, (size_t)(retval > env->bufsize ? env->bufsize : retval));
+                if (0 >= readed)
+                {
+                    retval = errno;
+                    break;
+                }
+                else
+                {
+                    mplayer_sendbuf(env->buf, (size_t)readed);
+                    len -= readed;
+                }
+            }
+        }
+        return retval;
+    }
+    else
+        return EINVAL;
 }
 
 int UCSH_freadln(struct UCSH_env *env)
 {
-    if (2 != env->argc)
-        return EINVAL;
-
+    ARG_UNUSED(env);
     return ENOSYS;
 }
