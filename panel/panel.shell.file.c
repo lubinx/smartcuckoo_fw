@@ -15,9 +15,7 @@ static void join_cmd(struct UCSH_env *env)
     for (int i = 0; i < env->argc; i ++)
         len += sprintf(&env->buf[len], "%s ", env->argv[i]);
 
-    env->buf[len - 1] = '\r';
-    env->buf[len] = '\n';
-    env->buf[len + 1] = '\0';
+    env->buf[len - 1] = '\0';
 }
 
 static int line_cb(char const *line, void *arg)
@@ -29,9 +27,18 @@ static int line_cb(char const *line, void *arg)
 int UCSH_pwd(struct UCSH_env *env)
 {
     join_cmd(env);
-
     return mplayer_commnad_cb(env->buf, line_cb, env);
-    return 0;
+}
+
+int UCSH_chdir(struct UCSH_env *env)
+{
+    /*
+    join_cmd(env);
+    return mplayer_commnad_cb(env->buf, line_cb, env);
+    */
+    // chdir not work on R11 side
+    ARG_UNUSED(env);
+    return ENOSYS;
 }
 
 int UCSH_ls(struct UCSH_env *env)
@@ -92,7 +99,7 @@ int UCSH_fopen(struct UCSH_env *env)
         return EINVAL;
 }
 
-int UCSH_close(struct UCSH_env *env)
+int UCSH_fclose(struct UCSH_env *env)
 {
     if (2 == env->argc)
     {
@@ -133,7 +140,7 @@ int UCSH_fread(struct UCSH_env *env)
         return EINVAL;
 }
 
-int UCSH_write(struct UCSH_env *env)
+int UCSH_fwrite(struct UCSH_env *env)
 {
     if (3 == env->argc)
     {
@@ -147,7 +154,7 @@ int UCSH_write(struct UCSH_env *env)
 
             while (0 != len)
             {
-                int readed = read(env->fd, env->buf, (size_t)(retval > env->bufsize ? env->bufsize : retval));
+                int readed = read(env->fd, env->buf, (size_t)(len > env->bufsize ? env->bufsize : len));
                 if (0 >= readed)
                 {
                     retval = errno;

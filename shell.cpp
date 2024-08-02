@@ -86,6 +86,8 @@ void SHELL_bootstrap(void)
 
     BLE = new TUltraCorePeripheral();
     UCSH_init_instance(&BLE_sh_env, BLE->Shell.CreateVFd(), sizeof(BLE_sh_stack), BLE_sh_stack);
+
+    LOG_info("heap avail: %d", SYSCON_get_heap_avail());
     BLE->Run();
 }
 

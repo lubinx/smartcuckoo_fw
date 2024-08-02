@@ -62,6 +62,9 @@ int main(void)
 
     extern int __stdout_fd;
     __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    // somehow xG22 put some invalid char on bootup
+    printf("\t\t\r\n\r\n");
+
     PERIPHERAL_gpio_init();
 
 #ifdef PIN_BATT_ADC
