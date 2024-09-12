@@ -1217,12 +1217,23 @@ int VOICE_say_time_epoch(struct VOICE_attr_t *attr, time_t epoch)
 
 int VOICE_say_setting(struct VOICE_attr_t *attr, enum VOICE_setting_part_t setting, void *arg)
 {
+    char filename[20];
+
+    if (setting == VOICE_SETTING_DONE)
+    {
+        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? common_folder_alt : "",
+            COMMON_FOLDER_IDX, IDX_SETTING_DONE);
+        return mplayer_play(filename);
+    }
+
     if (NULL == attr->voice)
         return EMODU_NOT_CONFIGURED;
-    char filename[20];
 
     switch (setting)
     {
+    case VOICE_SETTING_DONE:
+        break;
+
     case VOICE_SETTING_LANG:
         sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
             attr->voice->lcidx, IDX_SETTING_LANG);
@@ -1265,11 +1276,6 @@ int VOICE_say_setting(struct VOICE_attr_t *attr, enum VOICE_setting_part_t setti
 
     case VOICE_SETTING_ALARM_RINGTONE:
         return VOICE_play_ringtone(attr, (int)arg);
-
-    case VOICE_SETTING_DONE:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? common_folder_alt : "",
-            COMMON_FOLDER_IDX, IDX_SETTING_DONE);
-        return mplayer_play(filename);
 
     case VOICE_SETTING_EXT_LOW_BATT:
         sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
