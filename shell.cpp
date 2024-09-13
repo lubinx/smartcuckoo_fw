@@ -230,7 +230,7 @@ static int SHELL_locale(struct UCSH_env *env)
 
     UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
     VOICE_enum_avail_locales(voice_avail_locales_callback, env);
-    UCSH_puts(env, "]}\n\n");
+    UCSH_puts(env, "]}\n");
 
     return 0;
 }

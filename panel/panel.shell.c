@@ -61,7 +61,7 @@ static int SHELL_env_sensor(struct UCSH_env *env)
     else
         UCSH_puts(env, "°C\n");
 
-    UCSH_printf(env, "humidity=%d\n\n", panel.env_sensor.humidity);
+    UCSH_printf(env, "humidity=%d\n", panel.env_sensor.humidity);
     return 0;
 }
 
@@ -79,7 +79,7 @@ static int SHELL_dim(struct UCSH_env *env)
         }
     }
 
-    UCSH_printf(env, "dim=%d\n\n", setting.dim);
+    UCSH_printf(env, "dim=%d\n", setting.dim);
     return 0;
 }
 
@@ -100,7 +100,7 @@ static int SHELL_noise(struct UCSH_env *env)
     {
         UCSH_puts(env, "{\"themes\": [\n");
         NOISE_enum_themes(noise_theme_enum_callback, env);
-        UCSH_puts(env, "]}\n\n");
+        UCSH_puts(env, "]}\n");
 
         return 0;
     }
@@ -154,7 +154,7 @@ static int SHELL_noise(struct UCSH_env *env)
         {
             UCSH_puts(env, "{\"colors\": [\n");
             LAMP_enum_colors(lamp_color_enum_callback, env);
-            UCSH_puts(env, "]}\n\n");
+            UCSH_puts(env, "]}\n");
 
             return 0;
         }
