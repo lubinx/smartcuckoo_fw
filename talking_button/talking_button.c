@@ -106,11 +106,11 @@ void PERIPHERAL_init(void)
     // volume
     mplayer_set_volume(setting.media_volume);
 
-    VOICE_init(&voice_attr, &setting.locale, false);
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     RTC_calibration_init();
 
+    VOICE_init(&voice_attr, &setting.locale, false);
     // init locales
     setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
 
@@ -158,8 +158,6 @@ void PERIPHERAL_init(void)
  ****************************************************************************/
 void PERIPHERAL_on_sleep(void)
 {
-    GPIO_disable(PIN_VOICE_BUTTON);
-    GPIO_disable(PIN_SETTING_BUTTON);
 }
 
 void PERIPHERAL_on_wakeup(void)
