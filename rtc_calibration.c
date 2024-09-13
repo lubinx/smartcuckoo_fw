@@ -87,7 +87,10 @@ void RTC_calibration_init(void)
     {
         int ppb;
         if (0 == NVM_get(NVM_OLD_RTC_KEY, &ppb, sizeof(ppb)))
+        {
+            NVM_delete(NVM_OLD_RTC_KEY);
             RTC_set_calibration_ppb(ppb + 30000);
+        }
     }
 
     for (int i = 0; i < 55; i ++)
