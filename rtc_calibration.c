@@ -7,6 +7,7 @@
 #include <timer.h>
 
 #include "smartcuckoo.h"
+// 0 1 2 3 4 5 6 7
 
 // #pragma GCC optimize("O3")
 /***************************************************************************
@@ -28,16 +29,16 @@ static void rtc_calibration(void)
     {
         while (0 != GPIO_PEEK_DIN_NP(PIN_RTC_CAL_IN));
         while (0 == GPIO_PEEK_DIN_NP(PIN_RTC_CAL_IN));
-
+        // raising edgge of RTC cal input
         uint32_t hf_tick = TIMER_tick(HW_TIMER0);
-        uint16_t rtc_pre_cnt = (uint16_t)BURTC->PRECNT;
 
         for (unsigned i = 0; i < lengthof(rtc_ticks); i ++)
         {
-            rtc_pre_cnt = (uint16_t)BURTC->PRECNT;
+            uint16_t rtc_pre_cnt = (uint16_t)BURTC->PRECNT;
             while (rtc_pre_cnt == (uint16_t)BURTC->PRECNT);
-
             uint32_t rtc_tick = TIMER_tick(HW_TIMER0);
+
+            rtc_pre_cnt = (uint16_t)BURTC->PRECNT;
             for (unsigned delay = 0; delay < TIMER_CLK_FREQ / 32768; delay ++) __NOP();
 
             while (true)
@@ -52,11 +53,13 @@ static void rtc_calibration(void)
                     hf_ticks[i] = TIMER_tick(HW_TIMER0) - hf_tick;
             }
 
+            // raising edgge of RTC cal input
             while (0 == GPIO_PEEK_DIN_NP(PIN_RTC_CAL_IN));
             hf_tick = TIMER_tick(HW_TIMER0);
         }
     }
     __enable_irq();
+    TIMER_deconfigure(HW_TIMER0);
 
     int hf_tick = 0;
     int rtc_tick = 0;
@@ -89,7 +92,7 @@ void RTC_calibration_init(void)
         if (0 == NVM_get(NVM_OLD_RTC_KEY, &ppb, sizeof(ppb)))
         {
             NVM_delete(NVM_OLD_RTC_KEY);
-            RTC_set_calibration_ppb(ppb + 30000);
+            RTC_set_calibration_ppb(ppb + 2000);    // assume 2 ppm error
         }
     }
 
@@ -108,4 +111,11 @@ void RTC_calibration_init(void)
         }
     }
     GPIO_disable(PIN_RTC_CAL_IN);
+
+    if (0 == RTC_calibration_ppb())
+    {
+        int ppb = RTC_calibration_by_hf(0);
+        if (0 != ppb)
+            RTC_set_calibration_ppb(ppb);
+    }
 }
