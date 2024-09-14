@@ -38,7 +38,7 @@ void WT2003H_init(int devfd, uint32_t pin_busy)
         int opt = O_NONBLOCK | fcntl(devfd, F_GETFL);
         fcntl(devfd, F_SETFL, opt);
     #else
-        uint32_t timeo = WT2003H_CMD_INTVt;
+        uint32_t timeo = WT2003H_CMD_INTV;
         ioctl(devfd, OPT_RD_TIMEO, &timeo);
     #endif
 
@@ -68,6 +68,7 @@ uint8_t WT2003H_get_min_volume(void)
     return 31 - 24;
 }
 
+__attribute__((optimize("O0")))
 int WT2003H_recv_ack(int devfd, void *requesting_payload)
 {
     static bool paused = false;
@@ -78,14 +79,12 @@ int WT2003H_recv_ack(int devfd, void *requesting_payload)
     if (WT2003H_CMD_POWER_UP == requesting->cmd)
     {
         WT2003H_send_payload(devfd, requesting_payload, 2 + requesting->len);
-        msleep(50);
+        msleep(80);
 
-        if (0 == WT2003H_recv_payload(devfd, &resp) &&
-            WT2003H_CMD_POWER_UP == resp.cmd)
-        {
+        if (0 == WT2003H_recv_payload(devfd, &resp) && WT2003H_CMD_POWER_UP == resp.cmd)
             return 0;
-        }
-        return EAGAIN;
+        else
+            return EAGAIN;
     }
 
     if (WT2003H_CMD_BUSY_STAT != requesting->cmd)

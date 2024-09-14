@@ -700,8 +700,8 @@ static int mplayer_marshalling_send(struct mplayer_attr_t *attr, struct mtask_t 
                 power_task->hdr.msgid = MPLAYER_TASK_POWER_ON;
                 power_task->hdr.payload_size = WT2003H_fill_power_on_payload(&power_task->payload);
 
-                mqueue_post(mplayer_attr.mqd, (void *)power_task);
                 mplayer_gpio_power_on();
+                mqueue_post(mplayer_attr.mqd, (void *)power_task);
             }
         }
     }

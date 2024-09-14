@@ -269,16 +269,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
     {
         time_t now = time(NULL);
 
-        if (BATT_HINT_MV > PERIPHERAL_batt_volt())
-        {
-            // trigger ad batery in short interval
-            if (BATT_AD_HINT_INTV_SECONDS < now - runtime->batt_last_ts)
-            {
-                runtime->batt_last_ts = now;
-                PERIPHERAL_batt_ad_start();
-            }
-        }
-        else if (BATT_AD_HINT_INTV_SECONDS < now - runtime->batt_last_ts)
+        if (BATT_AD_HINT_INTV_SECONDS < now - runtime->batt_last_ts)
         {
             runtime->batt_last_ts = now;
             PERIPHERAL_batt_ad_start();

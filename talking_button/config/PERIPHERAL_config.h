@@ -27,7 +27,7 @@
 
     // batt adc interval
     #define BATT_AD_INTV_SECONDS        (900)
-    #define BATT_AD_HINT_INTV_SECONDS   (3)
+    #define BATT_AD_HINT_INTV_SECONDS   (15)
 
     // batt voice volume control
     #define BATT_50_VOLUME              (90U)

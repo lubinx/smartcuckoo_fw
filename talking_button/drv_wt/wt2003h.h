@@ -12,7 +12,7 @@
         uint8_t data[25];
     };
 
-    #define WT2003H_CMD_INTVt           (200U)
+    #define WT2003H_CMD_INTV            (200U)
     #define WT2003H_START_TAG           (0x7EU)
     #define WT2003H_END_TAG             (0xEFU)
 

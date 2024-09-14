@@ -71,7 +71,7 @@ int main(void)
     CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
     __NOP();
 
-    ADC_attr_init(&batt_ad.attr, 1000, (void *)batt_adc_callback);
+    ADC_attr_init(&batt_ad.attr, 1500, (void *)batt_adc_callback);
     ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
     ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
 
