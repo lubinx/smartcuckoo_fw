@@ -37,8 +37,6 @@ int IOEXT_read_key(int devfd, uint32_t *key)
     }
     else
     {
-        I2C_generic_reset(devfd);
-
         *key = 0;
         return errno;
     }
