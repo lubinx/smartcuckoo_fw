@@ -26,12 +26,13 @@ bool CLOCK_alarm_switch_is_on(void)
  ****************************************************************************/
 void CLOCK_init()
 {
+    /*
     CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
     __NOP();
     // (BURAM_TypeDef *)0x40080000UL
     if (0 != BURAM->RET[31].REG)
         RTC_set_epoch_time(BURAM->RET[31].REG);
-
+    */
     if (true)
     {
         static time_t now;

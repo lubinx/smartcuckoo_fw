@@ -84,7 +84,7 @@ void PERIPHERAL_init(void)
     while (0 == GPIO_peek(PIN_EXT_5V_DET))
     {
         WDOG_feed();
-        BURAM->RET[31].REG = BURTC->CNT;
+        // BURAM->RET[31].REG = BURTC->CNT;
         msleep(500);
     }
     PMU_power_acquire();
@@ -1077,7 +1077,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
     while (true)
     {
         struct MQ_message_t *msg = mqueue_timedrecv(runtime->mqd, 500);
-        BURAM->RET[31].REG = BURTC->CNT;    // RTC
+        // BURAM->RET[31].REG = BURTC->CNT;    // RTC
 
         if (0 == GPIO_peek(PIN_EXT_5V_DET))
             NVIC_SystemReset();

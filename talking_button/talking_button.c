@@ -162,6 +162,7 @@ void PERIPHERAL_on_sleep(void)
 
 void PERIPHERAL_on_wakeup(void)
 {
+    // printf("\n");
     mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
 
@@ -555,7 +556,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
         if (msg)
         {
             WDOG_feed();
-            BURAM->RET[31].REG = BURTC->CNT;    // RTC
+            // BURAM->RET[31].REG = BURTC->CNT;    // RTC
 
             switch ((enum talking_button_message_t)msg->msgid)
             {
