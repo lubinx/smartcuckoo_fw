@@ -364,10 +364,6 @@ static uint8_t mqueued_prio(int mqd)
         return MPLAYER_IDLE_PRIO;
 }
 
-
-#pragma GCC diagnostic push
-// #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"  // tick somehow warning maybe-uninitialized
-
 static void *mplayer_controller_thread(struct mplayer_attr_t *attr)
 {
     struct mtask_t *task;
@@ -672,7 +668,6 @@ static void *mplayer_controller_thread(struct mplayer_attr_t *attr)
         }
     }
 }
-#pragma GCC diagnostic pop
 
 static int mplayer_marshalling_send(struct mplayer_attr_t *attr, struct mtask_t **task,
     enum mtask_id_t taskid, ...)
