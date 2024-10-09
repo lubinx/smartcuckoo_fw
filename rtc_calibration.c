@@ -68,8 +68,8 @@ static void rtc_calibration(void)
         hf_tick += (int)hf_ticks[i] * 2;    // hf is half second
         rtc_tick += (int)rtc_ticks[i];
     }
-    // FIXME: RTCC always drift by -10 PPM? it's caused by deep-sleep?
-    rtc_tick += hf_tick / 100000;
+    // FIXME: RTCC always drift by -9 PPM? it's caused by deep-sleep?
+    rtc_tick += hf_tick / 110000;
 
     int ppb = (int)((int64_t)(hf_tick - rtc_tick) * 1000000000 / hf_tick);
     RTC_set_calibration_ppb(ppb);
@@ -95,8 +95,8 @@ void RTC_calibration_init(void)
         {
             NVM_delete(NVM_OLD_RTC_KEY);
 
-            // FIXME: RTCC always drift by -10 PPM?
-            RTC_set_calibration_ppb(ppb - 10000);
+            // FIXME: RTCC always drift by -9 PPM?
+            RTC_set_calibration_ppb(ppb - 9000);
         }
     }
 
