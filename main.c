@@ -42,16 +42,16 @@ struct VOICE_attr_t voice_attr = {0};
 int main(void)
 {
     #ifdef UART0_TXD
-        UART_configure(USART0, UART0_TXD, UART0_RXD);
+        UART_pin_mux(USART0, UART0_TXD, UART0_RXD);
     #endif
     #ifdef UART1_TXD
-        UART_configure(USART1, UART1_TXD, UART1_RXD);
+        UART_pin_mux(USART1, UART1_TXD, UART1_RXD);
     #endif
     #ifdef I2C0_SCL
-        I2C_configure(I2C0, I2C0_SCL, I2C0_SDA);
+        I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
     #endif
     #ifdef I2C1_SCL
-        I2C_configure(I2C1, I2C1_SCL, I2C1_SDA);
+        I2C_pin_mux(I2C1, I2C1_SCL, I2C1_SDA);
     #endif
     #ifdef PIN_MUTE
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MUTE);
