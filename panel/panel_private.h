@@ -117,7 +117,6 @@
         struct PANEL_attr_t panel_attr;
         struct PANEL_light_ad_attr_t light_sens;
         struct LAMP_attr_t lamp_attr;
-        struct NOISE_attr_t noise_attr;
         struct IrDA_attr_t irda;
 
         struct

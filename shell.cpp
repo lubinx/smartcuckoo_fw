@@ -47,9 +47,6 @@ static uint32_t BLE_sh_stack[1280 / sizeof(uint32_t)];
 *****************************************************************************/
 void SHELL_bootstrap(void)
 {
-    UCSH_init();
-    UCSH_register_fileio();
-
     UCSH_register("batt",       SHELL_batt);
     UCSH_register("heap",       SHELL_heap);
     UCSH_register("ota",        SHELL_ota);

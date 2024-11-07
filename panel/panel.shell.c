@@ -6,7 +6,6 @@
  ****************************************************************************/
 static int SHELL_env_sensor(struct UCSH_env *env);
 static int SHELL_dim(struct UCSH_env *env);
-static int SHELL_noise(struct UCSH_env *env);
 
 #ifdef PIN_LAMP
     static int SHELL_lamp(struct UCSH_env *env);
@@ -19,7 +18,6 @@ void PERIPHERAL_shell_init(void)
 {
     UCSH_register("env", SHELL_env_sensor);
     UCSH_register("dim", SHELL_dim);
-    UCSH_register("nois", SHELL_noise);
 
 #ifdef PIN_LAMP
     UCSH_register("lamp", SHELL_lamp);
@@ -81,59 +79,6 @@ static int SHELL_dim(struct UCSH_env *env)
 
     UCSH_printf(env, "dim=%d\n", setting.dim);
     return 0;
-}
-
-static void noise_theme_enum_callback(uint16_t id, char const *theme, void *arg, bool final)
-{
-    UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
-    UCSH_printf((struct UCSH_env *)arg, "\"theme\":\"%s\"}", theme);
-
-    if (final)
-        UCSH_puts((struct UCSH_env *)arg, "\n");
-    else
-        UCSH_puts((struct UCSH_env *)arg, ",\n");
-}
-
-static int SHELL_noise(struct UCSH_env *env)
-{
-    if (1 == env->argc)
-    {
-        UCSH_puts(env, "{\"themes\": [\n");
-        NOISE_enum_themes(noise_theme_enum_callback, env);
-        UCSH_puts(env, "]}\n");
-
-        return 0;
-    }
-    else if (2 == env->argc)
-    {
-        if (0 == strcasecmp("ON", env->argv[1]))
-        {
-            if (! NOISE_is_playing(&panel.noise_attr))
-                NOISE_toggle(&panel.noise_attr);
-        }
-        else if (0 == strcasecmp("OFF", env->argv[1]))
-        {
-            NOISE_stop(&panel.noise_attr);
-        }
-        else if (0 == strcasecmp("NEXT", env->argv[1]))
-        {
-            NOISE_next(&panel.noise_attr);
-        }
-        else if (0 == strcasecmp("PREV", env->argv[1]))
-        {
-            NOISE_prev(&panel.noise_attr);
-        }
-        else
-        {
-            unsigned id = strtoul(env->argv[1], NULL, 10);
-            NOISE_play(&panel.noise_attr, (uint16_t)id);
-        }
-
-        UCSH_puts(env, "\n");
-        return 0;
-    }
-    else
-        return EINVAL;
 }
 
 #ifdef PIN_LAMP

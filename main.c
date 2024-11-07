@@ -6,6 +6,7 @@
 
 #include "smartcuckoo.h"
 
+
 /****************************************************************************
  *  @public
  ****************************************************************************/
@@ -41,6 +42,8 @@ struct VOICE_attr_t voice_attr = {0};
  ****************************************************************************/
 int main(void)
 {
+    LOG_set_level(LOG_ERROR);
+
     #ifdef UART0_TXD
         UART_pin_mux(USART0, UART0_TXD, UART0_RXD);
     #endif
@@ -64,6 +67,9 @@ int main(void)
     __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     // somehow xG22 put some invalid char on bootup
     printf("\t\t\r\n\r\n");
+
+    UCSH_init();
+    UCSH_register_fileio();
 
     PERIPHERAL_gpio_init();
 

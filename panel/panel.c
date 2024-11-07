@@ -65,6 +65,7 @@ void PERIPHERAL_gpio_init(void)
         GPIO_setdir_input_pp(PULL_UP, PIN_DIAL_CWA | PIN_DIAL_CWB, true);
     #endif
     #ifdef PANEL_C
+        GPIO_setdir_input_pp(PULL_UP, PIN_SNOOZE, true);
         GPIO_setdir_input_pp(PULL_DOWN, PIN_EXTIO, false);
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_LAMP);
     #endif
@@ -80,26 +81,27 @@ void PERIPHERAL_init(void)
 {
     CLOCK_init();
 
-    // waitfor ext 5V is connected
-    while (0 == GPIO_peek(PIN_EXT_5V_DET))
+    if (0 == GPIO_peek(PIN_EXT_5V_DET))     // NOTE: 5v PIN also trigger HW-RESET
     {
-        WDOG_feed();
-        // BURAM->RET[31].REG = BURTC->CNT;
-        msleep(500);
+        // waitfor ext 5V is connected
+        while (0 == GPIO_peek(PIN_EXT_5V_DET))
+        {
+            WDOG_feed();
+            BURAM->RET[31].REG = BURTC->CNT;
+        }
+        NVIC_SystemReset();
     }
+    if (0 != BURAM->RET[31].REG)
+    {
+        RTC_set_epoch_time(BURAM->RET[31].REG);
+        BURAM->RET[31].REG = 0;
+    }
+
     PMU_power_acquire();
 
     panel.mqd = mqueue_create(MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display
-    PANEL_attr_init(&panel.panel_attr, DISPLAY_I2C, &setting.locale);
-
-    /*
-    while (1)
-    {
-        WDOG_feed();
-        PANEL_test(&panel.panel_attr);
-    }
-    */
+    PANEL_attr_init(&panel.panel_attr, I2C0, &setting.locale);
 
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
@@ -114,7 +116,7 @@ void PERIPHERAL_init(void)
     timeout_init(&panel.tmp_content.disable_timeo, TMP_CONTENT_TIMEOUT, (void *)tmp_content_disable, 0);
 
     // environment sensor
-    panel.env_sensor_devfd = ENV_sensor_createfd(I2C1, I2C_BUS_SPEED);
+    panel.env_sensor_devfd = ENV_sensor_createfd(I2C1, I2C1_BUS_SPEED);
     // bootstap update display once
     MSG_alive(&panel);
 
@@ -132,7 +134,7 @@ void PERIPHERAL_init(void)
     RTC_calibration_init();
 
     // touch pad
-    panel.ioext_fd_devfd = IOEXT_createfd(I2C1, I2C_BUS_SPEED);
+    panel.ioext_fd_devfd = IOEXT_createfd(I2C1, I2C1_BUS_SPEED);
     #ifdef PANEL_B
         while (1)
         {
@@ -164,7 +166,7 @@ void PERIPHERAL_init(void)
     }
 
     // modules
-    NOISE_attr_init(&panel.noise_attr, setting.last_noise_id);
+    NOISE_attr_init(setting.last_noise_id);
     PANEL_light_ad_attr_init(&panel.light_sens);
     IrDA_init(&panel.irda, PIN_IRDA, (void *)IrDA_callback, &panel);
     #ifdef PIN_LAMP
@@ -187,15 +189,11 @@ void PERIPHERAL_init(void)
     // start schedule intv
     timeout_init(&panel.schedule_intv, 380, (void *)SCHEDULE_intv_callback, TIMEOUT_FLAG_REPEAT);
     timeout_start(&panel.schedule_intv, &panel);
-
-    // tmp_content_start(&panel, SETTING_ALARM_1_GROUP, PANEL_HUMIDITY, PANEL_HUMIDITY);
-    // PANEL_attr_unset_flags(&panel.panel_attr, PANEL_HUM);
-    // PANEL_attr_set_blinky(&panel.panel_attr, PANEL_IND_1);
 }
 
 void mplayer_stopping_callback(void)
 {
-    NOISE_set_stopped(&panel.noise_attr);
+    NOISE_set_stopped();
 
     // any mplayer_stop() will stop alarming
     CLOCK_stop_current_alarm();
@@ -604,7 +602,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
 
     case MSG_BUTTON_NOISE:
         if (! runtime->setting.en)
-            NOISE_toggle(&runtime->noise_attr);
+            NOISE_toggle();
         break;
 
     case MSG_BUTTON_RECORD:
@@ -646,8 +644,8 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             goto msg_button_ok;
         break;
 
-    msg_button_ok:
     case MSG_BUTTON_OK:
+    msg_button_ok:
         if (SETTING_TMPR_UNIT_GROUP == runtime->setting.group)
         {
             if (CELSIUS == setting.locale.tmpr_unit)
@@ -756,7 +754,6 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
     case MSG_BUTTON_UP:
         if (0 == runtime->setting.level)
         {
-        loop_group_down:
             if (0 < runtime->setting.group)
                 runtime->setting.group --;
             else
@@ -789,7 +786,6 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
     case MSG_BUTTON_DOWN:
         if (0 == runtime->setting.level)
         {
-        loop_group_up:
             if (SETTING_GROUP_MAX > runtime->setting.group)
                 runtime->setting.group ++;
             else
@@ -821,7 +817,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
     case MSG_BUTTON_LEFT:
         if (0 == runtime->setting.level)
-            goto loop_group_down;
+            goto msg_button_ok;
 
         if (runtime->setting.part > __setting_gp[runtime->setting.group].start)
         {
@@ -847,7 +843,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
     case MSG_BUTTON_RIGHT:
         if (0 == runtime->setting.level)
-            goto loop_group_up;
+            goto msg_button_ok;
 
         if (runtime->setting.part < __setting_gp[runtime->setting.group].end)
         {
@@ -974,18 +970,16 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         break;
 
     case MSG_BUTTON_LEFT:
-        if (NOISE_is_playing(&runtime->noise_attr))
+        if (NOISE_is_playing())
         {
-            NOISE_prev(&runtime->noise_attr);
-            setting.last_noise_id = runtime->noise_attr.curr_id;
+            setting.last_noise_id = (uint16_t)NOISE_prev();
             SETTING_defer_save(runtime);
         }
         break;
     case MSG_BUTTON_RIGHT:
-        if (NOISE_is_playing(&runtime->noise_attr))
+        if (NOISE_is_playing())
         {
-            NOISE_next(&runtime->noise_attr);
-            setting.last_noise_id = runtime->noise_attr.curr_id;
+            setting.last_noise_id = (uint16_t)NOISE_next();
             SETTING_defer_save(runtime);
         }
         break;
@@ -1077,7 +1071,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
     while (true)
     {
         struct MQ_message_t *msg = mqueue_timedrecv(runtime->mqd, 500);
-        // BURAM->RET[31].REG = BURTC->CNT;    // RTC
+        BURAM->RET[31].REG = BURTC->CNT;    // RTC
 
         if (0 == GPIO_peek(PIN_EXT_5V_DET))
             NVIC_SystemReset();
@@ -1186,10 +1180,10 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 break;
 
             case MSG_BUTTON_MEDIA:
-                if (NOISE_is_playing(&runtime->noise_attr))
-                    NOISE_stop(&runtime->noise_attr);
+                if (NOISE_is_playing())
+                    NOISE_stop();
                 else
-                    NOISE_toggle(&runtime->noise_attr);
+                    NOISE_toggle();
                 break;
         #endif
 
@@ -1336,11 +1330,6 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
 
         if (! repeat)
             repeat_tick = clock();
-
-        /*
-        ((struct IrDA_t *)irda)->value = irda->cmd;
-        mqueue_post_buf(runtime->mqd, MSG_IRDA, 0, irda, sizeof(*irda));
-        */
     }
 }
 
@@ -1398,8 +1387,10 @@ static void tmp_content_disable(struct PANEL_runtime_t *runtime)
 
 static void media_stop(struct PANEL_runtime_t *runtime)
 {
-    if (NOISE_is_playing(&runtime->noise_attr))
-        NOISE_stop(&runtime->noise_attr);
+    (void)runtime;
+
+    if (NOISE_is_playing())
+        NOISE_stop();
     else
         mplayer_stop();
 }

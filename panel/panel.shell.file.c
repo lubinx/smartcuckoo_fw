@@ -38,7 +38,7 @@ int UCSH_chdir(struct UCSH_env *env)
     */
     // chdir not work on R11 side
     ARG_UNUSED(env);
-    return ENOSYS;
+    return EOPNOTSUPP;
 }
 
 int UCSH_ls(struct UCSH_env *env)
@@ -82,7 +82,9 @@ int UCSH_cat(struct UCSH_env *env)
 
         // close
         sprintf(env->buf, "fclose %s\r\n", env->argv[1]);
-        return mplayer_commnad_cb(env->buf, NULL, NULL);
+        UCSH_puts(env, "\n");
+
+        return 0;
     }
     else
         return EINVAL;
