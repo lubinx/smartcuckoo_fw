@@ -13,15 +13,10 @@
     #define AHT2X_COMMAND_INTV          (1000)
     #define AHT2X_MEASURE_TIMEO         (100)
 
-    // #define AHT2X_POWER_UP_TIMEOUT      (500)
-    // #define AHT2X_TRIG_TIMEOUT          (100)
-
 /***************************************************************************
  *  @internal
  ***************************************************************************/
-static uint8_t const cmd_initialize[] = {0xBE};
 static uint8_t const cmd_start_convert[] = {0xAC, 0x33, 0};
-// static int AHT2X_reset_reg(int fd, uint8_t reg);
 
 /***************************************************************************
  *  @export
@@ -70,9 +65,7 @@ int ENV_sensor_read(int fd, int16_t *tmpr, uint8_t *humidity)
 
     if (0 == (0x08 & stat))
     {
-        LOG_debug("AHT2X: send initialize");
-        write(fd, cmd_initialize, sizeof(cmd_initialize));
-
+        // I2C_generic_recovery(fd);
         retval = EAGAIN;
         goto read_exit;
     }
@@ -97,13 +90,16 @@ int ENV_sensor_read(int fd, int16_t *tmpr, uint8_t *humidity)
             retval = 0;
         }
         else
+        {
+            LOG_error("AHT2X error RAW tmpr: %d", val);
             retval = ERANGE;
+        }
     }
     else
         retval = errno;
 
 read_exit:
     if (0 != retval)
-        LOG_error("AHT2X: read error %d", retval);
+        LOG_error("AHT2X: error %d", retval);
     return retval;
 }
