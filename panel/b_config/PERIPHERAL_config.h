@@ -18,8 +18,8 @@
     #define LIGHT_SENS_CUMUL_INTV       (1500)
 
 // I2C
-    #define I2C_BUS_SPEED               (100)
-    #define DISPLAY_I2C                 (I2C0)
+    #define I2C0_BUS_SPEED              (200)
+    #define I2C1_BUS_SPEED              (100)
 
 // environment sensor update seconds
     #define ENV_SENSOR_UPDATE_SECONDS   (5)
