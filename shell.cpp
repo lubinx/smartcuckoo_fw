@@ -39,7 +39,7 @@ static uint32_t BLE_sh_stack[1344 / sizeof(uint32_t)];
 
 #if 0 == PMU_EM2_EN
     static struct UCSH_env UART_sh_env;
-    static uint32_t UART_sh_stack[1100 / sizeof(uint32_t)];
+    static uint32_t UART_sh_stack[1088 / sizeof(uint32_t)];
 #else
 #endif
 
