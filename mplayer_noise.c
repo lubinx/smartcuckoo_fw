@@ -1,157 +1,310 @@
+#include <ultracore/glist.h>
 #include "smartcuckoo.h"
 
 /****************************************************************************
  * @def
  ****************************************************************************/
-    // #define NVM_SETTING                 NVM_DEFINE_KEY('S', 'E', 'T', 'T')
-
-struct NOISE_mapping_t
-{
-    char const *id;
-    char const *name;
-};
-
-struct NOISE_attr_t
+struct NOISE_context
 {
     bool playing;
     uint16_t curr_id;
+
+    uint16_t noise_cnt;
+    uint32_t noise_iter_key;
 };
 
-struct NOISE_nvm_t
+struct NOISE_store_t
 {
-
+    uint8_t gain[10];
+    char theme[21];
 };
+static_assert(248 == FLASH_NVM_OBJECT_SIZE);
+#define NOISE_CNT_PER_NVM               (FLASH_NVM_OBJECT_SIZE / sizeof(struct NOISE_store_t))
 
 /****************************************************************************
  * @internal
  ****************************************************************************/
-static int SHELL_noise(struct UCSH_env *env);
+static void NOISE_discover(char *buf);
+static int NOISE_shell_cmd(struct UCSH_env *env);
 
 // var
-static struct NOISE_attr_t context = {0};
-
-static char const *__noise_mapping[] =
-{
-    "AirconFan",
-    "Cabin",
-    "CampFire",
-    "CityStreet",
-    "Courtyard",
-    "Forest",
-    "Highway",
-    "Raindrops",
-    "SummerNight",
-    "Thunder",
-    "WhiteNoise",
-    "Wind",
-};
+static struct NOISE_context NOISE_context = {0};
+static struct NOISE_store_t nvm_buf[NOISE_CNT_PER_NVM] = {0};
 
 /****************************************************************************
  * @implements
  ****************************************************************************/
 int NOISE_attr_init(uint16_t stored_id)
 {
-    context.curr_id = stored_id;
+    NOISE_context.curr_id = stored_id;
+    NOISE_context.noise_cnt = 0;
 
-    UCSH_register("nois", SHELL_noise);
+    for (char n = 'a'; n <= 'z'; n ++)
+    {
+        uint32_t key = NVM_DEFINE_KEY('N', 'O', 'S', n);
+
+        if (0 == NVM_get(key, nvm_buf, sizeof(nvm_buf)))
+        {
+            uint8_t cnt = lengthof(nvm_buf);
+            while (cnt && '\0' == nvm_buf[cnt - 1].theme[0]) cnt --;
+            NOISE_context.noise_cnt += cnt;
+        }
+    }
+    if (0 == NOISE_context.noise_cnt)
+    {
+        char *buf = malloc(512);
+        NOISE_discover(buf);
+        free(buf);
+    }
+
+    UCSH_register("nois", NOISE_shell_cmd);
     return 0;
-}
-
-void NOISE_enum_themes(NOISE_theme_callback_t callback, void *arg)
-{
-    for (uint16_t i = 0; i < lengthof(__noise_mapping); i ++)
-        callback(i, __noise_mapping[i], arg, i == lengthof(__noise_mapping) - 1);
 }
 
 bool NOISE_is_playing(void)
 {
-    return context.playing;
-}
-
-void NOISE_set_stopped(void)
-{
-    context.playing = false;
+    return NOISE_context.playing;
 }
 
 static int __play(void)
 {
-    mplayer_stop();
-    context.playing = true;
+    NOISE_stop();
+    NOISE_context.playing = true;
 
-    if (0 > (int16_t)context.curr_id)
-        context.curr_id = lengthof(__noise_mapping) - 1;
-    else if ((int)lengthof(__noise_mapping) <= context.curr_id)
-        context.curr_id = 0;
+    if (0 > (int16_t)NOISE_context.curr_id)
+        NOISE_context.curr_id = NOISE_context.noise_cnt;
+    else if (NOISE_context.curr_id >= NOISE_context.noise_cnt)
+        NOISE_context.curr_id = 0;
 
-    char filename[40];
-    sprintf(filename, "noise/%s", __noise_mapping[context.curr_id]);
-    return mplayer_play_loop(filename);
+    uint32_t key = NVM_DEFINE_KEY('N', 'O', 'S', 'a' + NOISE_context.curr_id / NOISE_CNT_PER_NVM);
+    if (0 == NVM_get(key, nvm_buf, sizeof(nvm_buf)))
+    {
+        struct NOISE_store_t *nois = &nvm_buf[NOISE_context.curr_id % NOISE_CNT_PER_NVM];
+
+        if ('\0' != nois->theme[0])
+        {
+            char cmd[64];
+            // mnoise start JAPANGARDEN  0 0 0 0 10 0 0 0 0 0
+            sprintf(cmd, "mnoise start %s %u %u %u %u %u %u %u %u %u %u", nois->theme,
+                nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
+                nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
+
+            mplayer_commnad_cb(cmd, NULL, NULL);
+            return 0;
+        }
+    }
+    return ENOENT;
 }
 
 int NOISE_toggle(void)
 {
-    context.playing = ! context.playing;
+    NOISE_context.playing = ! NOISE_context.playing;
 
-    if (context.playing)
+    if (NOISE_context.playing)
         return __play();
     else
-        return mplayer_stop();
+        return NOISE_stop();
 }
 
 int NOISE_play(uint16_t id)
 {
-    context.curr_id = id;
+    NOISE_context.curr_id = id;
     return __play();
 }
 
 int NOISE_stop(void)
 {
-    context.playing = false;
-    return mplayer_stop();
+    NOISE_context.playing = false;
+    return mplayer_commnad_cb("mnoise stop", NULL, NULL);
 }
 
-int NOISE_next(void)
+uint16_t NOISE_next(void)
 {
-    context.curr_id ++;
-
-    if (context.playing)
-        return __play();
-    else
-        return 0;
+    if (NOISE_context.playing)
+    {
+        NOISE_context.curr_id ++;
+        __play();
+    }
+    return NOISE_context.curr_id;
 }
 
-int NOISE_prev(void)
+uint16_t NOISE_prev(void)
 {
-    context.curr_id --;
-
-    if (context.playing)
-        return __play();
-    else
-        return 0;
+    if (NOISE_context.playing)
+    {
+        NOISE_context.curr_id --;
+        __play();
+    }
+    return NOISE_context.curr_id;
 }
 
 /****************************************************************************
  * @internal
  ****************************************************************************/
-static void noise_theme_enum_callback(uint16_t id, char const *theme, void *arg, bool final)
+static int noise_ls_callback(char const *line, glist_t *list)
 {
-    UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
-    UCSH_printf((struct UCSH_env *)arg, "\"theme\":\"%s\"}", theme);
+    char const *ptr = &line[0];
+    while (1)
+    {
+        while (*ptr && '/' != *ptr) ptr ++;
+        if (! *ptr)
+            break;
+        else
+            ptr ++;
 
-    if (final)
-        UCSH_puts((struct UCSH_env *)arg, "\n");
-    else
-        UCSH_puts((struct UCSH_env *)arg, ",\n");
+        char *tmp = (void *)ptr;
+        int bytes;
+
+        while (*tmp && '.' != *tmp) tmp ++;
+        if (0 >= (bytes = tmp - ptr)) break;
+
+        struct glist_hdr_t *hdr = (void *)malloc(sizeof(struct glist_hdr_t) + (unsigned)bytes + 1);
+        if (! hdr)
+            return ENOMEM;
+        else
+            glist_push_back(list, hdr);
+
+        tmp = (char *)(hdr + 1);
+        memcpy(tmp, ptr, (unsigned)bytes);
+        tmp[bytes] = '\0';
+
+        while (*ptr && ' ' != *ptr) ptr ++;
+        while (*ptr && ' ' == *ptr) ptr ++;
+        if (! *ptr) break;
+    }
+    return 0;
 }
 
-static int SHELL_noise(struct UCSH_env *env)
+static void noise_store(char const *theme, char *param)
+{
+    uint32_t key = NVM_DEFINE_KEY('N', 'O', 'S', 'a' + NOISE_context.noise_cnt / NOISE_CNT_PER_NVM);
+    if (key != NOISE_context.noise_iter_key)
+    {
+        NOISE_context.noise_iter_key = key;
+        NVM_get(key, nvm_buf, sizeof(nvm_buf));
+    }
+
+    struct NOISE_store_t *nois = &nvm_buf[NOISE_context.noise_cnt % NOISE_CNT_PER_NVM];
+
+    memset(nois, 0, sizeof(*nois));
+    strncpy(nois->theme, theme, sizeof(nois->theme));
+
+    uint8_t *gain = nois->gain;
+    while (*param)
+    {
+        char const *tmp = param;
+        while (*param && ',' != *param) param ++;
+        if (*param)
+            *param ++ = '\0';
+
+        *gain ++ = (uint8_t)strtoul(tmp, NULL, 10);
+        if (lengthof(nois->gain) == gain - nois->gain)
+            break;
+    }
+
+    if (++ NOISE_context.noise_cnt == NOISE_CNT_PER_NVM)
+    {
+        NOISE_context.noise_iter_key = 0;
+        NVM_set(key, nvm_buf, sizeof(nvm_buf));
+    }
+
+    printf("noise %s %u %u %u %u %u %u %u %u %u %u\n", nois->theme,
+        nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
+        nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
+}
+
+static void noise_readfile(char const *theme, char *line_buf)
+{
+    int retval;
+    char *cmd_buf = line_buf;
+    line_buf += 64;
+
+    // open
+    sprintf(cmd_buf, "fopen noise/%s.txt r", theme);
+    if (0 == (retval = mplayer_commnad_cb(cmd_buf, NULL, NULL)))
+    {
+        char *line;
+        char *line_end = line_buf;
+
+        // read until 0
+        while (1)
+        {
+            sprintf(cmd_buf, "fread noise/%s.txt 64", theme);
+            if (0 == (retval = mplayer_commnad_cb(cmd_buf, NULL, NULL)))
+                break;
+
+            mplayer_recvbuf(line_end, (size_t)retval);
+            line_end[retval] = '\0';
+
+            line = line_buf;
+            while(*line && '[' != *line) line ++;
+            if (! *line)
+                break;
+            else
+                line_end = ++ line;
+
+            while (*line_end && ! ('\n' == *line_end || ']' == *line_end)) line_end ++;
+            switch (*line_end)
+            {
+            case '\0':
+                break;
+
+            case '\n':
+                if ('\r' == *(line_end - 1)) line_end --;
+                break;
+
+            case ']':
+                *line_end ++ = '\0';
+                if ('\r' == *line_end) line_end ++;
+                if ('\n' == *line_end) line_end ++;
+
+                noise_store(theme, line);
+                line = line_end;
+                line_end = line_buf;
+                while ('\0' != *line) { *line_end ++ = *line ++; }
+                break;
+            }
+        }
+
+        // close
+        sprintf(cmd_buf, "fclose noise/%s.txt", theme);
+        mplayer_commnad_cb(cmd_buf, NULL, NULL);
+    }
+}
+
+static void NOISE_discover(char *buf)
+{
+    glist_t list;
+    glist_init(&list);
+
+    NOISE_context.noise_cnt = 0;
+    NOISE_context.noise_iter_key = 0;
+
+    sprintf(buf, "ls noise/*.txt");
+    if (0 == mplayer_commnad_cb(buf, (void *)noise_ls_callback, &list))
+    {
+        struct glist_hdr_t *iter;
+        while (NULL != (iter = glist_pop(&list)))
+        {
+            char *theme = (char *)(iter + 1);
+            noise_readfile(theme, buf);
+
+            free(iter);
+        }
+
+        if (0 != NOISE_context.noise_iter_key)
+        {
+            NVM_set(NOISE_context.noise_iter_key, nvm_buf, sizeof(nvm_buf));
+            NOISE_context.noise_iter_key = 0;
+        }
+    }
+}
+
+static int NOISE_shell_cmd(struct UCSH_env *env)
 {
     if (1 == env->argc)
     {
-        UCSH_puts(env, "{\"themes\": [\n");
-        NOISE_enum_themes(noise_theme_enum_callback, env);
-        UCSH_puts(env, "]}\n");
-
+        NOISE_discover(env->argv[0]);
         return 0;
     }
     else if (2 == env->argc)

@@ -45,9 +45,7 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime);
 static void MSG_alive(struct PANEL_runtime_t *runtime);
-
 static void setting_done(struct PANEL_runtime_t *runtime);
-static void media_stop(struct PANEL_runtime_t *runtime);
 
 static void tmp_content_start(struct PANEL_runtime_t *runtime, enum PANEL_setting_group_t, uint32_t, uint32_t);
 static void tmp_content_disable(struct PANEL_runtime_t *runtime);
@@ -193,8 +191,6 @@ void PERIPHERAL_init(void)
 
 void mplayer_stopping_callback(void)
 {
-    NOISE_set_stopped();
-
     // any mplayer_stop() will stop alarming
     CLOCK_stop_current_alarm();
     // any mplayer_stop() will snooze all current reminder
@@ -543,7 +539,7 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
         CLOCK_stop_current_alarm();
         PANEL_attr_set_blinky(&runtime->panel_attr, 0);
     }
-    media_stop(runtime);
+    mplayer_stop();
 
     if (5000 < clock() - snooze_activity)
         click_count = 0;
@@ -585,7 +581,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
             runtime->setting.part = 0;
 
-            media_stop(runtime);
+            mplayer_stop();
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
         }
         else
@@ -877,7 +873,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         struct CLOCK_moment_t *moment;
 
     ringtone_inc_dec:
-        media_stop(runtime);
+        mplayer_stop();
 
         moment = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
         if (0 < value)
@@ -972,14 +968,14 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     case MSG_BUTTON_LEFT:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = (uint16_t)NOISE_prev();
+            setting.last_noise_id = NOISE_prev();
             SETTING_defer_save(runtime);
         }
         break;
     case MSG_BUTTON_RIGHT:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = (uint16_t)NOISE_next();
+            setting.last_noise_id = NOISE_next();
             SETTING_defer_save(runtime);
         }
         break;
@@ -1383,16 +1379,6 @@ static void tmp_content_disable(struct PANEL_runtime_t *runtime)
         PANEL_update(&runtime->panel_attr);
     }
     timeout_stop(&runtime->tmp_content.disable_timeo);
-}
-
-static void media_stop(struct PANEL_runtime_t *runtime)
-{
-    (void)runtime;
-
-    if (NOISE_is_playing())
-        NOISE_stop();
-    else
-        mplayer_stop();
 }
 
 static void setting_defore_store_cb(struct PANEL_runtime_t *runtime)
