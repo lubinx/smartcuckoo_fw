@@ -82,6 +82,7 @@ int UCSH_cat(struct UCSH_env *env)
 
         // close
         sprintf(env->buf, "fclose %s\r\n", env->argv[1]);
+        mplayer_commnad_cb(env->buf, NULL, NULL);
         UCSH_puts(env, "\n");
 
         return 0;
