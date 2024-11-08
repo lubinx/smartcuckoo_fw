@@ -9,6 +9,41 @@
 /****************************************************************************
  * @implements
  ****************************************************************************/
+int open(char const *pathname, int flags, ...)
+{
+    ARG_UNUSED(pathname, flags);
+    return ENOSYS;
+}
+
+int unlink(char const *pathname)
+{
+    (void)pathname;
+    return 0;
+}
+
+int UCSH_format(struct UCSH_env *env)
+{
+    ARG_UNUSED(env);
+    return EOPNOTSUPP;
+}
+
+int UCSH_chdir(struct UCSH_env *env)
+{
+    /*
+    join_cmd(env);
+    return mplayer_commnad_cb(env->buf, line_cb, env);
+    */
+    // chdir not work on R11 side
+    ARG_UNUSED(env);
+    return EOPNOTSUPP;
+}
+
+int UCSH_rmdir(struct UCSH_env *env)
+{
+    ARG_UNUSED(env);
+    return EOPNOTSUPP;
+}
+
 static void join_cmd(struct UCSH_env *env)
 {
     int len = 0;
@@ -28,17 +63,6 @@ int UCSH_pwd(struct UCSH_env *env)
 {
     join_cmd(env);
     return mplayer_commnad_cb(env->buf, line_cb, env);
-}
-
-int UCSH_chdir(struct UCSH_env *env)
-{
-    /*
-    join_cmd(env);
-    return mplayer_commnad_cb(env->buf, line_cb, env);
-    */
-    // chdir not work on R11 side
-    ARG_UNUSED(env);
-    return EOPNOTSUPP;
 }
 
 int UCSH_ls(struct UCSH_env *env)
@@ -68,7 +92,7 @@ int UCSH_cat(struct UCSH_env *env)
         // read until 0
         while (1)
         {
-            sprintf(env->buf, "fread %s 128\r\n", env->argv[1]);
+            sprintf(env->buf, "fread %s 64\r\n", env->argv[1]);
             retval = mplayer_commnad_cb(env->buf, NULL, NULL);
 
             if (0 != retval)
