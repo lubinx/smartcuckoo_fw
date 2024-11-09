@@ -234,11 +234,7 @@ uint16_t PERIPHERAL_batt_ad_sync(void)
     PERIPHERAL_batt_ad_start();
 
     while (0 == batt_ad.value) msleep(0);
-
-    if ((int)(BATT_EMPTY_MV - 300) > batt_ad.value)
-        NVIC_SystemReset();
-    else
-        return (uint16_t)batt_ad.value;
+    return (uint16_t)batt_ad.value;
 #else
     return 0;
 #endif
