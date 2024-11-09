@@ -198,11 +198,15 @@ static void mplayer_sync_batt_ad_value(void)
     uint8_t batt_lvl = BATT_mv_level(volt);
     LOG_info("batt %dmV", volt);
 
-    if (batt_lvl < 60)
+    if (BATT_EMPTY_MV > volt)
+    {
+        // do nothing
+    }
+    else if (batt_lvl < 60)
     {
         uint8_t batt_ctrl_volume = BATT_30_VOLUME + (uint8_t)(batt_lvl / (60 - 10) * batt_lvl);
 
-        if (BATT_EMPTY_MV > volt)
+        if (BATT_LOW_MV > volt)
             batt_ctrl_volume = 30;
 
         if (batt_ctrl_volume > setting.media_volume)
@@ -293,27 +297,30 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
+    mplayer_sync_batt_ad_value();
+    // say low battery only
+    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt() || BATT_LOW_MV > PERIPHERAL_batt_volt())
+    {
+        mplayer_stop();
+        mplayer_gpio_power_off();
+        // NVIC_SystemReset();
+        return;
+    }
+
     if (SETTING_TIMEOUT < clock() - talking_button.voice_loop_stick)
         talking_button.click_count = 0;
     runtime->voice_loop_stick = clock();
 
     mplayer_stop();
-
     // any button will stop alarming
     if (true == CLOCK_stop_current_alarm())
         return;
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
 
-    mplayer_sync_batt_ad_value();
-    // say low battery only
-    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
-        return;
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
         VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_LOW_BATT, NULL);
-    if (BATT_LOW_MV > PERIPHERAL_batt_volt())
-        return;
 
     if (! runtime->setting)
     {
