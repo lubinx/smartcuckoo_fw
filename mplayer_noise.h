@@ -8,8 +8,10 @@ __BEGIN_DECLS
 extern __attribute__((nothrow))
     int NOISE_attr_init(uint16_t stored_id);
 
-extern __attribute__((nothrow, const))
+extern __attribute__((nothrow, pure))
     bool NOISE_is_playing(void);
+extern __attribute__((nothrow, pure))
+    uint16_t NOISE_current_id(void);
 
 extern __attribute__((nothrow))
     int NOISE_toggle(void);

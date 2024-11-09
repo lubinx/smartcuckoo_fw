@@ -42,11 +42,13 @@ int NOISE_attr_init(uint16_t stored_id)
     for (char n = 'a'; n <= 'z'; n ++)
     {
         uint32_t key = NVM_DEFINE_KEY('N', 'O', 'S', n);
+        memset(&nvm_buf, 0, sizeof(nvm_buf));
 
         if (0 == NVM_get(key, nvm_buf, sizeof(nvm_buf)))
         {
             uint8_t cnt = lengthof(nvm_buf);
             while (cnt && '\0' == nvm_buf[cnt - 1].theme[0]) cnt --;
+
             NOISE_context.noise_cnt += cnt;
         }
     }
@@ -66,9 +68,14 @@ bool NOISE_is_playing(void)
     return NOISE_context.playing;
 }
 
+uint16_t NOISE_current_id(void)
+{
+    return NOISE_context.curr_id;
+}
+
 static int __play(void)
 {
-    NOISE_stop();
+    // NOISE_stop();
     NOISE_context.playing = true;
 
     if (0 > (int16_t)NOISE_context.curr_id)
@@ -84,7 +91,7 @@ static int __play(void)
         if ('\0' != nois->theme[0])
         {
             char cmd[64];
-            // mnoise start JAPANGARDEN  0 0 0 0 10 0 0 0 0 0
+
             sprintf(cmd, "mnoise start %s %u %u %u %u %u %u %u %u %u %u", nois->theme,
                 nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
                 nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
@@ -181,7 +188,7 @@ static void noise_store(char const *theme, char *param)
     if (key != NOISE_context.noise_iter_key)
     {
         NOISE_context.noise_iter_key = key;
-        NVM_get(key, nvm_buf, sizeof(nvm_buf));
+        memset(&nvm_buf, 0, sizeof(nvm_buf));
     }
 
     struct NOISE_store_t *nois = &nvm_buf[NOISE_context.noise_cnt % NOISE_CNT_PER_NVM];
@@ -207,10 +214,6 @@ static void noise_store(char const *theme, char *param)
         NOISE_context.noise_iter_key = 0;
         NVM_set(key, nvm_buf, sizeof(nvm_buf));
     }
-
-    printf("noise %s %u %u %u %u %u %u %u %u %u %u\n", nois->theme,
-        nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
-        nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
 }
 
 static void noise_readfile(char const *theme, char *line_buf)
@@ -305,6 +308,51 @@ static int NOISE_shell_cmd(struct UCSH_env *env)
     if (1 == env->argc)
     {
         NOISE_discover(env->argv[0]);
+        struct NOISE_store_t *nois;
+        char theme[lengthof(nois->theme)] = {0};
+
+        UCSH_puts(env, "{\n\t\"noises\": [\n");
+        for (char n = 'a'; n <= 'z'; n ++)
+        {
+            uint32_t key = NVM_DEFINE_KEY('N', 'O', 'S', n);
+            memset(&nvm_buf, 0, sizeof(nvm_buf));
+
+            if (0 == NVM_get(key, nvm_buf, sizeof(nvm_buf)))
+            {
+                for (unsigned i = 0; i < lengthof(nvm_buf); i ++)
+                {
+                    nois = &nvm_buf[i];
+                    if (0 != strcmp(theme, nois->theme))
+                    {
+                        if ('\0' != theme[0])
+                        {
+                            UCSH_puts(env, "\n\t\t]}, \n");
+                        }
+
+                        strncpy(theme, nois->theme, sizeof(theme));
+                        UCSH_printf(env, "\t\t{\"theme\": \"%s\", \"scenario\": [\n", theme);
+
+                        UCSH_printf(env, "\t\t\t{\"id\": %d, \"gain\": [%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]}",
+                            (n - 'a') * lengthof(nvm_buf) + i,
+                            nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
+                            nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
+                    }
+                    else
+                    {
+                        UCSH_printf(env, ",\n\t\t\t{\"id\": %d, \"gain\": [%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]}",
+                            (n - 'a') * lengthof(nvm_buf) + i,
+                            nois->gain[0], nois->gain[1], nois->gain[2], nois->gain[3], nois->gain[4],
+                            nois->gain[5], nois->gain[6], nois->gain[7], nois->gain[8], nois->gain[9]);
+                    }
+                }
+            }
+            else
+                break;
+        }
+        UCSH_puts(env, "\n\t\t]}\n\t],\n");
+
+        UCSH_printf(env, "\t\"current_id\": %d\n", NOISE_context.curr_id);
+        UCSH_puts(env, "}\n");
         return 0;
     }
     else if (2 == env->argc)

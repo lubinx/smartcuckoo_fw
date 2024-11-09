@@ -307,6 +307,11 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         }
     }
 
+    if (timeout_is_running(&runtime->tmp_content.disable_timeo) || runtime->setting.en)
+    {
+        // FIXME: aht2x deadlook I2C
+        runtime->env_sensor.last_ts = ts;
+    }
     if (0 == runtime->env_sensor.last_ts || ENV_SENSOR_UPDATE_SECONDS < ts - runtime->env_sensor.last_ts)
     {
         if (runtime->env_sensor.converting)
@@ -598,7 +603,20 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
 
     case MSG_BUTTON_NOISE:
         if (! runtime->setting.en)
+        {
             NOISE_toggle();
+
+            if (NOISE_is_playing())
+            {
+                tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
+                PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_PERCENT);
+                PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)NOISE_current_id());
+            }
+            else
+                tmp_content_disable(runtime);
+
+            PANEL_update(&runtime->panel_attr);
+        }
         break;
 
     case MSG_BUTTON_RECORD:
@@ -969,14 +987,14 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         if (NOISE_is_playing())
         {
             setting.last_noise_id = NOISE_prev();
-            SETTING_defer_save(runtime);
+            goto panel_sel_noise;
         }
         break;
     case MSG_BUTTON_RIGHT:
         if (NOISE_is_playing())
         {
             setting.last_noise_id = NOISE_next();
-            SETTING_defer_save(runtime);
+            goto panel_sel_noise;
         }
         break;
 
@@ -988,6 +1006,16 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         LAMP_dec(&runtime->lamp_attr);
         break;
 #endif
+    }
+
+    if (false)
+    {
+    panel_sel_noise:
+        tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
+        PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_PERCENT);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.last_noise_id);
+
+        SETTING_defer_save(runtime);
     }
 }
 
@@ -1009,10 +1037,6 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
             setting.media_volume = volume;
             modified = true;
         }
-        /*
-        if (! is_playing)
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-        */
         break;
 
     case MSG_VOLUME_DEC:
@@ -1022,22 +1046,20 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
             setting.media_volume = volume;
             modified = true;
         }
-        /*
-        if (! is_playing)
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-        */
         break;
     }
 
     if (! runtime->setting.en)
     {
         tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
+
         PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.media_volume);
+        PANEL_attr_set_flags(&runtime->panel_attr, PANEL_PERCENT);
         PANEL_update(&runtime->panel_attr);
     }
 
     // playing something...
-    if (MPLAYER_PLAYING != mplayer_stat())
+    if (MPLAYER_PLAYING != mplayer_stat() && ! NOISE_is_playing())
     {
         int ringtone_id = -1;
 

@@ -34,13 +34,16 @@ static int SHELL_rec(struct UCSH_env *env);
 /// @var
 TUltraCorePeripheral *BLE;
 
-static struct UCSH_env BLE_sh_env;
-static uint32_t BLE_sh_stack[1344 / sizeof(uint32_t)];
 
 #if 0 == PMU_EM2_EN
+    static struct UCSH_env BLE_sh_env;
+    static uint32_t BLE_sh_stack[1152 / sizeof(uint32_t)];
+
     static struct UCSH_env UART_sh_env;
-    static uint32_t UART_sh_stack[1088 / sizeof(uint32_t)];
+    static uint32_t UART_sh_stack[1232 / sizeof(uint32_t)];
 #else
+    static struct UCSH_env BLE_sh_env;
+    static uint32_t BLE_sh_stack[1408 / sizeof(uint32_t)];
 #endif
 
 /*****************************************************************************/
