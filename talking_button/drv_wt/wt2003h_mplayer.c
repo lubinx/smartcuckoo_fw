@@ -196,7 +196,7 @@ void mplayer_verbose_log_hex(char const *hint, void const *buf, size_t bufsize)
 
     if (LOG_DEBUG < __log_level)
     {
-        printf(LOG_VERBOSE_COLOR LOG_VERBOSE_LETTER " %-10" PRIu32 "%s:", LOG_timestamp(), hint);
+        printf("%-10" PRIu32 LOG_VERBOSE_LETTER LOG_VERBOSE_CTRL " %s:", LOG_timestamp(), hint);
 
         for (size_t i = 0; i < bufsize; i ++, buf ++)
             printf(" %c%c", __xlat[(*(uint8_t *)buf) >> 4], __xlat[(*(uint8_t *)buf) & 0xF]);
@@ -388,7 +388,7 @@ static void *mplayer_controller_thread(struct mplayer_attr_t *attr)
                         {
                             mplayer_gpio_power_off();
                             mplayer_power_callback(false);
-                            LOG_info("mplayer_gpio_power_off()");
+                            LOG_warning("mplayer_gpio_power_off()");
                         }
 
                         // forever waitfor a task
@@ -594,7 +594,7 @@ static void *mplayer_controller_thread(struct mplayer_attr_t *attr)
                 else
                     attr->avg_latency = (attr->avg_latency + mplayer_get_tickcount() - tick) / 2;
 
-                LOG_info("mplayer: average latency: %" PRIu32, attr->avg_latency);
+                LOG_debug("mplayer: average latency: %" PRIu32, attr->avg_latency);
             }
 
             if (MPLAYER_TASK_PEEK_FILE == task->hdr.msgid)
@@ -697,6 +697,7 @@ static int mplayer_marshalling_send(struct mplayer_attr_t *attr, struct mtask_t 
 
                 mplayer_gpio_power_on();
                 mqueue_post(mplayer_attr.mqd, (void *)power_task);
+                pthread_yield();
             }
         }
     }
