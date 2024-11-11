@@ -105,12 +105,10 @@ static int __play(void)
 
 int NOISE_toggle(void)
 {
-    NOISE_context.playing = ! NOISE_context.playing;
-
     if (NOISE_context.playing)
-        return __play();
-    else
         return NOISE_stop();
+    else
+        return __play();
 }
 
 int NOISE_play(uint16_t id)
@@ -121,8 +119,13 @@ int NOISE_play(uint16_t id)
 
 int NOISE_stop(void)
 {
-    NOISE_context.playing = false;
-    return mplayer_commnad_cb("mnoise stop", NULL, NULL);
+    if (NOISE_context.playing)
+    {
+        NOISE_context.playing = false;
+        return mplayer_commnad_cb("mnoise stop", NULL, NULL);
+    }
+    else
+        return 0;
 }
 
 uint16_t NOISE_next(void)
