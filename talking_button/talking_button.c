@@ -56,6 +56,8 @@ enum buttion_action_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *runtime);
+
+static bool battery_checking(void);
 static void setting_timeout_callback(void *arg);
 static void power_latency_timeout_callback(void *arg);
 
@@ -196,7 +198,6 @@ static void mplayer_sync_batt_ad_value(void)
 {
     uint16_t volt = PERIPHERAL_batt_ad_sync();
     uint8_t batt_lvl = BATT_mv_level(volt);
-    LOG_info("batt %dmV", volt);
 
     if (BATT_EMPTY_MV > volt)
     {
@@ -248,6 +249,27 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
     }
 }
 
+static bool battery_checking(void)
+{
+    mplayer_sync_batt_ad_value();
+    LOG_print("batt %dmV", PERIPHERAL_batt_volt());
+
+    // say low battery only
+    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt() || BATT_LOW_MV > PERIPHERAL_batt_volt())
+    {
+        // discard settings
+        talking_button.click_count = 0;
+        talking_button.setting = false;;
+
+        mplayer_stop();
+        mplayer_gpio_power_off();
+
+        return false;
+    }
+    else
+        return true;
+}
+
 static void setting_timeout_callback(void *arg)
 {
     ARG_UNUSED(arg);
@@ -297,15 +319,8 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
-    mplayer_sync_batt_ad_value();
-    // say low battery only
-    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt() || BATT_LOW_MV > PERIPHERAL_batt_volt())
-    {
-        mplayer_stop();
-        mplayer_gpio_power_off();
-        // NVIC_SystemReset();
+    if (! battery_checking())
         return;
-    }
 
     if (SETTING_TIMEOUT < clock() - talking_button.voice_loop_stick)
         talking_button.click_count = 0;
@@ -454,6 +469,9 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_setting(struct talking_button_runtime_t *runtime)
 {
+    if (! battery_checking())
+        return;
+
     runtime->voice_loop_stick = clock();
     mplayer_stop();
 
@@ -539,20 +557,23 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
         if (runtime->setting_alarm_is_modified)
             NVM_set(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms));
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        if (battery_checking())
+            VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
     }
 }
 
 static void MSG_alarm_sw(struct talking_button_runtime_t *runtime, bool en)
 {
-    runtime->alarm_is_on = en;
-    mplayer_stop();
+    if (BATT_EMPTY_MV < PERIPHERAL_batt_volt())
+    {
+        runtime->alarm_is_on = en;
+        mplayer_stop();
 
-    if (en)
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_ON, NULL);
-    else
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_OFF, NULL);
-
+        if (en)
+            VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_ON, NULL);
+        else
+            VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_OFF, NULL);
+    }
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button_runtime_t *runtime)
@@ -563,7 +584,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
         if (msg)
         {
             WDOG_feed();
-            // BURAM->RET[31].REG = BURTC->CNT;    // RTC
+            BURAM->RET[31].REG = BURTC->CNT;    // RTC
 
             switch ((enum talking_button_message_t)msg->msgid)
             {
