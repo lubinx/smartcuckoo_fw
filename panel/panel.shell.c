@@ -116,17 +116,9 @@ static int SHELL_dim(struct UCSH_env *env)
         else if (3 == env->argc)
         {
             unsigned idx = strtoul(env->argv[1], NULL, 10);
-            LAMP_set_color(&panel.lamp_attr, idx);
-
             unsigned percent = strtoul(env->argv[2], NULL, 10);
-            if (0 != percent)
-            {
-                LAMP_set_brightness(&panel.lamp_attr, percent);
-                LAMP_on(&panel.lamp_attr);
-            }
-            else
-                LAMP_off(&panel.lamp_attr);
 
+            LAMP_update(&panel.lamp_attr, idx, percent);
             UCSH_puts(env, "\n");
             return 0;
         }

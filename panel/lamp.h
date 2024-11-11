@@ -25,17 +25,15 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow))
     void LAMP_off(struct LAMP_attr_t *attr);
 
-
-extern __attribute__((nothrow))
-    void LAMP_set_brightness(struct LAMP_attr_t *attr, unsigned percent);
-extern __attribute__((nothrow))
-    void LAMP_set_color(struct LAMP_attr_t *attr, unsigned idx);
-extern __attribute__((nothrow))
-    void LAMP_next_color(struct LAMP_attr_t *attr);
-
 extern __attribute__((nothrow))
     void LAMP_inc(struct LAMP_attr_t *attr);
 extern __attribute__((nothrow))
     void LAMP_dec(struct LAMP_attr_t *attr);
+extern __attribute__((nothrow))
+    void LAMP_next_color(struct LAMP_attr_t *attr);
+
+
+extern __attribute__((nothrow))
+    void LAMP_update(struct LAMP_attr_t *attr, unsigned idx, unsigned percent);
 
 #endif

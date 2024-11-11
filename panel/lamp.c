@@ -80,45 +80,6 @@ void LAMP_off(struct LAMP_attr_t *attr)
     WS2812B_set(0);
 }
 
-void LAMP_set_brightness(struct LAMP_attr_t *attr, unsigned percent)
-{
-    if (percent > 100) percent = 60;
-    if (percent < 20) percent = 20;
-
-    if (60 == percent)
-        attr->weight = 0;
-    else
-        attr->weight = (int8_t)(160 * (percent - 20) / 80 - 80);
-}
-
-void LAMP_set_color(struct LAMP_attr_t *attr, unsigned idx)
-{
-    if (idx < lengthof(__color_xlat))
-        attr->color_idx = idx;
-    else
-        attr->color_idx = 0;
-
-    if (attr->en)
-    {
-        uint32_t color = __color_xlat[attr->color_idx];
-        WS2812B_set(color_trans(color, attr->weight));
-    }
-}
-
-void LAMP_next_color(struct LAMP_attr_t *attr)
-{
-    if (attr->en)
-    {
-        if (attr->color_idx < lengthof(__color_xlat))
-            attr->color_idx ++;
-        else
-            attr->color_idx = 0;
-
-        uint32_t color = __color_xlat[attr->color_idx];
-        WS2812B_set(color_trans(color, attr->weight));
-    }
-}
-
 void LAMP_inc(struct LAMP_attr_t *attr)
 {
     if (attr->en)
@@ -141,6 +102,44 @@ void LAMP_dec(struct LAMP_attr_t *attr)
 
         WS2812B_set(color_trans(color, attr->weight));
     }
+}
+
+void LAMP_next_color(struct LAMP_attr_t *attr)
+{
+    if (attr->en)
+    {
+        if (attr->color_idx < lengthof(__color_xlat))
+            attr->color_idx ++;
+        else
+            attr->color_idx = 0;
+
+        uint32_t color = __color_xlat[attr->color_idx];
+        WS2812B_set(color_trans(color, attr->weight));
+    }
+}
+
+
+void LAMP_update(struct LAMP_attr_t *attr, unsigned idx, unsigned percent)
+{
+    if (idx < lengthof(__color_xlat))
+        attr->color_idx = idx;
+    else
+        attr->color_idx = 0;
+
+    if (percent != 0)
+    {
+        if (percent > 100) percent = 60;
+        if (percent < 20) percent = 20;
+
+        if (60 == percent)
+            attr->weight = 0;
+        else
+            attr->weight = (int8_t)(160 * (percent - 20) / 80 - 80);
+
+        LAMP_on(attr);
+    }
+    else
+        LAMP_off(attr);
 }
 
 /****************************************************************************
