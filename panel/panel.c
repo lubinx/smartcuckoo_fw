@@ -119,7 +119,7 @@ void PERIPHERAL_init(void)
     MSG_alive(&panel);
 
     // mp3 chip
-    int uart_fd = UART_createfd(USART0, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    int uart_fd = UART_createfd(USART0, 38400, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
@@ -586,7 +586,9 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
             runtime->setting.part = 0;
 
+            NOISE_stop();
             mplayer_stop();
+
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
         }
         else
