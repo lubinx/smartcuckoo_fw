@@ -82,7 +82,7 @@ void SHELL_bootstrap(void)
         UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
         msleep(10);
-        LOG_info("%s startup, RTC calib: %d", PROJECT_NAME, RTC_calibration_ppb());
+        LOG_print("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_calibration_ppb());
     #endif
 
     BLE = new TUltraCorePeripheral();
@@ -145,7 +145,7 @@ void UCSH_startup_handle(struct UCSH_env *env)
 {
     if (env->fd == __stdout_fd)
     {
-        UCSH_printf(env, "%s Shell ", PROJECT_NAME);
+        UCSH_printf(env, "smartcuckoo %s Shell ", PROJECT_ID);
         UCSH_version(env);
     }
 }
