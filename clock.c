@@ -27,14 +27,10 @@ bool CLOCK_alarm_switch_is_on(void)
 void CLOCK_init()
 {
     CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
-    __NOP();
-    if (0 != BURAM->RET[31].REG)
-        RTC_set_epoch_time(BURAM->RET[31].REG);
 
-    if (true)
+    if (1)
     {
-        static time_t now;
-        now = time(NULL);
+        time_t now = time(NULL);
         struct tm dt;
 
         dt.tm_year = COMPILE_YEAR - 1900;
@@ -43,11 +39,7 @@ void CLOCK_init()
         dt.tm_hour = 0;
         dt.tm_min = 0;
         dt.tm_sec = 0;
-
-        time_t ts = mktime(&dt);
-
-        if (now < ts)
-            RTC_set_epoch_time(ts);
+        time_t ts_min = mktime(&dt);
 
         dt.tm_year = SUPPORTED_YEAR + 1 - 1900;
         dt.tm_mon = 0;
@@ -56,8 +48,13 @@ void CLOCK_init()
         dt.tm_min = 0;
         dt.tm_sec = 0;
 
-        if (now >= mktime(&dt))
-            RTC_set_epoch_time(ts);
+        if (now < ts_min || now >= mktime(&dt))
+        {
+            if (0 != BURAM->RET[31].REG)
+                RTC_set_epoch_time(BURAM->RET[31].REG);
+            else
+                RTC_set_epoch_time(ts_min);
+        }
     }
 
     clock_setting.alarming_idx = -1;
