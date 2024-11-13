@@ -90,5 +90,13 @@
         uint16_t PeerId;
         clock_t LastActivity;
     };
+    extern TUltraCorePeripheral *BLE;
+
+static inline __attribute__((nothrow, nonnull))
+    void BLE_SHELL_write(char const *str)
+    {
+        if (BLE)
+            BLE->Shell.Write(str, strlen(str));
+    }
 
 #endif
