@@ -10,7 +10,6 @@
     #define PANEL_APPLICATION
 #endif
 
-
 /*****************************************************************************/
 /** @imports
 *****************************************************************************/
@@ -33,7 +32,6 @@ static int SHELL_rec(struct UCSH_env *env);
 
 /// @var
 TUltraCorePeripheral *BLE;
-
 
 #if 0 == PMU_EM2_EN
     static struct UCSH_env BLE_sh_env;

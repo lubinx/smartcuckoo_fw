@@ -42,7 +42,8 @@ struct VOICE_attr_t voice_attr = {0};
  ****************************************************************************/
 int main(void)
 {
-    LOG_set_level(LOG_ERROR);
+    LOG_set_level(LOG_WARN);
+    // LOG_set_level(LOG_VERBOSE);
 
     #ifdef UART0_TXD
         UART_pin_mux(USART0, UART0_TXD, UART0_RXD);
@@ -63,10 +64,10 @@ int main(void)
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MP3_POWER);
     #endif
 
-    extern int __stdout_fd;
     __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     // somehow xG22 put some invalid char on bootup
     printf("\t\t\r\n\r\n");
+    LOG_print("smartcuckoo %s booting", PROJECT_ID);
 
     UCSH_init();
     UCSH_register_fileio();
@@ -232,8 +233,8 @@ uint16_t PERIPHERAL_batt_ad_sync(void)
 #ifdef PIN_BATT_ADC
     batt_ad.value = 0;
     PERIPHERAL_batt_ad_start();
+    while (0 == batt_ad.value) pthread_yield();
 
-    while (0 == batt_ad.value) msleep(0);
     return (uint16_t)batt_ad.value;
 #else
     return 0;

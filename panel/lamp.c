@@ -1,15 +1,13 @@
-#include <unistd.h>
-#include <timer.h>
-#include <stddef.h>
-
-#include "PERIPHERAL_config.h"
-#include "lamp.h"
+#include "panel_private.h"
 
 #define RGB(R, G, B)                    ((uint32_t)(G) << 16U | (uint32_t)(R) << 8 | (uint32_t)(B))
 
 /****************************************************************************
  *  @internal
  ****************************************************************************/
+// shell
+static int SHELL_lamp(struct UCSH_env *env);
+
 static uint32_t __color_xlat[] =
 {
     RGB(142, 142, 142),
@@ -38,6 +36,8 @@ void LAMP_attr_init(struct LAMP_attr_t *attr)
 {
     attr->color_idx = 0;
     WS2812B_set(0);
+
+    UCSH_register("lamp", SHELL_lamp);
 }
 
 void LAMP_enum_colors(LAMP_color_callback_t callback, void *arg)
@@ -118,7 +118,6 @@ void LAMP_next_color(struct LAMP_attr_t *attr)
     }
 }
 
-
 void LAMP_update(struct LAMP_attr_t *attr, unsigned idx, unsigned percent)
 {
     if (idx < lengthof(__color_xlat))
@@ -140,6 +139,53 @@ void LAMP_update(struct LAMP_attr_t *attr, unsigned idx, unsigned percent)
     }
     else
         LAMP_off(attr);
+}
+
+/****************************************************************************
+ *  @internal: shell
+ ****************************************************************************/
+static void lamp_color_enum_callback(unsigned id, uint8_t R, uint8_t G, uint8_t B, void *arg, bool final)
+{
+    UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
+    UCSH_printf((struct UCSH_env *)arg, "\"R\":%d, \"G\":%d, \"B\":%d}", R, G, B);
+
+    if (final)
+        UCSH_puts((struct UCSH_env *)arg, "\n");
+    else
+        UCSH_puts((struct UCSH_env *)arg, ",\n");
+}
+
+static int SHELL_lamp(struct UCSH_env *env)
+{
+    if (1 == env->argc)
+    {
+        UCSH_puts(env, "{\"colors\": [\n");
+        LAMP_enum_colors(lamp_color_enum_callback, env);
+        UCSH_puts(env, "]}\n");
+
+        return 0;
+    }
+    else if (2 == env->argc)
+    {
+        if (0 == strcmp("on", env->argv[1]))
+            LAMP_on(&panel.lamp_attr);
+        else
+            LAMP_off(&panel.lamp_attr);
+
+        UCSH_puts(env, "\n");
+        return 0;
+    }
+    else if (3 == env->argc)
+    {
+        unsigned idx = strtoul(env->argv[1], NULL, 10);
+        unsigned percent = strtoul(env->argv[2], NULL, 10);
+
+        LAMP_update(&panel.lamp_attr, idx, percent);
+        UCSH_puts(env, "\n");
+        return 0;
+    }
+    else
+        return EINVAL;
 }
 
 /****************************************************************************
