@@ -80,7 +80,7 @@ void SHELL_bootstrap(void)
         UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
         msleep(10);
-        LOG_print("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_calibration_ppb());
+        LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_calibration_ppb());
     #endif
 
     BLE = new TUltraCorePeripheral();
@@ -336,7 +336,6 @@ static int SHELL_alarm(struct UCSH_env *env)
     }
 
     UCSH_puts(env, "{\n\t\"alarms\": [\n");
-
     for (unsigned idx = 0, count = 0; idx < lengthof(clock_setting.alarms); idx ++)
     {
         struct CLOCK_moment_t *alarm = &clock_setting.alarms[idx];
@@ -344,10 +343,8 @@ static int SHELL_alarm(struct UCSH_env *env)
         // deleted condition
         if (! alarm->enabled && 0 == alarm->wdays && 0 == alarm->mdate)
             continue;
-
-        if (0 < count)
+        else if (0 != count ++)
             UCSH_puts(env, ",\n");
-        count ++;
 
         UCSH_printf(env, "\t\t{\"id\":%d, ", idx + 1);
         UCSH_printf(env, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
@@ -356,7 +353,7 @@ static int SHELL_alarm(struct UCSH_env *env)
         UCSH_printf(env, "\"mdate\":%lu, ",  alarm->mdate);
         UCSH_printf(env, "\"wdays\":%d}", alarm->wdays);
     }
-    UCSH_puts(env, "\n\t],\n");
+    UCSH_puts(env, "\t],\n");
 
     UCSH_printf(env, "\t\"alarm_count\":%d,\n", lengthof(clock_setting.alarms));
     UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
@@ -461,7 +458,6 @@ static int SHELL_reminder(struct UCSH_env *env)
     }
 
     UCSH_puts(env, "{\n\t\"reminders\": [\n");
-
     for (unsigned idx = 0, count = 0; idx < lengthof(clock_setting.reminders); idx ++)
     {
         struct CLOCK_moment_t *reminder = &clock_setting.reminders[idx];
@@ -469,10 +465,8 @@ static int SHELL_reminder(struct UCSH_env *env)
         // deleted condition
         if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
             continue;
-
-        if (0 < count)
+        else if (0 != count ++)
             UCSH_puts(env, ",\n");
-        count ++;
 
         UCSH_printf(env, "\t{\"id\":%d, ", idx + 1);
         UCSH_printf(env, "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
@@ -481,8 +475,9 @@ static int SHELL_reminder(struct UCSH_env *env)
         UCSH_printf(env, "\"mdate\":%lu, ",  reminder->mdate);
         UCSH_printf(env, "\"wdays\":%d}", reminder->wdays);
     }
+    UCSH_puts(env, "\t],\n");
+    UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(clock_setting.reminders));
 
-    UCSH_printf(env, "\n\t],\n\t\"reminder_count\": %d\n}\n", lengthof(clock_setting.reminders));
     return 0;
 }
 
