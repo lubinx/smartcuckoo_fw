@@ -27,7 +27,6 @@ bool CLOCK_alarm_switch_is_on(void)
 void CLOCK_init()
 {
     CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
-
     if (1)
     {
         time_t now = time(NULL);
@@ -48,13 +47,17 @@ void CLOCK_init()
         dt.tm_min = 0;
         dt.tm_sec = 0;
 
-        if (now < ts_min || now >= mktime(&dt))
-        {
-            if (0 != BURAM->RET[31].REG)
-                RTC_set_epoch_time(BURAM->RET[31].REG);
-            else
-                RTC_set_epoch_time(ts_min);
-        }
+        if (0 == BURAM->RET[30].REG + BURAM->RET[31].REG)
+            RTC_set_epoch_time(BURAM->RET[31].REG);
+        else
+            RTC_set_epoch_time(ts_min);
+
+        now = time(NULL);
+        localtime_r(&now, &dt);
+
+        LOG_printf("%04d/%02d/%02d %02d:%02d:%02d",
+            dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday,
+            dt.tm_hour, dt.tm_min, dt.tm_sec);
     }
 
     clock_setting.alarming_idx = -1;

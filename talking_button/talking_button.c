@@ -94,8 +94,6 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    CLOCK_init();
-
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
@@ -165,6 +163,8 @@ void PERIPHERAL_on_sleep(void)
 void PERIPHERAL_on_wakeup(void)
 {
     BURAM->RET[31].REG = BURTC->CNT;    // RTC
+    BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
+
     mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
 
@@ -252,7 +252,7 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 static bool battery_checking(void)
 {
     mplayer_sync_batt_ad_value();
-    LOG_print("batt %dmV", PERIPHERAL_batt_volt());
+    LOG_printf("batt %dmV", PERIPHERAL_batt_volt());
 
     // say low battery only
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt() || BATT_LOW_MV > PERIPHERAL_batt_volt())

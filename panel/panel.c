@@ -77,22 +77,17 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    CLOCK_init();
-
     if (0 == GPIO_peek(PIN_EXT_5V_DET))     // NOTE: 5v PIN also trigger HW-RESET
     {
         // waitfor ext 5V is connected
         while (0 == GPIO_peek(PIN_EXT_5V_DET))
         {
             WDOG_feed();
+
             BURAM->RET[31].REG = BURTC->CNT;
+            BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
         }
         NVIC_SystemReset();
-    }
-    if (0 != BURAM->RET[31].REG)
-    {
-        RTC_set_epoch_time(BURAM->RET[31].REG);
-        BURAM->RET[31].REG = 0;
     }
 
     PMU_power_acquire();
@@ -586,7 +581,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
             runtime->setting.part = 0;
 
-            NOISE_stop();
+            NOISE_stop(true);
             mplayer_stop();
 
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
@@ -606,7 +601,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
     case MSG_BUTTON_NOISE:
         if (! runtime->setting.en)
         {
-            NOISE_toggle();
+            NOISE_toggle(true);
 
             if (NOISE_is_playing())
             {
@@ -988,14 +983,14 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     case MSG_BUTTON_LEFT:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = NOISE_prev();
+            setting.last_noise_id = NOISE_prev(true);
             goto panel_sel_noise;
         }
         break;
     case MSG_BUTTON_RIGHT:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = NOISE_next();
+            setting.last_noise_id = NOISE_next(true);
             goto panel_sel_noise;
         }
         break;
@@ -1092,6 +1087,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
     {
         struct MQ_message_t *msg = mqueue_timedrecv(runtime->mqd, 500);
         BURAM->RET[31].REG = BURTC->CNT;    // RTC
+        BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
 
         if (0 == GPIO_peek(PIN_EXT_5V_DET))
             NVIC_SystemReset();
@@ -1201,9 +1197,9 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 
             case MSG_BUTTON_MEDIA:
                 if (NOISE_is_playing())
-                    NOISE_stop();
+                    NOISE_stop(true);
                 else
-                    NOISE_toggle();
+                    NOISE_toggle(true);
                 break;
         #endif
 

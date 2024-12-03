@@ -67,17 +67,15 @@ int main(void)
     __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     // somehow xG22 put some invalid char on bootup
     printf("\t\t\r\n\r\n");
-    LOG_print("smartcuckoo %s booting", PROJECT_ID);
+    LOG_printf("smartcuckoo %s booting", PROJECT_ID);
 
     UCSH_init();
     UCSH_register_fileio();
 
     PERIPHERAL_gpio_init();
+    CLOCK_init();
 
 #ifdef PIN_BATT_ADC
-    CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
-    __NOP();
-
     ADC_attr_init(&batt_ad.attr, 1500, (void *)batt_adc_callback);
     ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
     ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
@@ -89,7 +87,7 @@ int main(void)
         if (BATT_EMPTY_MV > batt_ad.value)
         {
             PERIPHERAL_on_sleep();
-            msleep(500);
+            msleep(250);
         }
         else
             break;
