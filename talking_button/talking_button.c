@@ -76,10 +76,6 @@ void PERIPHERAL_gpio_init(void)
     */
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
 
-    // mp3 chip
-    talking_button.mp3_uartfd = UART_createfd(USART0, 9600, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    // WT bug: set TX pin to open-drain
-    IOMUX_configure(UART0_TXD, GPIO_WIRED_AND, 0);
 }
 
 void PERIPHERAL_shell_init(void)
@@ -88,8 +84,6 @@ void PERIPHERAL_shell_init(void)
 
 void PERIPHERAL_ota_init(void)
 {
-    NVIC_DisableIRQ(GPIO_EVEN_IRQn);
-    NVIC_DisableIRQ(GPIO_ODD_IRQn);
 }
 
 void PERIPHERAL_init(void)
@@ -101,14 +95,16 @@ void PERIPHERAL_init(void)
         setting.media_volume = 90;
     }
 
+    /*
     mplayer_initlaize(talking_button.mp3_uartfd, PIN_MP3_BUSY);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media_volume);
+    */
 
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
-    RTC_calibration_init();
+    // RTC_calibration_init();
 
     VOICE_init(&voice_attr, &setting.locale, false);
     // init locales
@@ -162,8 +158,8 @@ void PERIPHERAL_on_sleep(void)
 
 void PERIPHERAL_on_wakeup(void)
 {
-    BURAM->RET[31].REG = BURTC->CNT;    // RTC
-    BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
+    // BURAM->RET[31].REG = BURTC->CNT;    // RTC
+    // BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
 
     mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
@@ -262,7 +258,7 @@ static bool battery_checking(void)
         talking_button.setting = false;;
 
         mplayer_stop();
-        mplayer_gpio_power_off();
+        // mplayer_gpio_power_off();
 
         return false;
     }

@@ -1,11 +1,10 @@
 #include <flash.h>
 #include <fs/ultrafs.h>
 
-void FILESYSTEM_initialize(void)
+void FILESYSTEM_init(void)
 {
 }
 
-void FILESYSTEM_fd_cleanup(int fd)
+void FILESYSTEM_startup(void)
 {
-    ARG_UNUSED(fd);
 }

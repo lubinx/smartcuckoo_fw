@@ -16,7 +16,6 @@
 #include "env.h"
 #include "ioext.h"
 #include "lamp.h"
-#include "mplayer_noise.h"
 
     enum PANEL_message_t
     {

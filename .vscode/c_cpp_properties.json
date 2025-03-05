@@ -5,11 +5,12 @@
       "includePath": [
         "${workspaceFolder}/**",
         "${workspaceFolder}/ultracore/inc",
-        "${workspaceFolder}/efr32xg22/include"
+        "${workspaceFolder}/../n32x45x/include"
       ],
       "defines": [
         "PANEL_B",
-        "PANEL_C"
+        "PANEL_C",
+        "N32WB452LE", "N32WB452"
       ],
       "cStandard": "gnu99",
       "cppStandard": "c++11",

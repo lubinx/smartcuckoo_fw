@@ -27,11 +27,10 @@
 #include "locale.h"
 #include "limits.h"
 
-#include "mplayer.h"
+#include "audio/mplayer.h"
 #include "mplayer_voice.h"
-#include "mplayer_noise.h"
 
-#include "EFR32_config.h"
+#include "N32X45X_config.h"
 #include "PERIPHERAL_config.h"
 
 /***************************************************************************
@@ -74,15 +73,9 @@
 /***************************************************************************
  *  @def: common PIN mux
  ***************************************************************************/
-    #define I2C0_SCL                    (PC00)
-    #define I2C0_SDA                    (PC01)
-    #define I2C1_SCL                    (PD02)
-    #define I2C1_SDA                    (PD03)
-
-    #define UART0_TXD                   (PC06)
-    #define UART0_RXD                   (PC07)
-    #define UART1_TXD                   (PB03)
-    #define UART1_RXD                   (PB04)
+#define CONSOLE_DEV                     USART1
+    #define CONSOLE_TXD                 PA09
+    #define CONSOLE_RXD                 PA10
 
 /***************************************************************************
  *  @def: NVM

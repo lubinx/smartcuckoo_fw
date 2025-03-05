@@ -1,0 +1,18 @@
+报时KEY： PC00
+设置KEY： PC01
+RTC CAL:  PB00
+ALARM_ON_OFF: PA2
+
+电池电压检测：PA1
+
+SDIO
+    SD_D0:  PE8
+    SD_D1:  PE9
+    SD_D2:  PE10
+    SD_D3:  PE11
+    SD_CLK: PE12
+    SD_CMD: PE13
+    没有卡插入检测
+DAC_OUT: PA4，PA5
+
+功放MUTE：PB14，1=MUTE  0=PLAY

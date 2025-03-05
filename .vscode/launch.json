@@ -16,7 +16,7 @@
       "cwd": "${workspaceFolder}",
       "environment": [],
       "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
@@ -28,8 +28,11 @@
         {
           "text": "load"
         },
+        {
+          "text": "monitor reset"
+        },
       ],
-      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
     },
     {
       "name": "Debug Panel B",
@@ -42,9 +45,12 @@
       "cwd": "${workspaceFolder}",
       "environment": [],
       "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
         {
           "text": "monitor reset"
         },
@@ -54,11 +60,8 @@
         {
           "text": "monitor reset"
         },
-        {
-          "text": "set mem inaccessible-by-default off"
-        },
       ],
-      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
     },
     {
       "name": "Debug Panel C",
@@ -71,9 +74,12 @@
       "cwd": "${workspaceFolder}",
       "environment": [],
       "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
         {
           "text": "monitor reset"
         },
@@ -83,11 +89,8 @@
         {
           "text": "monitor reset"
         },
-        {
-          "text": "set mem inaccessible-by-default off"
-        },
       ],
-      "svdPath": "${workspaceFolder}/../efr32xg22/svd/EFR32BG22C224F512IM40.svd",
+      "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
     }
   ]
 }

@@ -26,7 +26,7 @@ bool CLOCK_alarm_switch_is_on(void)
  ****************************************************************************/
 void CLOCK_init()
 {
-    CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
+    // CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
     if (1)
     {
         time_t now = time(NULL);
@@ -47,9 +47,9 @@ void CLOCK_init()
         dt.tm_min = 0;
         dt.tm_sec = 0;
 
-        if (0 == BURAM->RET[30].REG + BURAM->RET[31].REG)
-            RTC_set_epoch_time(BURAM->RET[31].REG);
-        else
+        // if (0 == BURAM->RET[30].REG + BURAM->RET[31].REG)
+        //     RTC_set_epoch_time(BURAM->RET[31].REG);
+        // else
             RTC_set_epoch_time(ts_min);
 
         now = time(NULL);

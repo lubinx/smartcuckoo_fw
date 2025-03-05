@@ -1,50 +1,44 @@
 find_package(Git REQUIRED)
+
+set(TOOLCHAIN arm-none-eabi)
 set(PROJECT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # locate build script parent folder or local clone
-if(NOT EXISTS "${PROJECT_DIR}/.cmake")
-    if(EXISTS "${PROJECT_DIR}/../.cmake")
-        get_filename_component(dir "${PROJECT_DIR}/../.cmake" ABSOLUTE)
-
-        execute_process(
-            COMMAND
-                ln -s  "../.cmake"
-            WORKING_DIRECTORY
-                ${PROJECT_DIR}
-            COMMAND_ERROR_IS_FATAL ANY
-        )
-    else()
-        execute_process(
-            COMMAND
-                ${GIT_EXECUTABLE} clone https://github.com/lubinx/.cmake.git --depth=1 -q
-            WORKING_DIRECTORY
-                ${PROJECT_DIR}
-            COMMAND_ERROR_IS_FATAL ANY
-        )
-    endif()
-endif()
-
-string(TIMESTAMP today "%Y%m%d")
-
-if((NOT DEFINED CACHE{update_daily_ts}) OR (NOT $CACHE{update_daily_ts} STREQUAL ${today}))
-    message("💡 update build script")
-    message("\tthis will only execute once per day")
+if((NOT EXISTS "${PROJECT_DIR}/.cmake") AND  (EXISTS "${PROJECT_DIR}/../.cmake"))
+    get_filename_component(dir "${PROJECT_DIR}/../.cmake" ABSOLUTE)
 
     execute_process(
         COMMAND
-            ${GIT_EXECUTABLE} checkout master -q
+            ln -s "${dir}" "${PROJECT_DIR}/.cmake"
         WORKING_DIRECTORY
-            ${PROJECT_DIR}/.cmake
+            ${PROJECT_DIR}
         COMMAND_ERROR_IS_FATAL ANY
     )
+endif()
+
+if(NOT EXISTS "${PROJECT_DIR}/.cmake")
+    message("💡 clone build script")
+    message("\tgit clone https://github.com/lubinx/.cmake.git")
+
     execute_process(
         COMMAND
-            ${GIT_EXECUTABLE} pull -q
+            ${GIT_EXECUTABLE} clone https://github.com/lubinx/.cmake.git --depth=1 -q
         WORKING_DIRECTORY
-            ${PROJECT_DIR}/.cmake
+            ${PROJECT_DIR}
+        COMMAND_ERROR_IS_FATAL ANY
     )
 endif()
-set(update_daily_ts ${today} CACHE INTERNAL "update build script once per day")
-
-set(TOOLCHAIN arm-none-eabi)
 include("${PROJECT_DIR}/.cmake/build.cmake")
+
+# if((NOT EXISTS "${PROJECT_DIR}/liblc3") AND  (EXISTS "${PROJECT_DIR}/../ultracore/3party/liblc3"))
+#     get_filename_component(dir "${PROJECT_DIR}/../ultracore/3party/liblc3" ABSOLUTE)
+#     message(${dir})
+
+#     execute_process(
+#         COMMAND
+#             ln -s "${dir}" "${PROJECT_DIR}/liblc3"
+#         WORKING_DIRECTORY
+#             ${PROJECT_DIR}
+#         COMMAND_ERROR_IS_FATAL ANY
+#     )
+# endif()

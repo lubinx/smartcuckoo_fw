@@ -114,17 +114,19 @@ void PERIPHERAL_init(void)
     MSG_alive(&panel);
 
     // mp3 chip
+    /*
     int uart_fd = UART_createfd(USART0, 38400, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media_volume);
+    */
 
     // init voice with using alt folder
     VOICE_init(&voice_attr, &setting.locale, true);
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
-    RTC_calibration_init();
+    // RTC_calibration_init();
 
     // touch pad
     panel.ioext_fd_devfd = IOEXT_createfd(I2C1, I2C1_BUS_SPEED);
@@ -759,7 +761,6 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
                 goto post_set_blinky;
             }
         }
-
         break;
 
     case MSG_BUTTON_UP:

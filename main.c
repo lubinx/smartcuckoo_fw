@@ -6,7 +6,6 @@
 
 #include "smartcuckoo.h"
 
-
 /****************************************************************************
  *  @public
  ****************************************************************************/
@@ -45,12 +44,6 @@ int main(void)
     LOG_set_level(LOG_WARN);
     // LOG_set_level(LOG_VERBOSE);
 
-    #ifdef UART0_TXD
-        UART_pin_mux(USART0, UART0_TXD, UART0_RXD);
-    #endif
-    #ifdef UART1_TXD
-        UART_pin_mux(USART1, UART1_TXD, UART1_RXD);
-    #endif
     #ifdef I2C0_SCL
         I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
     #endif
@@ -60,14 +53,17 @@ int main(void)
     #ifdef PIN_MUTE
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MUTE);
     #endif
-    #ifdef PIN_MP3_POWER
-        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MP3_POWER);
-    #endif
 
-    __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    // somehow xG22 put some invalid char on bootup
-    printf("\t\t\r\n\r\n");
-    LOG_printf("smartcuckoo %s booting", PROJECT_ID);
+    #ifdef CONSOLE_DEV
+        UART_pin_mux(CONSOLE_DEV, CONSOLE_TXD, CONSOLE_RXD);
+
+        __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+        // somehow xG22 put some invalid char on bootup
+        printf("\t\t\r\n\r\n");
+        LOG_printf("smartcuckoo %s booting", PROJECT_ID);
+    #else
+        LOG_set_level(LOG_NONE);
+    #endif
 
     UCSH_init();
     UCSH_register_fileio();
@@ -113,61 +109,6 @@ enum LOCALE_hfmt_t LOCALE_hfmt(void)
         return VOICE_get_default_hfmt(&voice_attr);
     else
         return setting.locale.hfmt;
-}
-
-/****************************************************************************
- *  @implements: mplayer gpio override
- ****************************************************************************/
-#ifndef PIN_MP3_POWER
-    static bool mp3_is_powered;
-#endif
-
-bool mplayer_gpio_is_powered(void)
-{
-    #ifdef PIN_MP3_POWER
-        return 0 != GPIO_peek_output(PIN_MP3_POWER);
-    #else
-        return mp3_is_powered;
-    #endif
-}
-
-void mplayer_gpio_power_on(void)
-{
-    PMU_power_acquire();
-    mplayer_gpio_mute();
-
-    #ifdef PIN_MP3_POWER
-        GPIO_set(PIN_MP3_POWER);
-    #else
-        mp3_is_powered = true;
-    #endif
-}
-
-void mplayer_gpio_power_off(void)
-{
-    mplayer_gpio_mute();
-
-    #ifdef PIN_MP3_POWER
-        GPIO_clear(PIN_MP3_POWER);
-    #else
-        mp3_is_powered = false;
-    #endif
-
-    PMU_power_release();
-}
-
-void mplayer_gpio_mute(void)
-{
-    #ifdef PIN_MUTE
-        GPIO_set(PIN_MUTE);
-    #endif
-}
-
-void mplayer_gpio_unmute(void)
-{
-    #ifdef PIN_MUTE
-        GPIO_clear(PIN_MUTE);
-    #endif
 }
 
 /***************************************************************************/

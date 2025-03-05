@@ -8,9 +8,9 @@
     #define PROJECT_ID                  "tbtn"
 
 // buttons
-    #define PIN_VOICE_BUTTON            PB00
-    #define PIN_SETTING_BUTTON          PA00
-    #define PIN_ALARM_ON                PA03
+    #define PIN_VOICE_BUTTON            PC00
+    #define PIN_SETTING_BUTTON          PC01
+    #define PIN_ALARM_ON                PA02
 
 // rtc
     #define PIN_RTC_CAL_IN              PB01
@@ -33,9 +33,13 @@
     #define BATT_50_VOLUME              (90U)
     #define BATT_30_VOLUME              (70U)
 
-// mp3 player & lineout
-    #define PIN_MP3_POWER               PA04
-    #define PIN_MP3_BUSY                PA08
+// SDIO
+    #define SDIO_DEV                    SDIO
+    #define SDIO_CLK                    PE12
+    #define SDIO_CMD                    PE13
+    #define SDIO_DAT                    PE08, PE09, PE10, PE11, 0
+
+// mplayer & lineout
     #define PIN_MUTE                    PA07
 
 #endif

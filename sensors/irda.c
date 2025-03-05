@@ -61,7 +61,7 @@ static void IrDA_gpio_callback(uint32_t pins, struct IrDA_attr_t *attr)
 {
     ARG_UNUSED(pins);
 
-    uint32_t tick = TIMER_tick(HW_TIMER0);
+    uint32_t tick = TIMER_tick(TIMER_NB_0);
     uint32_t diff = tick - attr->tick;
     attr->tick = tick;
 
@@ -123,8 +123,8 @@ void IrDA_init(struct IrDA_attr_t *attr, uint32_t PIN, IrDA_callback_t callback,
     attr->arg = arg;
     attr->dev = TIMER0;
 
-    TIMER_free_running_configure(HW_TIMER0, 1000000);
-    TIMER_start(HW_TIMER0);
+    TIMER_free_running_configure(TIMER_NB_0, 1000000);
+    TIMER_start(TIMER_NB_0);
 
     GPIO_intr_enable(PIN, TRIG_BY_FALLING_EDGE, (void *)IrDA_gpio_callback, attr);
 }

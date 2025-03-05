@@ -5,6 +5,9 @@
 
 #include <bluetooth/gap.tlv.hpp>
 #include <bluetooth/gatt.service.serialp.hpp>
+
+/*
+
 #include "sl.bluetooth.hpp"
 
     class TUltraCorePeripheral :public Bluetooth::SiLabs::TPeripheral
@@ -99,4 +102,5 @@ static inline __attribute__((nothrow, nonnull))
             BLE->Shell.Write(str, strlen(str));
     }
 
+*/
 #endif

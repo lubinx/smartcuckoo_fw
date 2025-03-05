@@ -26,7 +26,7 @@ int SHELL_ota(struct UCSH_env *env)
     struct OTA_packet
     {
         uint16_t Idx;
-        CRC_CCITT_t CRC;
+        CRC_CCITT_t crc;
         uint8_t Payload[16];
     };
 
@@ -79,7 +79,7 @@ int SHELL_ota(struct UCSH_env *env)
 
         // packet crc
         uint16_t packet_crc = CRC_CCITT_hash(packet.Payload, sizeof(packet.Payload));
-        if (packet_crc != packet.CRC)
+        if (packet_crc != packet.crc)
             goto ota_crc_error;
 
         // ota writing
