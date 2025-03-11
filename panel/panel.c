@@ -123,7 +123,7 @@ void PERIPHERAL_init(void)
     */
 
     // init voice with using alt folder
-    VOICE_init(&voice_attr, &setting.locale, true);
+    VOICE_init(&voice_attr, &setting.locale);
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     // RTC_calibration_init();

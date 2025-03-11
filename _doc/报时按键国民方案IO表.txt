@@ -1,9 +1,13 @@
-报时KEY： PC00
-设置KEY： PC01
-RTC CAL:  PB00
-ALARM_ON_OFF: PA2
+报时KEY
+    PC00
+设置KEY
+    PC01
 
-电池电压检测：PA1
+ALARM_ON_OFF
+    PA02
+
+电池电压检测
+    PA01
 
 SDIO
     SD_D0:  PE8
@@ -13,6 +17,12 @@ SDIO
     SD_CLK: PE12
     SD_CMD: PE13
     没有卡插入检测
-DAC_OUT: PA4，PA5
 
-功放MUTE：PB14，1=MUTE  0=PLAY
+DAC_OUT
+    PA04，PA05
+
+功放MUTE
+    PB14    pull-up mute
+
+RTC CAL
+    PB00

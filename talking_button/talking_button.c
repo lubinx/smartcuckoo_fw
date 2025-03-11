@@ -70,10 +70,9 @@ static uint32_t __stack[1024 / sizeof(uint32_t)];
  ****************************************************************************/
 void PERIPHERAL_gpio_init(void)
 {
-    /*
     GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
     GPIO_setdir_input_pp(HIGH_Z, PIN_SETTING_BUTTON, true);
-    */
+
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
 
 }
@@ -92,7 +91,7 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
-        setting.media_volume = 90;
+        setting.media_volume = 100;
     }
 
     /*
@@ -106,7 +105,7 @@ void PERIPHERAL_init(void)
     //  NOTE: need after VOICE_init() by using common voice folder
     // RTC_calibration_init();
 
-    VOICE_init(&voice_attr, &setting.locale, false);
+    VOICE_init(&voice_attr, &setting.locale);
     // init locales
     setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
 
@@ -188,45 +187,6 @@ void mplayer_idle_callback(void)
 }
 
 /****************************************************************************
- *  @private
- ****************************************************************************/
-static void mplayer_sync_batt_ad_value(void)
-{
-    uint16_t volt = PERIPHERAL_batt_ad_sync();
-    uint8_t batt_lvl = BATT_mv_level(volt);
-
-    if (BATT_EMPTY_MV > volt)
-    {
-        // do nothing
-    }
-    else if (batt_lvl < 60)
-    {
-        uint8_t batt_ctrl_volume = BATT_30_VOLUME + (uint8_t)(batt_lvl / (60 - 10) * batt_lvl);
-
-        if (BATT_LOW_MV > volt)
-            batt_ctrl_volume = 30;
-
-        if (batt_ctrl_volume > setting.media_volume)
-            batt_ctrl_volume = setting.media_volume;
-
-        if (talking_button.batt_ctrl_volume != batt_ctrl_volume)
-        {
-            talking_button.batt_ctrl_volume = batt_ctrl_volume;
-            mplayer_set_volume(batt_ctrl_volume);
-        }
-    }
-    else
-    {
-        if (0 != talking_button.batt_ctrl_volume &&
-            talking_button.batt_ctrl_volume != setting.media_volume)
-        {
-            mplayer_set_volume(setting.media_volume);
-        }
-        talking_button.batt_ctrl_volume = 0;
-    }
-}
-
-/****************************************************************************
  *  @private: buttons
  ****************************************************************************/
 static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *ctx)
@@ -247,7 +207,7 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 
 static bool battery_checking(void)
 {
-    mplayer_sync_batt_ad_value();
+    PERIPHERAL_batt_ad_sync();
     LOG_printf("batt %dmV", PERIPHERAL_batt_volt());
 
     // say low battery only
@@ -477,7 +437,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
 
-    mplayer_sync_batt_ad_value();
+    PERIPHERAL_batt_ad_sync();
     // say low battery only
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
         return;

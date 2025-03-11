@@ -13,7 +13,8 @@
 /***************************************************************************
  * @def: voices
  ***************************************************************************/
-#define NVM_VOICE_LOCALE                NVM_DEFINE_KEY('V', 'L', 'O', 'C')
+#define VOICE_EXT                   ".lc3"
+static char const *filefmt = "%s%02X%02X.lc3";
 
 // VOICE speak weekday before or after date
 enum VOICE_wday_fmt_t
@@ -25,7 +26,7 @@ enum VOICE_wday_fmt_t
 struct VOICE_t
 {
     char const *lcid;
-    char const *folder_alt;
+    char const *folder;
     char const *voice;
     uint32_t tempo;
 
@@ -38,12 +39,14 @@ struct VOICE_t
     enum LOCALE_hfmt_t fixed_gr;
 };
 
+static char const *common_folder = "voice/";
+
 static struct VOICE_t const __voices[] =
 {
     {
         .lcid = "en-AU",
         .lcidx = 11,
-        .folder_alt = "voice/enAUf/",
+        .folder = "voice/enAUf/",
         .voice = "Chloe",
         .tempo = 200,
         .tail_idx = -1,
@@ -53,7 +56,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "en-AU",
         .lcidx = 12,
-        .folder_alt = "voice/enAUm/",
+        .folder = "voice/enAUm/",
         .voice = "James",
         .tempo = 120,
         .tail_idx = -1,
@@ -63,7 +66,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "en-UK",
         .lcidx = 9,
-        .folder_alt = "voice/enUKf/",
+        .folder = "voice/enUKf/",
         .voice = "Amelia",
         .tempo = 200,
         .tail_idx = -1,
@@ -72,7 +75,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-UK",
-        .folder_alt = "voice/enUKm/",
+        .folder = "voice/enUKm/",
         .voice = "Harry",
         .tempo = 200,
         .lcidx = 10,
@@ -83,7 +86,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "en-US",
         .lcidx = 7,
-        .folder_alt = "voice/enUSf/",
+        .folder = "voice/enUSf/",
         .voice = "Ava",
         .tempo = 200,
         .tail_idx = -1,
@@ -93,7 +96,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "en-US",
         .lcidx = 8,
-        .folder_alt = "voice/enUSm/",
+        .folder = "voice/enUSm/",
         .voice = "Ethan",
         .tempo = 200,
         .tail_idx = -1,
@@ -103,7 +106,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ja-JP",
         .lcidx = 13,
-        .folder_alt = "voice/jaJPf/",
+        .folder = "voice/jaJPf/",
         .voice = "Sakura",
         .tempo = 50,
         .tail_idx = 145,
@@ -115,7 +118,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ja-JP",
         .lcidx = 14,
-        .folder_alt = "voice/jaJPm/",
+        .folder = "voice/jaJPm/",
         .voice = "Itsuki",
         .tempo = 50,
         .tail_idx = 145,
@@ -124,11 +127,10 @@ static struct VOICE_t const __voices[] =
         .fixed_gr = HFMT_24,
         .wfmt = WFMT_TAIL,
     },
-#ifndef DEBUG
     {
         .lcid = "fr",
         .lcidx = 19,
-        .folder_alt = "voice/frFRf/",
+        .folder = "voice/frFRf/",
         .voice = "Jeanne",
         .tempo = 200,
         .tail_idx = -1,
@@ -138,7 +140,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "fr",
         .lcidx = 20,
-        .folder_alt = "voice/frFRm/",
+        .folder = "voice/frFRm/",
         .voice = "Lucien",
         .tempo = 200,
         .tail_idx = -1,
@@ -147,7 +149,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "es",
-        .folder_alt = "voice/esESf/",
+        .folder = "voice/esESf/",
         .lcidx = 25,
         .voice = "Rosalyn",
         .tempo = 200,
@@ -158,7 +160,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "es",
         .lcidx = 26,
-        .folder_alt = "voice/esESm/",
+        .folder = "voice/esESm/",
         .voice = "Felipe",
         .tempo = 200,
         .tail_idx = -1,
@@ -168,7 +170,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "es-MX",
         .lcidx = 27,
-        .folder_alt = "voice/esMXf/",
+        .folder = "voice/esMXf/",
         .voice = "Lola",
         .tempo = 200,
         .tail_idx = -1,
@@ -178,7 +180,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "es-MX",
         .lcidx = 28,
-        .folder_alt = "voice/esMXm/",
+        .folder = "voice/esMXm/",
         .voice = "Antonio",
         .tempo = 200,
         .tail_idx = -1,
@@ -188,7 +190,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "de",
         .lcidx = 31,
-        .folder_alt = "voice/deDEf/",
+        .folder = "voice/deDEf/",
         .voice = "Lena",
         .tempo = 200,
         .tail_idx = -1,
@@ -198,7 +200,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "de",
         .lcidx = 32,
-        .folder_alt = "voice/deDEm/",
+        .folder = "voice/deDEm/",
         .voice = "Stefan",
         .tempo = 200,
         .tail_idx = -1,
@@ -208,7 +210,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "it",
         .lcidx = 37,
-        .folder_alt = "voice/itITf/",
+        .folder = "voice/itITf/",
         .voice = "Adriana",
         .tempo = 200,
         .tail_idx = -1,
@@ -218,7 +220,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "it",
         .lcidx = 38,
-        .folder_alt = "voice/itITm/",
+        .folder = "voice/itITm/",
         .voice = "Francesco",
         .tempo = 200,
         .tail_idx = -1,
@@ -229,7 +231,7 @@ static struct VOICE_t const __voices[] =
         .lcid = "zh-CN",
         .lcidx = 1,
         .voice = "Liu",
-        .folder_alt = "voice/zhCNf/",
+        .folder = "voice/zhCNf/",
         .tempo = 200,
         .default_dfmt = DFMT_YYMMDD,
         .default_hfmt = HFMT_24,
@@ -240,7 +242,7 @@ static struct VOICE_t const __voices[] =
         .lcid = "zh-CN",
         .lcidx = 2,
         .voice = "Xing",
-        .folder_alt = "voice/zhCNm/",
+        .folder = "voice/zhCNm/",
         .tempo = 200,
         .tail_idx = -1,
         .default_dfmt = DFMT_YYMMDD,
@@ -252,7 +254,7 @@ static struct VOICE_t const __voices[] =
         .lcid = "zh-HK",
         .lcidx = 3,
         .voice = "Tai",
-        .folder_alt = "voice/zhHKf/",
+        .folder = "voice/zhHKf/",
         .tempo = 200,
         .tail_idx = -1,
         .default_dfmt = DFMT_YYMMDD,
@@ -263,7 +265,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-HK",
         .lcidx = 4,
-        .folder_alt = "voice/zhHKm/",
+        .folder = "voice/zhHKm/",
         .voice = "Choy",
         .tempo = 200,
         .tail_idx = -1,
@@ -275,7 +277,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-TW",
         .lcidx = 5,
-        .folder_alt = "voice/zhTWf/",
+        .folder = "voice/zhTWf/",
         .voice = "Ting",
         .tempo = 200,
         .tail_idx = -1,
@@ -287,7 +289,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-TW",
         .lcidx = 6,
-        .folder_alt = "voice/zhTWm/",
+        .folder = "voice/zhTWm/",
         .voice = "Hao",
         .tempo = 200,
         .tail_idx = -1,
@@ -296,10 +298,11 @@ static struct VOICE_t const __voices[] =
         .fixed_gr = HFMT_24,
         .wfmt = WFMT_TAIL,
     },
+#ifndef DEBUG
     {
         .lcid = "pt-BR",
         .lcidx = 43,
-        .folder_alt = "voice/ptBRf/",
+        .folder = "voice/ptBRf/",
         .voice = "Carolina",
         .tempo = 200,
         .tail_idx = -1,
@@ -309,7 +312,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "pt-BR",
         .lcidx = 44,
-        .folder_alt = "voice/ptBRm/",
+        .folder = "voice/ptBRm/",
         .voice = "Pedro",
         .tempo = 200,
         .tail_idx = -1,
@@ -319,7 +322,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "pt-PT",
         .lcidx = 45,
-        .folder_alt = "voice/ptPTf/",
+        .folder = "voice/ptPTf/",
         .voice = "Maria",
         .tempo = 200,
         .tail_idx = -1,
@@ -329,7 +332,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "pt-PT",
         .lcidx = 46,
-        .folder_alt = "voice/ptPTm/",
+        .folder = "voice/ptPTm/",
         .voice = "Miguel",
         .tempo = 200,
         .tail_idx = -1,
@@ -339,7 +342,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ko",
         .lcidx = 49,
-        .folder_alt = "voice/koKRf/",
+        .folder = "voice/koKRf/",
         .voice = "Jiyoon",
         .tempo = 200,
         .tail_idx = 145,
@@ -351,7 +354,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ko",
         .lcidx = 50,
-        .folder_alt = "voice/koKRm/",
+        .folder = "voice/koKRm/",
         .voice = "Byeongho",
         .tempo = 200,
         .tail_idx = 145,
@@ -363,7 +366,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "nb-NO",
         .lcidx = 55,
-        .folder_alt = "voice/nbNOf/",
+        .folder = "voice/nbNOf/",
         .voice = "Anita",
         .tempo = 200,
         .tail_idx = -1,
@@ -373,7 +376,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "nb-NO",
         .lcidx = 56,
-        .folder_alt = "voice/nbNOm/",
+        .folder = "voice/nbNOm/",
         .voice = "Espen",
         .tempo = 200,
         .tail_idx = -1,
@@ -383,7 +386,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "fi-FI",
         .lcidx = 61,
-        .folder_alt = "voice/fiFIf/",
+        .folder = "voice/fiFIf/",
         .voice = "Ada",
         .tempo = 200,
         .tail_idx = -1,
@@ -393,7 +396,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "fi-FI",
         .lcidx = 62,
-        .folder_alt = "voice/fiFIm/",
+        .folder = "voice/fiFIm/",
         .voice = "Fidan",
         .tempo = 200,
         .tail_idx = -1,
@@ -403,7 +406,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "sv-SE",
         .lcidx = 69,
-        .folder_alt = "voice/svSEf/",
+        .folder = "voice/svSEf/",
         .voice = "Sofie",
         .tempo = 200,
         .tail_idx = -1,
@@ -413,7 +416,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "sv-SE",
         .lcidx = 70,
-        .folder_alt = "voice/svSEm/",
+        .folder = "voice/svSEm/",
         .voice = "Mattias",
         .tempo = 200,
         .tail_idx = -1,
@@ -423,7 +426,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "da-DK",
         .lcidx = 73,
-        .folder_alt = "voice/daDKf/",
+        .folder = "voice/daDKf/",
         .voice = "Ella",
         .tempo = 200,
         .tail_idx = -1,
@@ -433,7 +436,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "da-DK",
         .lcidx = 74,
-        .folder_alt = "voice/daDKm/",
+        .folder = "voice/daDKm/",
         .voice = "Noah",
         .tempo = 200,
         .tail_idx = -1,
@@ -443,7 +446,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "th-TH",
         .lcidx = 79,
-        .folder_alt = "voice/thTHf/",
+        .folder = "voice/thTHf/",
         .voice = "Premwadee",
         .tempo = 200,
         .tail_idx = -1,
@@ -453,7 +456,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "th-TH",
         .lcidx = 80,
-        .folder_alt = "voice/thTHm/",
+        .folder = "voice/thTHm/",
         .voice = "Niwat",
         .tempo = 200,
         .tail_idx = -1,
@@ -463,7 +466,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "vi-VN",
         .lcidx = 85,
-        .folder_alt = "voice/viVNf/",
+        .folder = "voice/viVNf/",
         .voice = "HoaiMy",
         .tempo = 200,
         .tail_idx = -1,
@@ -473,7 +476,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "vi-VN",
         .lcidx = 86,
-        .folder_alt = "voice/viVNm/",
+        .folder = "voice/viVNm/",
         .voice = "NamMinh",
         .tempo = 200,
         .tail_idx = -1,
@@ -483,7 +486,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "id-ID",
         .lcidx = 91,
-        .folder_alt = "voice/idIDf/",
+        .folder = "voice/idIDf/",
         .voice = "Indah",
         .tempo = 200,
         .tail_idx = -1,
@@ -493,7 +496,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "id-ID",
         .lcidx = 92,
-        .folder_alt = "voice/idIDm/",
+        .folder = "voice/idIDm/",
         .voice = "Adhiarja",
         .tempo = 200,
         .tail_idx = -1,
@@ -503,7 +506,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "km-KH",
         .lcidx = 97,
-        .folder_alt = "voice/kmKHf/",
+        .folder = "voice/kmKHf/",
         .voice = "Sreymom",
         .tempo = 200,
         .tail_idx = -1,
@@ -514,7 +517,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "km-KH",
         .lcidx = 98,
-        .folder_alt = "voice/kmKHm/",
+        .folder = "voice/kmKHm/",
         .voice = "Piseth",
         .tempo = 200,
         .tail_idx = -1,
@@ -525,7 +528,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "lo-LA",
         .lcidx = 103,
-        .folder_alt = "voice/loLAf/",
+        .folder = "voice/loLAf/",
         .voice = "Keomany",
         .tempo = 200,
         .tail_idx = -1,
@@ -535,7 +538,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "lo-LA",
         .lcidx = 104,
-        .folder_alt = "voice/loLAm/",
+        .folder = "voice/loLAm/",
         .voice = "Chanthavong",
         .tempo = 200,
         .tail_idx = -1,
@@ -545,7 +548,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "tl-PH",
         .lcidx = 109,
-        .folder_alt = "voice/tlPHf/",
+        .folder = "voice/tlPHf/",
         .voice = "Gloria",
         .tempo = 200,
         .tail_idx = -1,
@@ -555,7 +558,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "tl-PH",
         .lcidx = 110,
-        .folder_alt = "voice/tlPHm/",
+        .folder = "voice/tlPHm/",
         .voice = "Sergio",
         .tempo = 200,
         .tail_idx = -1,
@@ -565,7 +568,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ms-MY",
         .lcidx = 115,
-        .folder_alt = "voice/msMYf/",
+        .folder = "voice/msMYf/",
         .voice = "Yasmin",
         .tempo = 200,
         .tail_idx = -1,
@@ -575,7 +578,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "ms-MY",
         .lcidx = 116,
-        .folder_alt = "voice/msMYm/",
+        .folder = "voice/msMYm/",
         .voice = "Osman",
         .tempo = 200,
         .tail_idx = -1,
@@ -585,7 +588,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "my-MM",
         .lcidx = 121,
-        .folder_alt = "voice/myMMf/",
+        .folder = "voice/myMMf/",
         .voice = "Nilar",
         .tempo = 200,
         .tail_idx = -1,
@@ -596,7 +599,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "my-MM",
         .lcidx = 122,
-        .folder_alt = "voice/myMMm/",
+        .folder = "voice/myMMm/",
         .voice = "Thiha",
         .tempo = 200,
         .tail_idx = -1,
@@ -606,9 +609,6 @@ static struct VOICE_t const __voices[] =
     },
 #endif
 };
-
-static char const *common_folder_alt = "voice/";
-static uint8_t __locale_exists[lengthof(__voices) / 8 + 1] = {0};
 
 /***************************************************************************
  * @def
@@ -621,7 +621,7 @@ enum VOICE_common_map
 
     IDX_SETTING_DONE            = 255,
 };
-#define COMMON_FOLDER_IDX               (255)
+#define IDX_COMMON               (255)
 
 enum VOICE_map
 {
@@ -701,36 +701,29 @@ enum VOICE_map
  ***************************************************************************/
 static inline bool LOCALE_is_exists(int idx)
 {
-    return 0 != (__locale_exists[idx / 8] & (1U << (idx % 8)));
-}
-
-static inline void LOCALE_set_exists(int idx)
-{
-    __locale_exists[idx / 8] |= (uint8_t)(1U << (idx % 8));
+    return (unsigned)idx < lengthof(__voices) ;
 }
 
 static void LOCALE_set(struct VOICE_attr_t *attr, struct VOICE_t const *locale)
 {
     if (NULL != locale && attr->voice != locale)
     {
-        attr->voice = locale;
+   attr->voice = locale;
 
         if (DFMT_DEFAULT == attr->locale->dfmt)
-            attr->locale->dfmt = locale->default_dfmt;
+   attr->locale->dfmt = locale->default_dfmt;
         if (HFMT_DEFAULT == attr->locale->hfmt)
-            attr->locale->hfmt = locale->default_hfmt;
+   attr->locale->hfmt = locale->default_hfmt;
     }
 }
 
 /***************************************************************************
  * @implements
  ***************************************************************************/
-void VOICE_init(struct VOICE_attr_t *attr, struct SMARTCUCKOO_locale_t *locale, bool use_alt_folder)
+void VOICE_init(struct VOICE_attr_t *attr, struct SMARTCUCKOO_locale_t *locale)
 {
     memset(attr, 0, sizeof(*attr));
-
-    attr->locale = locale;
-    attr->use_alt_folder = use_alt_folder;
+   attr->locale = locale;
 }
 
 int16_t VOICE_init_locales(struct VOICE_attr_t *attr, int16_t voice_id, bool enum_only_exists)
@@ -738,76 +731,9 @@ int16_t VOICE_init_locales(struct VOICE_attr_t *attr, int16_t voice_id, bool enu
     (void)enum_only_exists;
 
     int16_t select_idx = VOICE_select_voice(attr, voice_id);
-    return __voices[select_idx].lcidx;
-    /*
-    if (0 != NVM_get(NVM_VOICE_LOCALE, &__locale_exists, sizeof(__locale_exists)))
-        enum_only_exists = false;
+    LOCALE_set(attr, &__voices[select_idx]);
 
-    if (enum_only_exists)
-    {
-        bool all_false = true;
-
-        for (unsigned idx = 0; idx < lengthof(__locale_exists); idx ++)
-        {
-            if (0 != __locale_exists[idx])
-            {
-                all_false = false;
-                break;
-            }
-        }
-        if (all_false)
-            enum_only_exists = false;
-    }
-    else
-        memset(&__locale_exists, 0, sizeof(__locale_exists));
-
-    attr->voice_count = 0;
-    char filename[20];
-    struct VOICE_t const *fallback_locale = NULL;
-
-    again:
-    for (int idx = 0; idx < (int)lengthof(__voices); idx ++)
-    {
-        if (! mplayer_gpio_is_powered())
-            break;
-
-        if (enum_only_exists)
-        {
-            if (! LOCALE_is_exists(idx))
-                continue;
-        }
-
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? __voices[idx].folder_alt : "",
-            __voices[idx].lcidx, IDX_SETTING_LANG);
-
-        if (mplayer_file_exists(filename))
-        {
-            LOCALE_set_exists(idx);
-
-            attr->voice_count ++;
-            if (NULL == fallback_locale)
-                fallback_locale = &__voices[idx];
-        }
-        else if (enum_only_exists)
-        {
-            enum_only_exists = false;
-            memset(&__locale_exists, 0, sizeof(__locale_exists));
-            goto again;
-        }
-    }
-
-    if (! enum_only_exists)
-        NVM_set(NVM_VOICE_LOCALE, &__locale_exists, sizeof(__locale_exists));
-
-    int16_t select_idx = VOICE_select_voice(attr, voice_id);
-    if (-1 == select_idx)
-    {
-        LOCALE_set(attr, fallback_locale);
-        return fallback_locale->lcidx;
-    }
-    else
-        return select_idx;
-    */
+    return 0;
 }
 
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)
@@ -946,11 +872,10 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
     full_year = YEAR_ROUND_LO > full_year ? YEAR_ROUND_LO :
         (YEAR_ROUND_HI < full_year ?        YEAR_ROUND_HI : full_year);
 
-    char filename[20];
+    char filename[64];
     int retval;
 
-    sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-        attr->voice->lcidx, IDX_TODAY);
+    sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_TODAY);
     if (0 == (retval = mplayer_playlist_queue(filename)))
         mplayer_playlist_queue_intv(attr->voice->tempo);
 
@@ -961,8 +886,7 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
 
     if (0 == retval && WFMT_LEAD == attr->voice->wfmt)
     {
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, wday_vidx);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, wday_vidx);
         retval = mplayer_playlist_queue(filename);
         if (0 == retval)
             mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -978,22 +902,19 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
     case DFMT_YYMMDD:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, year_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, year_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, month_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, month_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, day_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, day_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1002,22 +923,19 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
     case DFMT_DDMMYY:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, day_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, day_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, month_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, month_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, year_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, year_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1026,22 +944,19 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
     case DFMT_MMDDYY:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, month_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, month_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, day_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, day_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, year_vidx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, year_vidx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1050,8 +965,7 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
 
     if (0 == retval && WFMT_TAIL == attr->voice->wfmt)
     {
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, wday_vidx);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, wday_vidx);
         retval = mplayer_playlist_queue(filename);
         if (0 == retval)
             mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1059,8 +973,7 @@ int VOICE_say_date(struct VOICE_attr_t *attr, struct tm const *tm)
 
     if (0 == retval && -1 != attr->voice->tail_idx)
     {
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, attr->voice->tail_idx);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, attr->voice->tail_idx);
         retval = mplayer_playlist_queue(filename);
         if (0 == retval)
             mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1083,7 +996,7 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
         tm->tm_hour, tm->tm_min, tm->tm_sec);
 
     int retval = 0;
-    char filename[20];
+    char filename[64];
     int saying_hour;
 
     enum LOCALE_hfmt_t hfmt = attr->locale->hfmt;
@@ -1095,8 +1008,7 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
     {
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, IDX_NOW);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_NOW);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1105,13 +1017,11 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
         {
             if (0 == tm->tm_hour)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_MID_NIGHT);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_MID_NIGHT);
             }
             else
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_NOON);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_NOON);
             }
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1145,8 +1055,7 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
     fixed_gr12:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, IDX_NOW);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_NOW);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1154,21 +1063,18 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
         {
             if (0 == saying_hour || 12 == saying_hour)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, 12 + IDX_HOUR_0);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, 12 + IDX_HOUR_0);
             }
             else
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, saying_hour % 12 + IDX_HOUR_0);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, saying_hour % 12 + IDX_HOUR_0);
             }
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1176,18 +1082,15 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
         {
             if (tm->tm_hour < 12)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_IN_MORNING);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_IN_MORNING);
             }
             else if (tm->tm_hour < 18)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_IN_AFTERNOON);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_IN_AFTERNOON);
             }
             else
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_IN_EVENING);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_IN_EVENING);
             }
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1200,40 +1103,34 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
         {
             if (tm->tm_hour < 12)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_GR_MORNING);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_GR_MORNING);
             }
             else if (tm->tm_hour < 18)
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_GR_AFTERNOON);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_GR_AFTERNOON);
             }
             else
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, IDX_GR_EVENING);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, IDX_GR_EVENING);
             }
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, IDX_NOW);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_NOW);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, saying_hour + IDX_HOUR_0);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, saying_hour + IDX_HOUR_0);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1241,8 +1138,7 @@ int VOICE_say_time(struct VOICE_attr_t *attr, struct tm const *tm)
 
     if (-1 != attr->voice->tail_idx)
     {
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, attr->voice->tail_idx);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, attr->voice->tail_idx);
 
         retval = mplayer_playlist_queue(filename);
         if (0 == retval)
@@ -1258,12 +1154,11 @@ int VOICE_say_time_epoch(struct VOICE_attr_t *attr, time_t epoch)
 
 int VOICE_say_setting(struct VOICE_attr_t *attr, enum VOICE_setting_part_t setting, void *arg)
 {
-    char filename[20];
+    char filename[64];
 
     if (setting == VOICE_SETTING_DONE)
     {
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? common_folder_alt : "",
-            COMMON_FOLDER_IDX, IDX_SETTING_DONE);
+        sprintf(filename, filefmt, common_folder, IDX_COMMON, IDX_SETTING_DONE);
         return mplayer_play(filename);
     }
 
@@ -1276,61 +1171,50 @@ int VOICE_say_setting(struct VOICE_attr_t *attr, enum VOICE_setting_part_t setti
         break;
 
     case VOICE_SETTING_LANG:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_LANG);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_LANG);
         return mplayer_play(filename);
 
     case VOICE_SETTING_HOUR:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_HOUR);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_HOUR);
         return mplayer_play(filename);
 
     case VOICE_SETTING_MINUTE:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_MINUTE);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_MINUTE);
         return mplayer_play(filename);
 
     case VOICE_SETTING_YEAR:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_YEAR);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_YEAR);
         return mplayer_play(filename);
 
     case VOICE_SETTING_MONTH:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_MONTH);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_MONTH);
         return mplayer_play(filename);
 
     case VOICE_SETTING_MDAY:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_MDAY);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_MDAY);
         return mplayer_play(filename);
 
     case VOICE_SETTING_ALARM_HOUR:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_ALARM_HOUR);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_ALARM_HOUR);
         return mplayer_play(filename);
 
     case VOICE_SETTING_ALARM_MIN:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_ALARM_MIN);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_ALARM_MIN);
         return mplayer_play(filename);
 
     case VOICE_SETTING_ALARM_RINGTONE:
         return VOICE_play_ringtone(attr, (int)arg);
 
     case VOICE_SETTING_EXT_LOW_BATT:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_EXT_LOW_BATT);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_EXT_LOW_BATT);
         return mplayer_play(filename);
 
     case VOICE_SETTING_EXT_ALARM_ON:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_EXT_ALARM_ON);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_EXT_ALARM_ON);
         return mplayer_play(filename);
 
     case VOICE_SETTING_EXT_ALARM_OFF:
-        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-            attr->voice->lcidx, IDX_SETTING_EXT_ALARM_OFF);
+        sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_EXT_ALARM_OFF);
         return mplayer_play(filename);
     };
 
@@ -1343,7 +1227,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
     if (NULL == attr->voice)
         return EMODU_NOT_CONFIGURED;
 
-    char filename[20];
+    char filename[64];
     int retval = 0;
 
     switch (setting)
@@ -1351,8 +1235,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
     case VOICE_SETTING_LANG:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, IDX_SETTING_VOICE);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_SETTING_VOICE);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1373,13 +1256,11 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, 12 + IDX_HOUR_0);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, 12 + IDX_HOUR_0);
                     }
                     else
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, tm->tm_hour % 12 + IDX_HOUR_0);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, tm->tm_hour % 12 + IDX_HOUR_0);
                     }
                     retval = mplayer_playlist_queue(filename);
                     if (0 == retval)
@@ -1390,23 +1271,20 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
                 {
                     if (tm->tm_hour < 12)
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, IDX_IN_MORNING);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, IDX_IN_MORNING);
 
                         if (0 == (retval = mplayer_playlist_queue(filename)))
                             mplayer_playlist_queue_intv(attr->voice->tempo);
                     }
                     else if (tm->tm_hour < 18)
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, IDX_IN_AFTERNOON);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, IDX_IN_AFTERNOON);
                         if (0 == (retval = mplayer_playlist_queue(filename)))
                             mplayer_playlist_queue_intv(attr->voice->tempo);
                     }
                     else
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, IDX_IN_EVENING);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, IDX_IN_EVENING);
                         if (0 == (retval = mplayer_playlist_queue(filename)))
                             mplayer_playlist_queue_intv(attr->voice->tempo);
                     }
@@ -1416,13 +1294,11 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, 12 + IDX_HOUR_0);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, 12 + IDX_HOUR_0);
                     }
                     else
                     {
-                        sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                            attr->voice->lcidx, tm->tm_hour % 12 + IDX_HOUR_0);
+                        sprintf(filename, filefmt, attr->voice->folder,            attr->voice->lcidx, tm->tm_hour % 12 + IDX_HOUR_0);
                     }
                     if (0 == (retval = mplayer_playlist_queue(filename)))
                         mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1430,8 +1306,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
             }
             else
             {
-                sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                    attr->voice->lcidx, tm->tm_hour + IDX_HOUR_0);
+                sprintf(filename, filefmt, attr->voice->folder,    attr->voice->lcidx, tm->tm_hour + IDX_HOUR_0);
 
                 if (0 == (retval = mplayer_playlist_queue(filename)))
                     mplayer_playlist_queue_intv(attr->voice->tempo);
@@ -1443,8 +1318,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
     case VOICE_SETTING_ALARM_MIN:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, tm->tm_min + IDX_MINUTE_0);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1457,8 +1331,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
             idx = (YEAR_ROUND_LO > idx ? YEAR_ROUND_LO : (YEAR_ROUND_HI < idx ? YEAR_ROUND_HI : idx)) -
                 YEAR_ROUND_LO + IDX_YEAR_LO;
 
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, idx);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, idx);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1467,8 +1340,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
     case VOICE_SETTING_MDAY:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, tm->tm_mday - 1 + IDX_MDAY_1);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, tm->tm_mday - 1 + IDX_MDAY_1);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1480,8 +1352,7 @@ int VOICE_say_setting_part(struct VOICE_attr_t *attr, enum VOICE_setting_part_t 
     case VOICE_SETTING_MONTH:
         if (0 == retval)
         {
-            sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-                attr->voice->lcidx, tm->tm_mon + IDX_JANURAY);
+            sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, tm->tm_mon + IDX_JANURAY);
             if (0 == (retval = mplayer_playlist_queue(filename)))
                 mplayer_playlist_queue_intv(attr->voice->tempo);
         }
@@ -1530,15 +1401,14 @@ int VOICE_play_ringtone(struct VOICE_attr_t *attr, int ringtone_id)
 {
     if (NULL == attr->voice)
         return EMODU_NOT_CONFIGURED;
-    char filename[20];
+    char filename[64];
 
     if (0 > ringtone_id)
         ringtone_id = 0;
     else
         ringtone_id %= RING_TONE_COUNT;
 
-    sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? common_folder_alt : "",
-        COMMON_FOLDER_IDX, IDX_RING_TONE_0 + ringtone_id);
+    sprintf(filename, filefmt, common_folder, IDX_COMMON, IDX_RING_TONE_0 + ringtone_id);
     return mplayer_play(filename);
 }
 
@@ -1546,9 +1416,9 @@ int VOICE_play_reminder(struct VOICE_attr_t *attr, int reminder_id)
 {
     if (NULL == attr->voice)
         return EMODU_NOT_CONFIGURED;
-    char filename[20];
 
-    sprintf(filename, "%s%02X%02X", attr->use_alt_folder ? attr->voice->folder_alt : "",
-        attr->voice->lcidx, IDX_REMINDER_0 + reminder_id);
+    char filename[64];
+    sprintf(filename, filefmt, attr->voice->folder, attr->voice->lcidx, IDX_REMINDER_0 + reminder_id);
+
     return mplayer_play(filename);
 }

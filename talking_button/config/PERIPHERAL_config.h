@@ -7,6 +7,12 @@
     #define PROJECT_VERSION             VERSION_INFO(1, 0, 23)
     #define PROJECT_ID                  "tbtn"
 
+// console
+    #define CONSOLE_DEV                 USART1
+    #define CONSOLE_TXD                 PA09
+    #define CONSOLE_RXD                 PA10
+
+
 // buttons
     #define PIN_VOICE_BUTTON            PC00
     #define PIN_SETTING_BUTTON          PC01
@@ -16,7 +22,7 @@
     #define PIN_RTC_CAL_IN              PB01
 
 // batt
-    #define PIN_BATT_ADC                PB02
+    #define PIN_BATT_ADC                PA01
     #define BATT_AD_NUMERATOR           (390U + 750U)
     #define BATT_AD_DENOMINATOR         (390U)
 
@@ -30,16 +36,15 @@
     #define BATT_AD_HINT_INTV_SECONDS   (15)
 
     // batt voice volume control
-    #define BATT_50_VOLUME              (90U)
     #define BATT_30_VOLUME              (70U)
 
 // SDIO
     #define SDIO_DEV                    SDIO
     #define SDIO_CLK                    PE12
     #define SDIO_CMD                    PE13
-    #define SDIO_DAT                    PE08, PE09, PE10, PE11, 0
+    #define SDIO_DAT                    PE08, 0     // PE09, PE10, PE11, 0
 
 // mplayer & lineout
-    #define PIN_MUTE                    PA07
+    #define PIN_MUTE                    PB14
 
 #endif

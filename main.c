@@ -1,9 +1,11 @@
 #include <adc.h>
+#include <dac.h>
 #include <pmu.h>
 #include <uart.h>
 #include <wdt.h>
 #include <i2c.h>
 
+#include <audio/file/lc3bin.h>
 #include "smartcuckoo.h"
 
 /****************************************************************************
@@ -41,9 +43,6 @@ struct VOICE_attr_t voice_attr = {0};
  ****************************************************************************/
 int main(void)
 {
-    LOG_set_level(LOG_WARN);
-    // LOG_set_level(LOG_VERBOSE);
-
     #ifdef I2C0_SCL
         I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
     #endif
@@ -54,16 +53,39 @@ int main(void)
         GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MUTE);
     #endif
 
-    #ifdef CONSOLE_DEV
-        UART_pin_mux(CONSOLE_DEV, CONSOLE_TXD, CONSOLE_RXD);
+    #ifdef PIN_BATT_ADC
+        ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
+        ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
+        ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
 
-        __stdout_fd = UART_createfd(USART1, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-        // somehow xG22 put some invalid char on bootup
-        printf("\t\t\r\n\r\n");
-        LOG_printf("smartcuckoo %s booting", PROJECT_ID);
-    #else
-        LOG_set_level(LOG_NONE);
+        while (true)
+        {
+            PERIPHERAL_batt_ad_start();
+            msleep(10);
+
+            if (BATT_EMPTY_MV > batt_ad.value)
+            {
+                PERIPHERAL_on_sleep();
+                msleep(250);
+            }
+            else
+                break;
+        }
     #endif
+
+    // REVIEW: bind DAC => audio renderer
+    if (1)
+    {
+        static struct DAC_attr_t dac_attr;
+        DAC_init(&dac_attr, true);
+        AUDIO_renderer_init(DAC_renderer, &dac_attr);
+    }
+    // REVIEW: init mplayer 64 queue & register LC3
+    if (1)
+    {
+        mplayer_init(64);
+        LC3_register_fileio();
+    }
 
     UCSH_init();
     UCSH_register_fileio();
@@ -71,25 +93,9 @@ int main(void)
     PERIPHERAL_gpio_init();
     CLOCK_init();
 
-#ifdef PIN_BATT_ADC
-    ADC_attr_init(&batt_ad.attr, 1500, (void *)batt_adc_callback);
-    ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
-    ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
-
-    while (true)
-    {
-        PERIPHERAL_batt_ad_start();
-
-        if (BATT_EMPTY_MV > batt_ad.value)
-        {
-            PERIPHERAL_on_sleep();
-            msleep(250);
-        }
-        else
-            break;
-    }
-#endif
-    WDOG_init(8000);
+    #ifdef NDEBUG
+        WDOG_init(8000);
+    #endif
 
     PERIPHERAL_init();
     SHELL_bootstrap();

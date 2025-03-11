@@ -1,4 +1,5 @@
 #include <ultracore/syscon.h>
+#include <hash/md5.h>
 
 #include "smartcuckoo.h"
 #include "ble.hpp"
@@ -16,68 +17,188 @@ extern "C" int SHELL_ota(struct UCSH_env *env);         // shell_ota.c
 /*****************************************************************************/
 /** @internal
 *****************************************************************************/
-static int SHELL_batt(struct UCSH_env *env);
-static int SHELL_heap(struct UCSH_env *env);
-static int SHELL_rtc_calibration(struct UCSH_env *env);
-
 static int SHELL_locale(struct UCSH_env *env);
-static int SHELL_alarm(struct UCSH_env *env);
-static int SHELL_reminder(struct UCSH_env *env);
-static int SHELL_volume(struct UCSH_env *env);
 static int SHELL_dfmt(struct UCSH_env *env);
 static int SHELL_hfmt(struct UCSH_env *env);
-static int SHELL_rec(struct UCSH_env *env);
+
+static int SHELL_alarm(struct UCSH_env *env);
+static int SHELL_reminder(struct UCSH_env *env);
 
 /// @var
 // TUltraCorePeripheral *BLE;
 
-static struct UCSH_env UART_sh_env;
+#if 0 == PMU_EM2_EN
+    /*
+    static struct UCSH_env BLE_sh_env;
+    static uint32_t BLE_sh_stack[4096 / sizeof(uint32_t)];
+    */
 
-// #if 0 == PMU_EM2_EN
-//     static struct UCSH_env BLE_sh_env;
-//     static uint32_t BLE_sh_stack[1152 / sizeof(uint32_t)];
-//     static struct UCSH_env UART_sh_env;
-//     static uint32_t UART_sh_stack[1232 / sizeof(uint32_t)];
-
-// #else
-//     static struct UCSH_env BLE_sh_env;
-//     static uint32_t BLE_sh_stack[1408 / sizeof(uint32_t)];
-// #endif
+    static struct UCSH_env UART_sh_env;
+    // static uint32_t UART_sh_stack[2048 / sizeof(uint32_t)];
+#else
+    static struct UCSH_env BLE_sh_env;
+    static uint32_t BLE_sh_stack[4096 / sizeof(uint32_t)];
+#endif
 
 /*****************************************************************************/
 /** @export
 *****************************************************************************/
-void SHELL_bootstrap(void)
+static void SHELL_register(void)
 {
-    UCSH_register("batt",       SHELL_batt);
-    UCSH_register("heap",       SHELL_heap);
-    UCSH_register("ota",        SHELL_ota);
-    UCSH_register("rtcc",       SHELL_rtc_calibration);
-
     // locale
     UCSH_register("loc",        SHELL_locale);
     UCSH_register("locale",     SHELL_locale);
+    // hour format
+    UCSH_register("hfmt",       SHELL_hfmt);
+    // date format: voice only
+    UCSH_register("dfmt",       SHELL_dfmt);
+
     // alarm
     UCSH_register("alm",        SHELL_alarm);
     UCSH_register("alarm",      SHELL_alarm);
     // reminder
     UCSH_register("rmd",        SHELL_reminder);
     UCSH_register("reminder",   SHELL_reminder);
-    // rec
-    UCSH_register("rec",        SHELL_rec);
-    // volume
-    UCSH_register("vol",        SHELL_volume);
-    UCSH_register("volume",     SHELL_volume);
-    // hour format
-    UCSH_register("hfmt",       SHELL_hfmt);
-    // date format: voice only
-    UCSH_register("dfmt",       SHELL_dfmt);
 
+    // upgrade
+    UCSH_register("ota",        SHELL_ota);
+
+    UCSH_register("batt",
+        [](struct UCSH_env *env)
+        {
+            if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
+                UCSH_printf(env, "batt=%u\n", PERIPHERAL_batt_volt());
+            else
+                UCSH_printf(env, "batt=%u\n", BATT_mv_level(PERIPHERAL_batt_volt()));
+            return 0;
+        });
+
+    UCSH_register("heap",
+        [](struct UCSH_env *env)
+        {
+            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
+            return 0;
+        });
+
+    UCSH_register("rtcc",
+        [](struct UCSH_env *env)
+        {
+            if (2 == env->argc)
+            {
+                int ppm = strtol(env->argv[1], NULL, 10);
+                RTC_set_calibration_ppb(ppm * 1000);
+            }
+
+            UCSH_printf(env, "RTC calibration PPM: %d\n", (RTC_calibration_ppb() + 500)/ 1000);
+            return 0;
+        });
+
+    UCSH_register("md5",
+        [](struct UCSH_env *env)
+        {
+            if (2 != env->argc)
+                return EINVAL;
+
+            int fd = open(env->argv[1], O_RDONLY);
+            if (-1 == fd)
+                return errno;
+
+            MD5_context_t *md5_ctx = (MD5_context_t *)&env->buf[64];
+            MD5_init(md5_ctx);
+
+            while (true)
+            {
+                ssize_t len = read(fd, env->buf, 64);
+
+                if (len > 0)
+                    MD5_update(md5_ctx, env->buf, (size_t)len);
+                else
+                    break;
+            }
+            MD5_t md5 = MD5_final(md5_ctx);
+            close(fd);
+
+            writeln(env->fd, env->buf, (size_t)MD5_sprintf(env->buf, &md5));
+            return 0;
+        });
+
+    // mplayer
+    UCSH_register("mplay",
+        [](struct UCSH_env *env)
+        {
+            if (2 > env->argc)
+                return EINVAL;
+            else
+                return mplayer_play(env->argv[1]);
+        }
+    );
+    UCSH_register("mqueue",
+        [](struct UCSH_env *env)
+        {
+            if (2 > env->argc)
+                return EINVAL;
+            else
+                return mplayer_playlist_queue(env->argv[1]);
+        }
+    );
+    UCSH_register("mstop",
+        [](struct UCSH_env *env)
+        {
+            (void)env;
+            return mplayer_stop();
+        }
+    );
+
+    UCSH_register("mvol",
+        [](struct UCSH_env *env)
+        {
+            if (1 == env->argc)
+            {
+                uint8_t vol = mplayer_get_volume();
+
+                UCSH_printf(env, "volume %u%%\n", vol);
+                return 0;
+
+            }
+            else if (2 == env->argc)
+            {
+                int volume = strtol(env->argv[1], NULL, 10);
+                if (0 > volume)
+                    return EINVAL;
+                else
+                    return mplayer_set_volume((uint8_t)volume);
+            }
+            else
+                return EINVAL;
+        }
+    );
+
+    UCSH_register("mute",
+        [](struct UCSH_env *env)
+        {
+            (void)env;
+            return mplayer_mute();
+        }
+    );
+    UCSH_register("unmute",
+        [](struct UCSH_env *env)
+        {
+            (void)env;
+            return mplayer_unmute();
+        }
+    );
+
+    // REVIEW: peripheral extensions.
     PERIPHERAL_shell_init();
+}
+
+void SHELL_bootstrap(void)
+{
+    SHELL_register();
 
     // uart shell
     #if 0 == PMU_EM2_EN
-        UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
+        // UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
         msleep(10);
         LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_calibration_ppb());
@@ -171,33 +292,6 @@ void UCSH_prompt_handle(struct UCSH_env *env)
 /*****************************************************************************/
 /** @internal
 *****************************************************************************/
-static int SHELL_batt(struct UCSH_env *env)
-{
-    if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
-        UCSH_printf(env, "batt=%u\n", PERIPHERAL_batt_volt());
-    else
-        UCSH_printf(env, "batt=%u\n", BATT_mv_level(PERIPHERAL_batt_volt()));
-    return 0;
-}
-
-static int SHELL_heap(struct UCSH_env *env)
-{
-    UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
-    return 0;
-}
-
-static int SHELL_rtc_calibration(struct UCSH_env *env)
-{
-    if (2 == env->argc)
-    {
-        int ppm = strtol(env->argv[1], NULL, 10);
-        RTC_set_calibration_ppb(ppm * 1000);
-    }
-
-    UCSH_printf(env, "RTC calibration PPM: %d\n", (RTC_calibration_ppb() + 500)/ 1000);
-    return 0;
-}
-
 static void voice_avail_locales_callback(int id, char const *lcid, char const *voice, void *arg, bool final)
 {
     UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
@@ -483,28 +577,6 @@ static int SHELL_reminder(struct UCSH_env *env)
     return 0;
 }
 
-static int SHELL_volume(struct UCSH_env *env)
-{
-    if (2 == env->argc)
-    {
-        unsigned percent = strtoul(env->argv[1], NULL, 10);
-        if (100 < percent)
-            percent = 100;
-
-        if (setting.media_volume != percent)
-        {
-            setting.media_volume = (uint8_t)percent;
-            NVM_set(NVM_SETTING, &setting, sizeof(setting));
-        }
-
-        mplayer_set_volume((uint8_t)percent);
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-
-    UCSH_printf(env, "volume=%d%%\n", setting.media_volume);
-    return 0;
-}
-
 static int SHELL_hfmt(struct UCSH_env *env)
 {
     if (2 == env->argc)
@@ -586,11 +658,5 @@ static int SHELL_dfmt(struct UCSH_env *env)
         // no possiable value
         break;
     }
-    return 0;
-}
-
-static int SHELL_rec(struct UCSH_env *env)
-{
-    (void)env;
     return 0;
 }
