@@ -7,9 +7,13 @@
 #include <sdio.h>
 #include "PERIPHERAL_config.h"
 
+#ifndef __EM3_SECTION
+    #define __EM3_SECTION
+#endif
+
 static struct DISKIO_attr_t sdmmc_diskio;
-static struct SDMMC_attr_t sdmmc;
-static struct FAT_attr_t fat;
+static __EM3_SECTION struct SDMMC_attr_t sdmmc;
+static __EM3_SECTION struct FAT_attr_t fat;
 
 static struct DISKIO_lblk_t diskio_ext_buf[16];
 
@@ -30,32 +34,30 @@ void FILESYSTEM_startup(void)
 
     DISKIO_init(&sdmmc_diskio);
     DISKIO_add_cache(&sdmmc_diskio, diskio_ext_buf, lengthof(diskio_ext_buf));
+
     SDMMC_attr_init(&sdmmc, 3300, &sdmmc_diskio);
-
-    int retval = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT);
-    if (0 != retval)
-        goto sdmmc_print_err;
-
-    retval = SDMMC_card_insert(&sdmmc);
-    if (0 != retval)
-        goto sdmmc_print_err;
-
     FAT_attr_init(&fat, &sdmmc_diskio);
-    retval = FAT_attr_mount(&fat);
-    if (0 != retval)
+
+    int err;
+
+    if (0 != (err = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
         goto sdmmc_print_err;
-    else
-        FAT_mount_root(&fat);
+
+    if (0 != (err = SDMMC_card_insert(&sdmmc)))
+        goto sdmmc_print_err;
+
+    if (0 != (err = FAT_mount_fs_root(&fat, NULL)))
+        goto sdmmc_print_err;
 
     #ifndef NDEBUG
         SDMMC_print(&sdmmc);
         FAT_attr_print(&fat);
     #endif
 
-    if (false)
+    if (0)
     {
     sdmmc_print_err:
         __BREAK_IFDBG();
-        LOG_error("SDMMC error HALT: %s", SDMMC_strerror(retval));
+        LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
     }
 }
