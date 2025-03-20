@@ -89,7 +89,7 @@ static void SHELL_register(void)
                 RTC_set_calibration_ppb(ppm * 1000);
             }
 
-            UCSH_printf(env, "RTC calibration PPM: %d\n", (RTC_calibration_ppb() + 500)/ 1000);
+            UCSH_printf(env, "RTC calibration PPM: %d\n", (RTC_get_calibration_ppb() + 500)/ 1000);
             return 0;
         });
 

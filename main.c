@@ -49,9 +49,6 @@ int main(void)
     #ifdef I2C1_SCL
         I2C_pin_mux(I2C1, I2C1_SCL, I2C1_SDA);
     #endif
-    #ifdef PIN_MUTE
-        GPIO_setdir_output(PUSH_PULL_DOWN, PIN_MUTE);
-    #endif
 
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
@@ -77,7 +74,10 @@ int main(void)
     if (1)
     {
         static struct DAC_attr_t dac_attr;
+
         DAC_init(&dac_attr, true);
+        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP);
+
         AUDIO_renderer_init(DAC_renderer, &dac_attr);
     }
     // REVIEW: init mplayer 64 queue & register LC3
