@@ -63,7 +63,7 @@ static void power_latency_timeout_callback(void *arg);
 
 // var
 static struct talking_button_runtime_t talking_button = {0};
-static uint32_t __stack[1024 / sizeof(uint32_t)];
+__THREAD_STACK static uint32_t talking_button_stack[1024 / sizeof(uint32_t)];
 
 /****************************************************************************
  *  @implements
@@ -95,7 +95,7 @@ void PERIPHERAL_init(void)
     }
 
     /*
-    mplayer_initlaize(talking_button.mp3_uartfd, PIN_MP3_BUSY);
+    mplayer_thread_createlaize(talking_button.mp3_uartfd, PIN_MP3_BUSY);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media_volume);
@@ -118,7 +118,7 @@ void PERIPHERAL_init(void)
     {
         pthread_attr_t attr;
         pthread_attr_init(&attr);
-        pthread_attr_setstack(&attr, __stack, sizeof(__stack));
+        pthread_attr_setstack(&attr, talking_button_stack, sizeof(talking_button_stack));
 
         pthread_t id;
         pthread_create(&id, &attr, (void *)MSG_dispatch_thread, &talking_button);

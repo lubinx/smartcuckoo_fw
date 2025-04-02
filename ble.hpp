@@ -6,13 +6,11 @@
 #include <bluetooth/gap.tlv.hpp>
 #include <bluetooth/gatt.service.serialp.hpp>
 
-/*
+#include "nations.bluetooth.hpp"
 
-#include "sl.bluetooth.hpp"
-
-    class TUltraCorePeripheral :public Bluetooth::SiLabs::TPeripheral
+    class TUltraCorePeripheral :public Bluetooth::Nations::TPeripheral
     {
-        typedef Bluetooth::SiLabs::TPeripheral inherited;
+        typedef Bluetooth::Nations::TPeripheral inherited;
 
     public:
         TUltraCorePeripheral() :
@@ -64,6 +62,7 @@
             LastActivity = clock();
         }
 
+        /*
         virtual void OnSleepWakeup() override
         {
             ADV_Update();
@@ -74,6 +73,7 @@
         {
             PERIPHERAL_on_sleep();
         }
+        */
 
         virtual void ADV_GetScanResponseData(Bluetooth::TAdvStream &scanrsp) override
         {
@@ -93,14 +93,12 @@
         uint16_t PeerId;
         clock_t LastActivity;
     };
-    extern TUltraCorePeripheral *BLE;
+    extern TUltraCorePeripheral BLE;
 
 static inline __attribute__((nothrow, nonnull))
     void BLE_SHELL_write(char const *str)
     {
-        if (BLE)
-            BLE->Shell.Write(str, strlen(str));
+        BLE.Shell.Write(str, strlen(str));
     }
 
-*/
 #endif

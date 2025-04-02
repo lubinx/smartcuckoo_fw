@@ -21,6 +21,12 @@ set(COMMON_SRCS
     # ${ULTRACORE_ROOT}/src/hw/common_i2c.c
 )
 
+# remove prebuild ultracore archs
+file(GLOB glob_list "${CMAKE_BINARY_DIR}/talking_button.*")
+foreach(iter ${glob_list})
+    file(REMOVE ${iter})
+endforeach()
+
 build_target(talking_button
     DEVICE
         "N32WB452LE"
@@ -33,8 +39,9 @@ build_target(talking_button
     SRCS
         ${COMMON_SRCS}
         "talking_button/*.c"
-        "ultracore/src/core/filesystem.c"
+        "ultracore/src//core/filesystem.c"
         "ultracore/src/audio/mplayer.c"
+        "ultracore/src/audio/bufpool.c"
     DEFINITIONS
         NVM_TAG="talking button"
     DEPENDENCIES

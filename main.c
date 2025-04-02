@@ -43,6 +43,10 @@ struct VOICE_attr_t voice_attr = {0};
  ****************************************************************************/
 int main(void)
 {
+    #ifndef NDEBUG
+        LOG_set_level(LOG_VERBOSE);
+    #endif
+
     #ifdef I2C0_SCL
         I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
     #endif
@@ -76,15 +80,15 @@ int main(void)
         static struct DAC_attr_t dac_attr;
 
         DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP);
+        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 170);
 
         AUDIO_renderer_init(DAC_renderer, &dac_attr);
     }
-    // REVIEW: init mplayer 64 queue & register LC3
+    // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     if (1)
     {
-        mplayer_init(64);
         LC3_register_fileio();
+        mplayer_thread_create(64, 8192, NULL);
     }
 
     UCSH_init();

@@ -15,8 +15,6 @@ static struct DISKIO_attr_t sdmmc_diskio;
 static __EM3_SECTION struct SDMMC_attr_t sdmmc;
 static __EM3_SECTION struct FAT_attr_t fat;
 
-static struct DISKIO_lblk_t diskio_ext_buf[16];
-
 void FILESYSTEM_startup(void)
 {
     LOG_set_level(LOG_WARN);
@@ -32,8 +30,7 @@ void FILESYSTEM_startup(void)
         LOG_set_level(LOG_NONE);
     #endif
 
-    DISKIO_init(&sdmmc_diskio);
-    DISKIO_add_cache(&sdmmc_diskio, diskio_ext_buf, lengthof(diskio_ext_buf));
+    DISKIO_init(&sdmmc_diskio, 8);
 
     SDMMC_attr_init(&sdmmc, 3300, &sdmmc_diskio);
     FAT_attr_init(&fat, &sdmmc_diskio);

@@ -22,7 +22,7 @@
 //          <96=>  PLL 96 MHz
 //          <72=>  PLL 72 MHz
 //          <48=>  PLL 48 MHz
-    #define SYSCLK_FREQ                 (72U * 1000000)
+    #define SYSCLK_FREQ                 (96U * 1000000)
 //
 //      <o> HSE: provided HS-XTAL Crystal / Digital Oscillator frequency
 //      <i> due to PLL can only DIV by 1 or 2, it narrows HSE selection

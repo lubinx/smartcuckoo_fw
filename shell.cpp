@@ -25,20 +25,13 @@ static int SHELL_alarm(struct UCSH_env *env);
 static int SHELL_reminder(struct UCSH_env *env);
 
 /// @var
-// TUltraCorePeripheral *BLE;
+TUltraCorePeripheral BLE;
 
-#if 0 == PMU_EM2_EN
-    /*
-    static struct UCSH_env BLE_sh_env;
-    static uint32_t BLE_sh_stack[4096 / sizeof(uint32_t)];
-    */
-
-    static struct UCSH_env UART_sh_env;
-    // static uint32_t UART_sh_stack[2048 / sizeof(uint32_t)];
-#else
-    static struct UCSH_env BLE_sh_env;
-    static uint32_t BLE_sh_stack[4096 / sizeof(uint32_t)];
-#endif
+// #if 0 == PMU_EM2_EN
+// #else
+//     static struct UCSH_env BLE_sh_env;
+//     __THREAD_STACK static uint32_t BLE_sh_stack[1536 / sizeof(uint32_t)];
+// #endif
 
 /*****************************************************************************/
 /** @export
@@ -198,36 +191,33 @@ void SHELL_bootstrap(void)
 
     // uart shell
     #if 0 == PMU_EM2_EN
-        // UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
+        __EM3_VOLATILE static struct UCSH_env UART_sh_env;
+        __EM3_VOLATILE static uint32_t UART_sh_stack[1536 / sizeof(uint32_t)];
+
+        UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
-        msleep(10);
-        LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_calibration_ppb());
+        LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_get_calibration_ppb());
     #endif
 
-    // BLE = new TUltraCorePeripheral();
-    // UCSH_init_instance(&BLE_sh_env, BLE->Shell.CreateVFd(), sizeof(BLE_sh_stack), BLE_sh_stack);
+    // UCSH_init_instance(&BLE_sh_env, BLE.Shell.CreateVFd(), sizeof(BLE_sh_stack), BLE_sh_stack);
 
     LOG_info("heap avail: %d", SYSCON_get_heap_avail());
-    // BLE->Run();
-    UCSH_loop(&UART_sh_env, __stdout_fd, 512);
+    BLE.Run();
 }
 
 void PERIPHERAL_adv_start(void)
 {
-    // if (BLE)
-    //     BLE->ADV_Start();
+    BLE.ADV_Start();
 }
 
 void PERIPHERAL_adv_stop(void)
 {
-    // if (BLE)
-    //     BLE->ADV_Stop();
+    BLE.ADV_Stop();
 }
 
 void PERIPHERAL_adv_update(void)
 {
-    // if (BLE)
-    //     BLE->ADV_Update();
+    BLE.ADV_Update();
 }
 
 __attribute__((weak))
@@ -280,12 +270,10 @@ int UCSH_version(struct UCSH_env *env)
 void UCSH_prompt_handle(struct UCSH_env *env)
 {
 #if 0 == PMU_EM2_EN
-    if (env == &UART_sh_env)
+    if (__stdout_fd == env->fd)
         UCSH_puts(env, "$ ");
 #else
     (void)env;
-    // if (env == &BLE_sh_env)
-    //     UCSH_puts(env, "\n");
 #endif
 }
 

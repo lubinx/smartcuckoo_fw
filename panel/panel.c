@@ -116,7 +116,7 @@ void PERIPHERAL_init(void)
     // mp3 chip
     /*
     int uart_fd = UART_createfd(USART0, 38400, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
+    mplayer_thread_createlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
     mplayer_set_volume(setting.media_volume);
