@@ -113,7 +113,7 @@ void PERIPHERAL_init(void)
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
     timeout_init(&talking_button.power_latency_timeo, 100, power_latency_timeout_callback, 0);
 
-    talking_button.mqd = mqueue_create(MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
+    MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
         pthread_attr_t attr;
