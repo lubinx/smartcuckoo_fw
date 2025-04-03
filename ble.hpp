@@ -19,16 +19,16 @@
         {
         }
 
-        virtual void GAP_Dispatch(uint32_t const msg_id, void *arg) override
-        {
-            inherited::GAP_Dispatch(msg_id, arg);
+        // virtual void GAP_Dispatch(uint32_t const msg_id, void *arg) override
+        // {
+        //     inherited::GAP_Dispatch(msg_id, arg);
 
-            if (PERIPHERIAL_CONN_TIMEOUT && PeerId && clock() - LastActivity > PERIPHERIAL_CONN_TIMEOUT)
-            {
-                Connections.Close(PeerId);
-                PeerId = 0;
-            }
-        }
+        //     if (PERIPHERIAL_CONN_TIMEOUT && PeerId && clock() - LastActivity > PERIPHERIAL_CONN_TIMEOUT)
+        //     {
+        //         Connections.Close(PeerId);
+        //         PeerId = 0;
+        //     }
+        // }
 
         virtual void GAP_OnReady(void) override
         {
@@ -41,7 +41,6 @@
             inherited::CLI_OnConnected(peer_id, arg);
 
             PeerId = peer_id;
-            LastActivity = clock();
             PERIPHERAL_on_connected();
         }
 
@@ -50,30 +49,22 @@
             inherited::CLI_OnDisconnect(peer_id, arg);
 
             PeerId = peer_id;
-            LastActivity = clock();
-
             PERIPHERAL_on_disconnect();
             ADV_Start();
         }
 
-        virtual void CLI_OnActivity(uint16_t peer_id) override
+        virtual void GAP_OnSleep() override
         {
-            inherited::CLI_OnActivity(peer_id);
-            LastActivity = clock();
+            inherited::GAP_OnSleep();
+            PERIPHERAL_on_sleep();
         }
 
-        /*
-        virtual void OnSleepWakeup() override
+        virtual void GAP_OnSleepWakeup() override
         {
+            inherited::GAP_OnSleepWakeup();
             ADV_Update();
             PERIPHERAL_on_wakeup();
         }
-
-        virtual void OnSleep() override
-        {
-            PERIPHERAL_on_sleep();
-        }
-        */
 
         virtual void ADV_GetScanResponseData(Bluetooth::TAdvStream &scanrsp) override
         {
@@ -91,7 +82,6 @@
 
     private:
         uint16_t PeerId;
-        clock_t LastActivity;
     };
     extern TUltraCorePeripheral BLE;
 

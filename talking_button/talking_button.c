@@ -217,9 +217,7 @@ static bool battery_checking(void)
         talking_button.click_count = 0;
         talking_button.setting = false;;
 
-        mplayer_stop();
-        // mplayer_gpio_power_off();
-
+        mplayer_stop(true);
         return false;
     }
     else
@@ -282,10 +280,15 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
         talking_button.click_count = 0;
     runtime->voice_loop_stick = clock();
 
-    mplayer_stop();
     // any button will stop alarming
     if (true == CLOCK_stop_current_alarm())
-        return;
+    {
+        mplayer_stop(true);
+        return ;
+    }
+    else
+        mplayer_stop(false);
+
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
 
@@ -429,23 +432,22 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
         return;
 
     runtime->voice_loop_stick = clock();
-    mplayer_stop();
+    mplayer_stop(false);
 
     // any button will stop alarming
-    if (true == CLOCK_stop_current_alarm())
-        return;
+    CLOCK_stop_current_alarm();
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
 
     PERIPHERAL_batt_ad_sync();
-    // say low battery only
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
+    {
+        mplayer_stop(true);
         return;
-    // insert say low battery
+    }
+    // say low battery only
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
         VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_LOW_BATT, NULL);
-    if (BATT_LOW_MV > PERIPHERAL_batt_volt())
-        return;
 
     if (! runtime->setting)
     {
@@ -523,7 +525,7 @@ static void MSG_alarm_sw(struct talking_button_runtime_t *runtime, bool en)
     if (BATT_EMPTY_MV < PERIPHERAL_batt_volt())
     {
         runtime->alarm_is_on = en;
-        mplayer_stop();
+        mplayer_stop(false);
 
         if (en)
             VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_ON, NULL);

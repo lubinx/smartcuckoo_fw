@@ -80,7 +80,7 @@ int main(void)
         static struct DAC_attr_t dac_attr;
 
         DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 170);
+        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 150);
 
         AUDIO_renderer_init(DAC_renderer, &dac_attr);
     }
