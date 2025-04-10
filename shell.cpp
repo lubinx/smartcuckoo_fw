@@ -27,9 +27,6 @@ static int SHELL_reminder(struct UCSH_env *env);
 /// @var
 TUltraCorePeripheral BLE;
 
-static struct UCSH_env BLE_sh_env;
-__THREAD_STACK static uint32_t BLE_sh_stack[1536 / sizeof(uint32_t)];
-
 /*****************************************************************************/
 /** @export
 *****************************************************************************/
@@ -195,8 +192,6 @@ void SHELL_bootstrap(void)
     #else
         LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_get_calibration_ppb());
     #endif
-
-    UCSH_init_instance(&BLE_sh_env, BLE.Shell.CreateVFd(), sizeof(BLE_sh_stack), BLE_sh_stack);
 
     LOG_info("heap avail: %d", SYSCON_get_heap_avail());
     BLE.Run();

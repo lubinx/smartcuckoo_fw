@@ -15,20 +15,10 @@
     public:
         TUltraCorePeripheral() :
             inherited(PROJECT_NAME),
-            Shell(), PeerId(0)
+            Shell()
         {
+            // Connections.SetInactiveTimeout(15000);
         }
-
-        // virtual void GAP_Dispatch(uint32_t const msg_id, void *arg) override
-        // {
-        //     inherited::GAP_Dispatch(msg_id, arg);
-
-        //     if (PERIPHERIAL_CONN_TIMEOUT && PeerId && clock() - LastActivity > PERIPHERIAL_CONN_TIMEOUT)
-        //     {
-        //         Connections.Close(PeerId);
-        //         PeerId = 0;
-        //     }
-        // }
 
         virtual void GAP_OnReady(void) override
         {
@@ -39,8 +29,6 @@
         virtual void CLI_OnConnected(uint16_t peer_id, void *arg) override
         {
             inherited::CLI_OnConnected(peer_id, arg);
-
-            PeerId = peer_id;
             PERIPHERAL_on_connected();
         }
 
@@ -48,9 +36,20 @@
         {
             inherited::CLI_OnDisconnect(peer_id, arg);
 
-            PeerId = peer_id;
             PERIPHERAL_on_disconnect();
             ADV_Start();
+        }
+
+        virtual void CLI_OnSubscribe(Bluetooth::TBaseChar *Char) override
+        {
+            if (Char == &Shell.Char)
+            {
+                struct UCSH_env *env = (struct UCSH_env *)malloc(sizeof(struct UCSH_env) + 2048);
+
+                UCSH_init_instance(env, Shell.CreateVFd(), 2048, (uint32_t *)(env + 1));
+                UCSH_set_destructor(env, UCSH_destruct);
+                LOG_debug("BLE: creating shell 0x%08x", env);
+            }
         }
 
         virtual void GAP_OnSleep() override
@@ -81,14 +80,12 @@
         Bluetooth::TSerialPortService Shell;
 
     private:
-        uint16_t PeerId;
+        static void UCSH_destruct(struct UCSH_env *env)
+        {
+            free(env);
+            LOG_debug("BLE: shell destruct");
+        }
     };
     extern TUltraCorePeripheral BLE;
-
-static inline __attribute__((nothrow, nonnull))
-    void BLE_SHELL_write(char const *str)
-    {
-        BLE.Shell.Write(str, strlen(str));
-    }
 
 #endif
