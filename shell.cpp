@@ -261,12 +261,8 @@ int UCSH_version(struct UCSH_env *env)
 
 void UCSH_prompt_handle(struct UCSH_env *env)
 {
-#if 0 == PMU_EM2_EN
-    if (__stdout_fd == env->fd)
+    if (env->fd == __stdout_fd)
         UCSH_puts(env, "$ ");
-#else
-    (void)env;
-#endif
 }
 
 /*****************************************************************************/
