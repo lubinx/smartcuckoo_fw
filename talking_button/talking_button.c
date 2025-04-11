@@ -24,7 +24,6 @@ struct talking_button_runtime_t
     int mp3_uartfd;
 
     timeout_t setting_timeo;
-    timeout_t power_latency_timeo;
 
     unsigned click_count;
     clock_t voice_loop_stick;
@@ -59,7 +58,6 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 
 static bool battery_checking(void);
 static void setting_timeout_callback(void *arg);
-static void power_latency_timeout_callback(void *arg);
 
 // var
 static struct talking_button_runtime_t talking_button = {0};
@@ -72,9 +70,7 @@ void PERIPHERAL_gpio_init(void)
 {
     GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
     GPIO_setdir_input_pp(HIGH_Z, PIN_SETTING_BUTTON, true);
-
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
-
 }
 
 void PERIPHERAL_shell_init(void)
@@ -94,13 +90,6 @@ void PERIPHERAL_init(void)
         setting.media_volume = 100;
     }
 
-    /*
-    mplayer_thread_createlaize(talking_button.mp3_uartfd, PIN_MP3_BUSY);
-    mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
-    // volume
-    mplayer_set_volume(setting.media_volume);
-    */
-
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     // RTC_calibration_init();
@@ -111,7 +100,6 @@ void PERIPHERAL_init(void)
 
     talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
-    timeout_init(&talking_button.power_latency_timeo, 100, power_latency_timeout_callback, 0);
 
     MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
@@ -136,11 +124,7 @@ void PERIPHERAL_init(void)
     // VOICE_say_time_epoch(&voice_attr, time(NULL));
 
     #if 0 == PMU_EM2_EN
-        #ifdef RELEASE
-            #pragma GCC error "talking button: PMU is not enabled"
-        #else
-            #pragma GCC warning "talking button: PMU is not enabled"
-        #endif
+        #pragma GCC warning "talking button: PMU is not enabled"
 
         static timeout_t intv;
         timeout_init(&intv, 500, (void *)PERIPHERAL_on_wakeup, TIMEOUT_FLAG_REPEAT);
@@ -157,23 +141,12 @@ void PERIPHERAL_on_sleep(void)
 
 void PERIPHERAL_on_wakeup(void)
 {
-    // BURAM->RET[31].REG = BURTC->CNT;    // RTC
-    // BURAM->RET[30].REG  = 0ULL - BURAM->RET[31].REG;
-
     mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
 
 bool CLOCK_alarm_switch_is_on(void)
 {
     return talking_button.alarm_is_on;
-}
-
-void mplayer_power_callback(bool stat)
-{
-    if (stat)
-        timeout_stop(&talking_button.power_latency_timeo);
-    else
-        timeout_start(&talking_button.power_latency_timeo, NULL);
 }
 
 void mplayer_idle_callback(void)
@@ -228,12 +201,6 @@ static void setting_timeout_callback(void *arg)
 {
     ARG_UNUSED(arg);
     mqueue_postv(talking_button.mqd, MSG_SETTING_TIMEOUT, 0, 0);
-}
-
-static void power_latency_timeout_callback(void *arg)
-{
-    ARG_UNUSED(arg);
-    GPIO_clear(PIN_MUTE);               // 20 uA
 }
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
@@ -542,7 +509,6 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
         if (msg)
         {
             WDOG_feed();
-
             switch ((enum talking_button_message_t)msg->msgid)
             {
             case MSG_ALIVE:

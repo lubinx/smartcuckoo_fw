@@ -35,7 +35,6 @@
         virtual void CLI_OnDisconnect(uint16_t peer_id, void *arg) override
         {
             inherited::CLI_OnDisconnect(peer_id, arg);
-
             PERIPHERAL_on_disconnect();
             ADV_Start();
         }
@@ -60,9 +59,10 @@
 
         virtual void GAP_OnSleepWakeup() override
         {
-            inherited::GAP_OnSleepWakeup();
-            ADV_Update();
             PERIPHERAL_on_wakeup();
+            ADV_Update();
+
+            inherited::GAP_OnSleepWakeup();
         }
 
         virtual void ADV_GetScanResponseData(Bluetooth::TAdvStream &scanrsp) override
@@ -86,6 +86,6 @@
             LOG_debug("BLE: shell destruct");
         }
     };
-    extern TUltraCorePeripheral BLE;
+    // extern TUltraCorePeripheral BLE;
 
 #endif
