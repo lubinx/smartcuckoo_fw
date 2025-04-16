@@ -27,33 +27,30 @@ static int SHELL_reminder(struct UCSH_env *env);
 /// @var
 TUltraCorePeripheral BLE;
 
-static struct UCSH_env BLE_sh_env;
-__THREAD_STACK static uint32_t BLE_sh_stack[1536 / sizeof(uint32_t)];
-
 /*****************************************************************************/
 /** @export
 *****************************************************************************/
 static void SHELL_register(void)
 {
     // locale
-    UCSH_register("loc",        SHELL_locale);
-    UCSH_register("locale",     SHELL_locale);
+    UCSH_REGISTER("loc",        SHELL_locale);
+    UCSH_REGISTER("locale",     SHELL_locale);
     // hour format
-    UCSH_register("hfmt",       SHELL_hfmt);
+    UCSH_REGISTER("hfmt",       SHELL_hfmt);
     // date format: voice only
-    UCSH_register("dfmt",       SHELL_dfmt);
+    UCSH_REGISTER("dfmt",       SHELL_dfmt);
 
     // alarm
-    UCSH_register("alm",        SHELL_alarm);
-    UCSH_register("alarm",      SHELL_alarm);
+    UCSH_REGISTER("alm",        SHELL_alarm);
+    UCSH_REGISTER("alarm",      SHELL_alarm);
     // reminder
-    UCSH_register("rmd",        SHELL_reminder);
-    UCSH_register("reminder",   SHELL_reminder);
+    UCSH_REGISTER("rmd",        SHELL_reminder);
+    UCSH_REGISTER("reminder",   SHELL_reminder);
 
     // upgrade
-    UCSH_register("ota",        SHELL_ota);
+    UCSH_REGISTER("ota",        SHELL_ota);
 
-    UCSH_register("batt",
+    UCSH_REGISTER("batt",
         [](struct UCSH_env *env)
         {
             if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
@@ -63,14 +60,14 @@ static void SHELL_register(void)
             return 0;
         });
 
-    UCSH_register("heap",
+    UCSH_REGISTER("heap",
         [](struct UCSH_env *env)
         {
             UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
             return 0;
         });
 
-    UCSH_register("rtcc",
+    UCSH_REGISTER("rtcc",
         [](struct UCSH_env *env)
         {
             if (2 == env->argc)
@@ -83,7 +80,7 @@ static void SHELL_register(void)
             return 0;
         });
 
-    UCSH_register("md5",
+    UCSH_REGISTER("md5",
         [](struct UCSH_env *env)
         {
             if (2 != env->argc)
@@ -113,7 +110,7 @@ static void SHELL_register(void)
         });
 
     // mplayer
-    UCSH_register("mplay",
+    UCSH_REGISTER("mplay",
         [](struct UCSH_env *env)
         {
             if (2 > env->argc)
@@ -122,7 +119,7 @@ static void SHELL_register(void)
                 return mplayer_play(env->argv[1]);
         }
     );
-    UCSH_register("mqueue",
+    UCSH_REGISTER("mqueue",
         [](struct UCSH_env *env)
         {
             if (2 > env->argc)
@@ -131,7 +128,7 @@ static void SHELL_register(void)
                 return mplayer_playlist_queue(env->argv[1]);
         }
     );
-    UCSH_register("mstop",
+    UCSH_REGISTER("mstop",
         [](struct UCSH_env *env)
         {
             (void)env;
@@ -139,7 +136,7 @@ static void SHELL_register(void)
         }
     );
 
-    UCSH_register("mvol",
+    UCSH_REGISTER("mvol",
         [](struct UCSH_env *env)
         {
             if (1 == env->argc)
@@ -163,14 +160,14 @@ static void SHELL_register(void)
         }
     );
 
-    UCSH_register("mute",
+    UCSH_REGISTER("mute",
         [](struct UCSH_env *env)
         {
             (void)env;
             return mplayer_mute();
         }
     );
-    UCSH_register("unmute",
+    UCSH_REGISTER("unmute",
         [](struct UCSH_env *env)
         {
             (void)env;
@@ -186,7 +183,6 @@ void SHELL_bootstrap(void)
 {
     SHELL_register();
 
-    // uart shell
     #if 0 == PMU_EM2_EN
         __EM3_VOLATILE static struct UCSH_env UART_sh_env;
         __EM3_VOLATILE static uint32_t UART_sh_stack[1536 / sizeof(uint32_t)];
@@ -195,8 +191,6 @@ void SHELL_bootstrap(void)
     #else
         LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_get_calibration_ppb());
     #endif
-
-    UCSH_init_instance(&BLE_sh_env, BLE.Shell.CreateVFd(), sizeof(BLE_sh_stack), BLE_sh_stack);
 
     LOG_info("heap avail: %d", SYSCON_get_heap_avail());
     BLE.Run();

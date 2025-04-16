@@ -22,7 +22,7 @@
 //          <96=>  PLL 96 MHz
 //          <72=>  PLL 72 MHz
 //          <48=>  PLL 48 MHz
-    #define SYSCLK_FREQ                 (96U * 1000000)
+    #define SYSCLK_FREQ                 (48U * 1000000)
 //
 //      <o> HSE: provided HS-XTAL Crystal / Digital Oscillator frequency
 //      <i> due to PLL can only DIV by 1 or 2, it narrows HSE selection
@@ -43,7 +43,7 @@
 //
 //  <h> Power mangement
 //      <q> OS tickless goes EM2
-    #define PMU_EM2_EN                  (0)
+    #define PMU_EM2_EN                  (1)
 //  </h>
 //
 //  <h> Bluetooth

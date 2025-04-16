@@ -1,12 +1,23 @@
+#include <ultracore/diskio.h>
+#include <audio/file/lc3bin.h>
+#include <fs/fat.h>
+
 #include <adc.h>
 #include <dac.h>
+#include <i2c.h>
 #include <pmu.h>
 #include <uart.h>
 #include <wdt.h>
-#include <i2c.h>
+#include <sdio.h>
 
-#include <audio/file/lc3bin.h>
 #include "smartcuckoo.h"
+
+/****************************************************************************
+ *  @def
+ ****************************************************************************/
+#define MPLAYER_QUEUE_SIZE              (64)
+#define MPLAYER_STACK_SIZE              (8192)
+
 
 /****************************************************************************
  *  @public
@@ -15,10 +26,16 @@ struct CLOCK_setting_t clock_setting = {0};
 struct SMARTCUCKOO_setting_t setting = {0};
 
 struct VOICE_attr_t voice_attr = {0};
+static struct PMU_attr_t pmu_attr = {0};
 
 /****************************************************************************
- *  @private: batt
+ *  @private
  ****************************************************************************/
+static struct PMU_attr_t pmu_attr;
+static struct DISKIO_attr_t sdmmc_diskio;
+static struct SDMMC_attr_t sdmmc;
+static struct FAT_attr_t fat;
+
 #ifdef PIN_BATT_ADC
     struct batt_ad_t
     {
@@ -38,14 +55,42 @@ struct VOICE_attr_t voice_attr = {0};
     static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad);
 #endif
 
+static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t mode, void *)
+{
+    if (PMU_EM3 == mode)
+    {
+        switch (event)
+        {
+        case PMU_EVENT_POWER_DOWN:
+            break;
+
+        case PMU_EVENT_SLEEP:
+            DISKIO_flush_cache(&sdmmc_diskio);
+            mplayer_thread_destroy();
+            break;
+
+        case PMU_EVENT_WAKEUP:
+            mplayer_thread_create(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
+            break;
+        }
+    }
+}
+
 /****************************************************************************
- *  @main
+ *  @implements: main
  ****************************************************************************/
 int main(void)
 {
+    PMU_power_acquire();
+    PMU_deepsleep_subscribe(&pmu_attr, MAIN_pmu_subscription, NULL);
+
     #ifndef NDEBUG
         LOG_set_level(LOG_VERBOSE);
     #endif
+
+    UART_pin_mux(CONSOLE_DEV, CONSOLE_TXD, CONSOLE_RXD);
+    __stdout_fd = UART_createfd(CONSOLE_DEV, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
+    LOG_info("smartcuckoo %s booting", PROJECT_ID);
 
     #ifdef I2C0_SCL
         I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
@@ -53,6 +98,39 @@ int main(void)
     #ifdef I2C1_SCL
         I2C_pin_mux(I2C1, I2C1_SCL, I2C1_SDA);
     #endif
+
+    PERIPHERAL_gpio_init();
+    CLOCK_init();
+
+    DISKIO_init(&sdmmc_diskio, 8);
+    SDMMC_attr_init(&sdmmc, 3300, &sdmmc_diskio);
+    FAT_attr_init(&fat, &sdmmc_diskio);
+
+    if (1)
+    {
+        int err;
+
+        if (0 != (err = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
+            goto sdmmc_print_err;
+
+        if (0 != (err = SDMMC_card_insert(&sdmmc)))
+            goto sdmmc_print_err;
+
+        if (0 != (err = FAT_mount_fs_root(&fat, NULL)))
+            goto sdmmc_print_err;
+
+        #ifndef NDEBUG
+            SDMMC_print(&sdmmc);
+            FAT_attr_print(&fat);
+        #endif
+
+        if (0)
+        {
+        sdmmc_print_err:
+            __BREAK_IFDBG();
+            LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
+        }
+    }
 
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
@@ -74,8 +152,7 @@ int main(void)
         }
     #endif
 
-    // REVIEW: bind DAC => audio renderer
-    if (1)
+    if (1)  // REVIEW: bind DAC => audio renderer
     {
         static struct DAC_attr_t dac_attr;
 
@@ -84,24 +161,21 @@ int main(void)
 
         AUDIO_renderer_init(DAC_renderer, &dac_attr);
     }
-    // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
-    if (1)
+    if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
         LC3_register_fileio();
-        mplayer_thread_create(64, 8192, NULL);
+        mplayer_thread_create(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
     }
 
-    UCSH_init();
     UCSH_register_fileio();
 
-    PERIPHERAL_gpio_init();
-    CLOCK_init();
-
-    #ifdef NDEBUG
-        WDOG_init(8000);
-    #endif
-
+    // FIXME: debug IWDOG
+    // #ifdef NDEBUG
+    //     WDOG_init(8000);
+    // #endif
     PERIPHERAL_init();
+
+    PMU_power_release();
     SHELL_bootstrap();
 }
 
@@ -172,8 +246,7 @@ void PERIPHERAL_on_wakeup(void)
 void PERIPHERAL_batt_ad_start(void)
 {
 #ifdef PIN_BATT_ADC
-    if (0 == ADC_start_convert(&batt_ad.attr, &batt_ad))
-        PMU_power_lock();
+    ADC_start_convert(&batt_ad.attr, &batt_ad);
 #endif
 }
 
@@ -182,8 +255,8 @@ uint16_t PERIPHERAL_batt_ad_sync(void)
 #ifdef PIN_BATT_ADC
     batt_ad.value = 0;
     PERIPHERAL_batt_ad_start();
-    while (0 == batt_ad.value) pthread_yield();
 
+    while (0 == batt_ad.value) pthread_yield();
     return (uint16_t)batt_ad.value;
 #else
     return 0;
@@ -212,7 +285,6 @@ static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad)
         ad->cumul_count = 0;
 
         ADC_stop_convert(&ad->attr);
-        PMU_power_unlock();
     }
 }
 #endif

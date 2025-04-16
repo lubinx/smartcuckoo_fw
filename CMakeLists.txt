@@ -2,23 +2,16 @@ cmake_minimum_required(VERSION 3.20)
 
 include(".vscode/intro.cmake")
 
-# REVIEW: bg22 no enough flash spaces
-# set(CMAKE_C_FLAGS_DEBUG "-O1 -g" CACHE INTERNAL "debug build")
-# set(CMAKE_CXX_FLAGS_DEBUG "-O1 -g" CACHE INTERNAL "debug build")
-
 project(smartcuckoo)
 
 set(COMMON_SRCS
     "datetime_utils.c"
     "clock.c"
     "mplayer_voice.c"
-    "fstab.c"
     # main
     "main.c"
     "shell.cpp"
     "shell_ota.c"
-    # ${ULTRACORE_ROOT}/src/sh/ucsh.c
-    # ${ULTRACORE_ROOT}/src/hw/common_i2c.c
 )
 
 # remove prebuild ultracore archs
@@ -39,9 +32,9 @@ build_target(talking_button
     SRCS
         ${COMMON_SRCS}
         "talking_button/*.c"
-        "ultracore/src//core/filesystem.c"
-        "ultracore/src/audio/mplayer.c"
-        "ultracore/src/audio/bufpool.c"
+        # "ultracore/src//core/filesystem.c"
+        # "ultracore/src/audio/mplayer.c"
+        # "ultracore/src/audio/bufpool.c"
     DEFINITIONS
         NVM_TAG="talking button"
     DEPENDENCIES
@@ -50,66 +43,66 @@ build_target(talking_button
         "../_bin"
 )
 
-if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    build_target(panel_b
-        DEVICE
-            "EFR32BG22C224F512GM40"
-        DRIVER
-            "../efr32xg22"
-        CONFIG_DIR
-            "panel/b_config"
-        INCLUDE_DIRS
-            "."
-            "./sensors"
-            "./io_ext"
-            "./panel"
-            "./panel/drv"
-        SRCS
-            ${COMMON_SRCS}
-            "panel/*.c"
-            "sensors/*.c"
-            "io_ext/xl9535.c"
-        SRCS-
-            "panel/lamp.c"
-            "panel/panel_ml_i2c_drv.c"
-            "sensors/env_sht4x.c"
-        DEPENDENCIES
-            "lc3"
-        DEFINITIONS
-            NVM_TAG="panel_c"
-        OUTPUT_DIR
-            "../_bin"
-    )
+# if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+#     build_target(panel_b
+#         DEVICE
+#             "EFR32BG22C224F512GM40"
+#         DRIVER
+#             "../efr32xg22"
+#         CONFIG_DIR
+#             "panel/b_config"
+#         INCLUDE_DIRS
+#             "."
+#             "./sensors"
+#             "./io_ext"
+#             "./panel"
+#             "./panel/drv"
+#         SRCS
+#             ${COMMON_SRCS}
+#             "panel/*.c"
+#             "sensors/*.c"
+#             "io_ext/xl9535.c"
+#         SRCS-
+#             "panel/lamp.c"
+#             "panel/panel_ml_i2c_drv.c"
+#             "sensors/env_sht4x.c"
+#         DEPENDENCIES
+#             "lc3"
+#         DEFINITIONS
+#             NVM_TAG="panel_c"
+#         OUTPUT_DIR
+#             "../_bin"
+#     )
 
-    build_target(panel_c
-        DEVICE
-            "EFR32BG22C224F512GM40"
-        DRIVER
-            "../efr32xg22"
-        CONFIG_DIR
-            "panel/c_config"
-        INCLUDE_DIRS
-            "."
-            "./sensors"
-            "./io_ext"
-            "./panel"
-            "./panel/drv"
-        SRCS
-            ${COMMON_SRCS}
-            "panel/*.c"
-            "sensors/*.c"
-            "io_ext/bs81xc.c"
-        SRCS-
-            "panel/panel_ml_i2c_drv.c"
-            "sensors/env_sht4x.c"
-        DEPENDENCIES
-            "lc3"
-        DEFINITIONS
-            NVM_TAG="panel_c"
-        OUTPUT_DIR
-            "../_bin"
-    )
-endif()
+#     build_target(panel_c
+#         DEVICE
+#             "EFR32BG22C224F512GM40"
+#         DRIVER
+#             "../efr32xg22"
+#         CONFIG_DIR
+#             "panel/c_config"
+#         INCLUDE_DIRS
+#             "."
+#             "./sensors"
+#             "./io_ext"
+#             "./panel"
+#             "./panel/drv"
+#         SRCS
+#             ${COMMON_SRCS}
+#             "panel/*.c"
+#             "sensors/*.c"
+#             "io_ext/bs81xc.c"
+#         SRCS-
+#             "panel/panel_ml_i2c_drv.c"
+#             "sensors/env_sht4x.c"
+#         DEPENDENCIES
+#             "lc3"
+#         DEFINITIONS
+#             NVM_TAG="panel_c"
+#         OUTPUT_DIR
+#             "../_bin"
+#     )
+# endif()
 
 # NOTE: required lc3
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
