@@ -55,7 +55,7 @@ int SHELL_ota(struct UCSH_env *env)
             crc = (uint16_t)strtoul(param, NULL, 16);
     }
 
-    PMU_power_acquire();
+    PMU_power_lock();
     PERIPHERAL_ota_init();
 
     ota_fd = FLASH_otafd(size); // open("ota.bin", O_RDWR | O_CREAT | O_TRUNC);

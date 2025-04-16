@@ -90,7 +90,7 @@ void PERIPHERAL_init(void)
         NVIC_SystemReset();
     }
 
-    PMU_power_acquire();
+    PMU_power_lock();
 
     MQUEUE_init(&panel.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display

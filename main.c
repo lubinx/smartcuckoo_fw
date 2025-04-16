@@ -173,7 +173,7 @@ void PERIPHERAL_batt_ad_start(void)
 {
 #ifdef PIN_BATT_ADC
     if (0 == ADC_start_convert(&batt_ad.attr, &batt_ad))
-        PMU_power_acquire();
+        PMU_power_lock();
 #endif
 }
 
@@ -212,7 +212,7 @@ static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad)
         ad->cumul_count = 0;
 
         ADC_stop_convert(&ad->attr);
-        PMU_power_release();
+        PMU_power_unlock();
     }
 }
 #endif
