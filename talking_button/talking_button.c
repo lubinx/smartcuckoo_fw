@@ -87,22 +87,6 @@ static void SCHEDULE_wakeup(void)
 
 void PERIPHERAL_init(void)
 {
-    MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
-    if (true)
-    {
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setstack(&attr, talking_button_stack, sizeof(talking_button_stack));
-
-        pthread_t id;
-        pthread_create(&id, &attr, (void *)MSG_dispatch_thread, &talking_button);
-        pthread_attr_destroy(&attr);
-
-        static timeout_t intv;
-        timeout_init(&intv, 5000, (void *)SCHEDULE_wakeup, TIMEOUT_FLAG_REPEAT);
-        timeout_start(&intv, NULL);
-    }
-
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
@@ -123,6 +107,46 @@ void PERIPHERAL_init(void)
         (void *)GPIO_button_callback, &talking_button);
     GPIO_intr_enable(PIN_ALARM_ON, TRIG_BY_BOTH_EDGE,
         (void *)GPIO_button_callback, &talking_button);
+
+    MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
+    if (true)
+    {
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setstack(&attr, talking_button_stack, sizeof(talking_button_stack));
+
+        pthread_t id;
+        pthread_create(&id, &attr, (void *)MSG_dispatch_thread, &talking_button);
+        pthread_attr_destroy(&attr);
+    }
+
+    if (1)
+    {
+        GPIO_setdir_input_pp(PULL_DOWN, PIN_RTC_CAL_IN, true);
+        clock_t ts = clock();
+
+        while (1)
+        {
+            if (600 < clock() - ts)
+                break;
+
+            if (GPIO_peek(PIN_RTC_CAL_IN))
+            {
+                LOG_debug("calibration");
+                mplayer_play("voice/FFFF.lc3");
+                mplayer_waitfor_idle();
+
+                if (0 == RTC_calibration_ppb(PIN_RTC_CAL_IN))
+                    mplayer_play("voice/FFFF.lc3");
+                break;
+            }
+        }
+        WDOG_feed();
+    }
+
+    static timeout_t intv;
+    timeout_init(&intv, 5000, (void *)SCHEDULE_wakeup, TIMEOUT_FLAG_REPEAT);
+    timeout_start(&intv, NULL);
 
     talking_button.batt_last_ts = time(NULL);
 }

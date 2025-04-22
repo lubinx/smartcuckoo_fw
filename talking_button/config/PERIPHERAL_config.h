@@ -18,7 +18,7 @@
     #define PIN_ALARM_ON                PA02
 
 // rtc
-    #define PIN_RTC_CAL_IN              PB01
+    #define PIN_RTC_CAL_IN              PB00
 
 // batt
     #define PIN_BATT_ADC                PA01

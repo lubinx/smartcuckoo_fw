@@ -109,10 +109,6 @@ int main(void)
     PERIPHERAL_gpio_init();
     CLOCK_init();
 
-    DISKIO_init(&sdmmc_diskio, 32);
-    SDMMC_attr_init(&sdmmc, 3300, 10, &sdmmc_diskio);
-    FAT_attr_init(&fat, &sdmmc_diskio);
-
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
         ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
@@ -132,6 +128,10 @@ int main(void)
                 break;
         }
     #endif
+
+    DISKIO_init(&sdmmc_diskio, 32);
+    SDMMC_attr_init(&sdmmc, 3300, 10, &sdmmc_diskio);
+    FAT_attr_init(&fat, &sdmmc_diskio);
 
     if (1)  // REVIEW: bind DAC => audio renderer
     {
