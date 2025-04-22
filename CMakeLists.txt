@@ -32,8 +32,11 @@ build_target(talking_button
     SRCS
         ${COMMON_SRCS}
         "talking_button/*.c"
-        # "ultracore/src//core/filesystem.c"
-        # "ultracore/src/audio/mplayer.c"
+        "ultracore/src/hw/sdmmc.c"
+        "ultracore/src/fs/fat.c"
+        "ultracore/src//core/context.c"
+        "ultracore/src//core/mqueue.c"
+        "ultracore/src/audio/mplayer.c"
         # "ultracore/src/audio/bufpool.c"
     DEFINITIONS
         NVM_TAG="talking button"

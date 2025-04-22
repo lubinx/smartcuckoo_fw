@@ -12,7 +12,6 @@
     #define CONSOLE_TXD                 PA09
     #define CONSOLE_RXD                 PA10
 
-
 // buttons
     #define PIN_VOICE_BUTTON            PC00
     #define PIN_SETTING_BUTTON          PC01
@@ -32,17 +31,15 @@
     #define BATT_EMPTY_MV               (1950)
 
     // batt adc interval
-    #define BATT_AD_INTV_SECONDS        (900)
-    #define BATT_AD_HINT_INTV_SECONDS   (15)
-
-    // batt voice volume control
-    #define BATT_30_VOLUME              (70U)
+    #define BATT_AD_INTV_SECONDS        (3600)
 
 // SDIO
     #define SDIO_DEV                    SDIO
     #define SDIO_CLK                    PE12
     #define SDIO_CMD                    PE13
     #define SDIO_DAT                    PE08, 0     // PE09, PE10, PE11, 0
+    #define SDIO_POWER_PIN              PB01
+    #define SDIO_POWER_PULL             PUSH_PULL_DOWN
 
 // mplayer & lineout
     #define PIN_MUTE                    PB14

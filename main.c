@@ -8,7 +8,7 @@
 #include <pmu.h>
 #include <uart.h>
 #include <wdt.h>
-#include <sdio.h>
+#include <sdmmc.h>
 
 #include "smartcuckoo.h"
 
@@ -17,7 +17,6 @@
  ****************************************************************************/
 #define MPLAYER_QUEUE_SIZE              (64)
 #define MPLAYER_STACK_SIZE              (8192)
-
 
 /****************************************************************************
  *  @public
@@ -55,24 +54,32 @@ static struct FAT_attr_t fat;
     static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad);
 #endif
 
-static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t mode, void *)
+static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t, void *)
 {
-    if (PMU_EM3 == mode)
+    switch (event)
     {
-        switch (event)
-        {
-        case PMU_EVENT_POWER_DOWN:
-            break;
+    case PMU_EVENT_POWER_DOWN:
+    case PMU_EVENT_SLEEP:
+        mplayer_deinit();
+        SDMMC_card_remove(&sdmmc);
+        DISKIO_flush_cache(&sdmmc_diskio);
+        break;
 
-        case PMU_EVENT_SLEEP:
-            DISKIO_flush_cache(&sdmmc_diskio);
-            mplayer_thread_destroy();
-            break;
+    case PMU_EVENT_WAKEUP:
+        break;
+    }
+}
 
-        case PMU_EVENT_WAKEUP:
-            mplayer_thread_create(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
-            break;
-        }
+void SDIO_power_ctrl(struct SDIO_context_t *context, bool en)
+{
+    (void)context, (void)en;
+    if (en)
+    {
+        GPIO_setdir_output(SDIO_POWER_PULL, SDIO_POWER_PIN);
+    }
+    else
+    {
+        GPIO_config_np(SDIO_POWER_PIN, GPIO_ANALOG);
     }
 }
 
@@ -81,9 +88,6 @@ static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t mode, 
  ****************************************************************************/
 int main(void)
 {
-    PMU_power_acquire();
-    PMU_deepsleep_subscribe(&pmu_attr, MAIN_pmu_subscription, NULL);
-
     #ifndef NDEBUG
         LOG_set_level(LOG_VERBOSE);
     #endif
@@ -99,38 +103,15 @@ int main(void)
         I2C_pin_mux(I2C1, I2C1_SCL, I2C1_SDA);
     #endif
 
+    PMU_deepsleep_subscribe(&pmu_attr, MAIN_pmu_subscription, NULL);
+    PMU_power_lock();
+
     PERIPHERAL_gpio_init();
     CLOCK_init();
 
-    DISKIO_init(&sdmmc_diskio, 8);
-    SDMMC_attr_init(&sdmmc, 3300, &sdmmc_diskio);
+    DISKIO_init(&sdmmc_diskio, 32);
+    SDMMC_attr_init(&sdmmc, 3300, 10, &sdmmc_diskio);
     FAT_attr_init(&fat, &sdmmc_diskio);
-
-    if (1)
-    {
-        int err;
-
-        if (0 != (err = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
-            goto sdmmc_print_err;
-
-        if (0 != (err = SDMMC_card_insert(&sdmmc)))
-            goto sdmmc_print_err;
-
-        if (0 != (err = FAT_mount_fs_root(&fat, NULL)))
-            goto sdmmc_print_err;
-
-        #ifndef NDEBUG
-            SDMMC_print(&sdmmc);
-            FAT_attr_print(&fat);
-        #endif
-
-        if (0)
-        {
-        sdmmc_print_err:
-            __BREAK_IFDBG();
-            LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
-        }
-    }
 
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
@@ -164,18 +145,40 @@ int main(void)
     if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
         LC3_register_fileio();
-        mplayer_thread_create(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
+        mplayer_init(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
     }
 
-    UCSH_register_fileio();
+    if (1)
+    {
+        int err;
 
-    // FIXME: debug IWDOG
-    // #ifdef NDEBUG
-    //     WDOG_init(8000);
-    // #endif
+        if (0 != (err = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
+            goto sdmmc_print_err;
+        if (0 != (err = SDMMC_card_insert(&sdmmc)))
+            goto sdmmc_print_err;
+        if (0 != (err = FAT_mount_fs_root(&fat, NULL)))
+            goto sdmmc_print_err;
+
+        #ifndef NDEBUG
+            SDMMC_print(&sdmmc);
+            FAT_attr_print(&fat);
+        #endif
+
+        if (0)
+        {
+        sdmmc_print_err:
+            __BREAK_IFDBG();
+            LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
+        }
+    }
+
     PERIPHERAL_init();
+    PMU_power_unlock();
 
-    PMU_power_release();
+    UCSH_register_fileio();
+    // FIXME: debug IWDOG
+    WDOG_init(8000);
+
     SHELL_bootstrap();
 }
 

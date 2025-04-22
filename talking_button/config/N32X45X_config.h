@@ -22,7 +22,7 @@
 //          <96=>  PLL 96 MHz
 //          <72=>  PLL 72 MHz
 //          <48=>  PLL 48 MHz
-    #define SYSCLK_FREQ                 (48U * 1000000)
+    #define SYSCLK_FREQ                 (72U * 1000000)
 //
 //      <o> HSE: provided HS-XTAL Crystal / Digital Oscillator frequency
 //      <i> due to PLL can only DIV by 1 or 2, it narrows HSE selection
@@ -49,8 +49,8 @@
 //  <h> Bluetooth
 //      <o0> Minimum advertising interval
 //      <o1> Maximum advertising interval
-    #define BLUETOOTH_ADV_MIN_INTERVAL  (190)
-    #define BLUETOOTH_ADV_MAX_INTERVAL  (210)
+    #define BLUETOOTH_ADV_MIN_INTERVAL  (650)
+    #define BLUETOOTH_ADV_MAX_INTERVAL  (800)
 //  </h>
 //--------------------------------------------------------------------------
 //<<< end of configuration section >>>

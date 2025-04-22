@@ -11,7 +11,6 @@ enum talking_button_message_t
     MSG_ALIVE                   = 1,
 
     MSG_ALARM_SW,
-
     MSG_BUTTON_VOICE,
     MSG_BUTTON_SETTING,
 
@@ -61,7 +60,7 @@ static void setting_timeout_callback(void *arg);
 
 // var
 static struct talking_button_runtime_t talking_button = {0};
-__THREAD_STACK static uint32_t talking_button_stack[1024 / sizeof(uint32_t)];
+__THREAD_STACK static uint32_t talking_button_stack[1280 / sizeof(uint32_t)];
 
 /****************************************************************************
  *  @implements
@@ -81,26 +80,13 @@ void PERIPHERAL_ota_init(void)
 {
 }
 
+static void SCHEDULE_wakeup(void)
+{
+    mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
+}
+
 void PERIPHERAL_init(void)
 {
-    // load settings
-    if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
-    {
-        memset(&setting, 0, sizeof(setting));
-        setting.media_volume = 100;
-    }
-
-    // startting RTC calibration if PIN is connected
-    //  NOTE: need after VOICE_init() by using common voice folder
-    // RTC_calibration_init();
-
-    VOICE_init(&voice_attr, &setting.locale);
-    // init locales
-    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
-
-    talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
-    timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
-
     MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
@@ -111,7 +97,25 @@ void PERIPHERAL_init(void)
         pthread_t id;
         pthread_create(&id, &attr, (void *)MSG_dispatch_thread, &talking_button);
         pthread_attr_destroy(&attr);
+
+        static timeout_t intv;
+        timeout_init(&intv, 5000, (void *)SCHEDULE_wakeup, TIMEOUT_FLAG_REPEAT);
+        timeout_start(&intv, NULL);
     }
+
+    // load settings
+    if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
+    {
+        memset(&setting, 0, sizeof(setting));
+        setting.media_volume = 100;
+    }
+
+    VOICE_init(&voice_attr, &setting.locale);
+    // init locales
+    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
+
+    talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
+    timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
 
     GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
@@ -121,15 +125,6 @@ void PERIPHERAL_init(void)
         (void *)GPIO_button_callback, &talking_button);
 
     talking_button.batt_last_ts = time(NULL);
-    // VOICE_say_time_epoch(&voice_attr, time(NULL));
-
-    #if 0 == PMU_EM2_EN
-        #pragma GCC warning "talking button: PMU is not enabled"
-
-        static timeout_t intv;
-        timeout_init(&intv, 500, (void *)PERIPHERAL_on_wakeup, TIMEOUT_FLAG_REPEAT);
-        timeout_start(&intv, NULL);
-    #endif
 }
 
 /****************************************************************************
@@ -137,11 +132,6 @@ void PERIPHERAL_init(void)
  ****************************************************************************/
 void PERIPHERAL_on_sleep(void)
 {
-}
-
-void PERIPHERAL_on_wakeup(void)
-{
-    mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
 }
 
 bool CLOCK_alarm_switch_is_on(void)
@@ -205,6 +195,7 @@ static void setting_timeout_callback(void *arg)
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
 {
+    LOG_debug("alive");
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
@@ -217,7 +208,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
     {
         time_t now = time(NULL);
 
-        if (BATT_AD_HINT_INTV_SECONDS < now - runtime->batt_last_ts)
+        if (BATT_AD_INTV_SECONDS < now - runtime->batt_last_ts)
         {
             runtime->batt_last_ts = now;
             PERIPHERAL_batt_ad_start();
@@ -240,6 +231,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
+    mplayer_stop(false);
     if (! battery_checking())
         return;
 
