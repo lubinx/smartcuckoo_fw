@@ -141,7 +141,9 @@ void PERIPHERAL_init(void)
                 break;
             }
         }
+
         WDOG_feed();
+        GPIO_disable(PIN_RTC_CAL_IN);
     }
 
     static timeout_t intv;
