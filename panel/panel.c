@@ -92,7 +92,7 @@ void PERIPHERAL_init(void)
 
     PMU_power_lock();
 
-    MQUEUE_init(&panel.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
+    MQUEUE_INIT(&panel.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display
     PANEL_attr_init(&panel.panel_attr, I2C0, &setting.locale);
 

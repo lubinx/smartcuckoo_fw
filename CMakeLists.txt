@@ -12,6 +12,8 @@ set(COMMON_SRCS
     "main.c"
     "shell.cpp"
     "shell_ota.c"
+    "../ultracore/src/usb/*.c"
+    "../ultracore/src/core/diskio.c"
 )
 
 # remove prebuild ultracore archs
@@ -32,12 +34,6 @@ build_target(talking_button
     SRCS
         ${COMMON_SRCS}
         "talking_button/*.c"
-        "ultracore/src/hw/sdmmc.c"
-        "ultracore/src/fs/fat.c"
-        "ultracore/src//core/context.c"
-        "ultracore/src//core/mqueue.c"
-        "ultracore/src/audio/mplayer.c"
-        # "ultracore/src/audio/bufpool.c"
     DEFINITIONS
         NVM_TAG="talking button"
     DEPENDENCIES

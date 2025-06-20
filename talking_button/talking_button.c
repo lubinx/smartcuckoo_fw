@@ -108,7 +108,7 @@ void PERIPHERAL_init(void)
     GPIO_intr_enable(PIN_ALARM_ON, TRIG_BY_BOTH_EDGE,
         (void *)GPIO_button_callback, &talking_button);
 
-    MQUEUE_init(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
+    MQUEUE_INIT(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
         pthread_attr_t attr;
@@ -129,6 +129,8 @@ void PERIPHERAL_init(void)
         {
             if (600 < clock() - ts)
                 break;
+            else
+                pthread_yield();
 
             if (GPIO_peek(PIN_RTC_CAL_IN))
             {

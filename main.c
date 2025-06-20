@@ -1,5 +1,6 @@
 #include <ultracore/diskio.h>
 #include <audio/file/lc3bin.h>
+#include <usb/usbd_scsi.h>
 #include <fs/fat.h>
 
 #include <adc.h>
@@ -23,6 +24,7 @@
  ****************************************************************************/
 struct CLOCK_setting_t clock_setting = {0};
 struct SMARTCUCKOO_setting_t setting = {0};
+static struct USBD_SCSI_attr_t usbd_scsi;
 
 struct VOICE_attr_t voice_attr = {0};
 static struct PMU_attr_t pmu_attr = {0};
@@ -70,9 +72,9 @@ static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t, void 
     }
 }
 
-void SDIO_power_ctrl(struct SDIO_context_t *context, bool en)
+void SDIO_power_ctrl(struct SDMMC_implement_t const *sdio_impl, bool en)
 {
-    (void)context, (void)en;
+    (void)sdio_impl, (void)en;
     if (en)
     {
         GPIO_setdir_output(SDIO_POWER_PULL, SDIO_POWER_PIN);
@@ -130,7 +132,7 @@ int main(void)
     #endif
 
     DISKIO_init(&sdmmc_diskio, 32);
-    SDMMC_attr_init(&sdmmc, 3300, 10, &sdmmc_diskio);
+    SDMMC_attr_init(&sdmmc, 3300, 8, &sdmmc_diskio);
     FAT_attr_init(&fat, &sdmmc_diskio);
 
     if (1)  // REVIEW: bind DAC => audio renderer
@@ -152,24 +154,39 @@ int main(void)
     {
         int err;
 
-        if (0 != (err = SDMMC_pin_mux(&sdmmc, SDIO_DEV, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
+        if (0 != (err = SDMMC_pin_mux(&sdmmc, sdio, SDIO_CLK, SDIO_CMD, SDIO_DAT)))
             goto sdmmc_print_err;
         if (0 != (err = SDMMC_card_insert(&sdmmc)))
             goto sdmmc_print_err;
-        if (0 != (err = FAT_mount_fs_root(&fat, NULL)))
+        if (0 != (err = FAT_mount_fs_root(&fat)))
             goto sdmmc_print_err;
 
         #ifndef NDEBUG
             SDMMC_print(&sdmmc);
             FAT_attr_print(&fat);
+        #else
+            LOG_info("SDMMC frequency: %u", sdmmc.xfer_configured_hz);
         #endif
 
         if (0)
         {
         sdmmc_print_err:
-            __BREAK_IFDBG();
             LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
+            msleep(1000);
+            NVIC_SystemReset();
         }
+    }
+
+    if (1)  // REVIEW: USB scsi
+    {
+        USBD_pin_mux(USB, PA12, PA11);
+        USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
+
+        // USBD_attr_set_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
+        // {
+        //     if (0 == FAT_mount_fs_root(&fat))
+        //         FAT_attr_print(&fat);
+        // });
     }
 
     PERIPHERAL_init();
@@ -278,17 +295,25 @@ uint16_t PERIPHERAL_batt_volt(void)
 #ifdef PIN_BATT_ADC
 static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad)
 {
-    ARG_UNUSED(raw);
-    batt_ad.cumul += volt;
+    #ifdef DEBUG
+        ARG_UNUSED(volt, raw, ad);
 
-    if (5 == ++ ad->cumul_count)
-    {
-        batt_ad.value = ad->cumul / ad->cumul_count;
-        ad->cumul = 0;
-        ad->cumul_count = 0;
-
+        batt_ad.value = 3300;
         ADC_stop_convert(&ad->attr);
-    }
+    #else
+        ARG_UNUSED(raw);
+
+        batt_ad.cumul += volt;
+
+        if (5 == ++ ad->cumul_count)
+        {
+            batt_ad.value = ad->cumul / ad->cumul_count;
+            ad->cumul = 0;
+            ad->cumul_count = 0;
+
+            ADC_stop_convert(&ad->attr);
+        }
+    #endif
 }
 #endif
 

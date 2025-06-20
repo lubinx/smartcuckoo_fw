@@ -34,7 +34,6 @@
     #define BATT_AD_INTV_SECONDS        (3600)
 
 // SDIO
-    #define SDIO_DEV                    SDIO
     #define SDIO_CLK                    PE12
     #define SDIO_CMD                    PE13
     #define SDIO_DAT                    PE08, 0     // PE09, PE10, PE11, 0

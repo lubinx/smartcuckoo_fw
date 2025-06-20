@@ -43,7 +43,7 @@
 //
 //  <h> Power mangement
 //      <q> OS tickless goes EM2
-    #define PMU_EM2_EN                  (1)
+    #define PMU_EM2_EN                  (0)
 //  </h>
 //
 //  <h> Bluetooth
