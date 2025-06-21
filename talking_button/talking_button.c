@@ -8,9 +8,7 @@
 
 enum talking_button_message_t
 {
-    MSG_ALIVE                   = 1,
-
-    MSG_ALARM_SW,
+    MSG_ALARM_SW                    = 1,
     MSG_BUTTON_VOICE,
     MSG_BUTTON_SETTING,
 
@@ -80,11 +78,6 @@ void PERIPHERAL_ota_init(void)
 {
 }
 
-static void SCHEDULE_wakeup(void)
-{
-    mqueue_postv(talking_button.mqd, MSG_ALIVE, 0, 0);
-}
-
 void PERIPHERAL_init(void)
 {
     // load settings
@@ -111,6 +104,9 @@ void PERIPHERAL_init(void)
     MQUEUE_INIT(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
+        uint32_t timeout = 5000;
+        ioctl(talking_button.mqd, OPT_RD_TIMEO, &timeout);
+
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setstack(&attr, talking_button_stack, sizeof(talking_button_stack));
@@ -147,10 +143,6 @@ void PERIPHERAL_init(void)
         WDOG_feed();
         GPIO_disable(PIN_RTC_CAL_IN);
     }
-
-    static timeout_t intv;
-    timeout_init(&intv, 5000, (void *)SCHEDULE_wakeup, TIMEOUT_FLAG_REPEAT);
-    timeout_start(&intv, NULL);
 
     talking_button.batt_last_ts = time(NULL);
 }
@@ -271,10 +263,12 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     if (true == CLOCK_stop_current_alarm())
     {
         mplayer_stop(true);
-        return ;
+        return;
     }
     else
         mplayer_stop(false);
+
+    PMU_power_lock();
 
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
@@ -411,6 +405,8 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             (void *)(uintptr_t)clock_setting.alarms[0].ringtone_id
         );
     }
+
+    PMU_power_unlock();
 }
 
 static void MSG_button_setting(struct talking_button_runtime_t *runtime)
@@ -526,15 +522,12 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
     while (true)
     {
         struct MQ_message_t *msg = mqueue_recv(runtime->mqd);
+        WDOG_feed();
+
         if (msg)
         {
-            WDOG_feed();
             switch ((enum talking_button_message_t)msg->msgid)
             {
-            case MSG_ALIVE:
-                MSG_alive(runtime);
-                break;
-
             case MSG_BUTTON_VOICE:
                 MSG_button_voice(runtime);
                 break;
@@ -554,5 +547,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
 
             mqueue_release_pool(runtime->mqd, msg);
         }
+        else
+            MSG_alive(runtime);
     }
 }

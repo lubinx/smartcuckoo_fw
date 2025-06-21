@@ -2,6 +2,11 @@
 #define __SMARTCUCKOO_H                 1
 
 #include <features.h>
+#include <ultracore/log.h>
+#include <ultracore/mq.h>
+#include <ultracore/timeo.h>
+#include <ultracore/nvm.h>
+#include <sh/ucsh.h>
 
 #include <errno.h>
 #include <pthread.h>
@@ -10,18 +15,14 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <stropts.h>
 
 #include <vinfo.h>
 #include <flash.h>
+#include <pmu.h>
 #include <rtc.h>
 #include <uart.h>
 #include <wdt.h>
-
-#include <ultracore/log.h>
-#include <ultracore/mq.h>
-#include <ultracore/timeo.h>
-#include <ultracore/nvm.h>
-#include <sh/ucsh.h>
 
 #include "datetime_utils.h"
 #include "locale.h"

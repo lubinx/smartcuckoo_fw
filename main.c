@@ -177,7 +177,7 @@ int main(void)
         }
     }
 
-    if (1)  // REVIEW: USB scsi
+    if (0)  // REVIEW: USB scsi
     {
         USBD_pin_mux(USB, PA12, PA11);
         USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
@@ -190,12 +190,12 @@ int main(void)
     }
 
     PERIPHERAL_init();
-    PMU_power_unlock();
-
     UCSH_register_fileio();
-    // FIXME: debug IWDOG
-    WDOG_init(8000);
 
+#ifdef NDEBUG
+    WDOG_init(8000);
+#endif
+    PMU_power_unlock();
     SHELL_bootstrap();
 }
 
@@ -295,25 +295,18 @@ uint16_t PERIPHERAL_batt_volt(void)
 #ifdef PIN_BATT_ADC
 static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad)
 {
-    #ifdef DEBUG
-        ARG_UNUSED(volt, raw, ad);
+    ARG_UNUSED(raw);
 
-        batt_ad.value = 3300;
+    batt_ad.cumul += volt;
+
+    if (5 == ++ ad->cumul_count)
+    {
+        batt_ad.value = ad->cumul / ad->cumul_count;
+        ad->cumul = 0;
+        ad->cumul_count = 0;
+
         ADC_stop_convert(&ad->attr);
-    #else
-        ARG_UNUSED(raw);
-
-        batt_ad.cumul += volt;
-
-        if (5 == ++ ad->cumul_count)
-        {
-            batt_ad.value = ad->cumul / ad->cumul_count;
-            ad->cumul = 0;
-            ad->cumul_count = 0;
-
-            ADC_stop_convert(&ad->attr);
-        }
-    #endif
+    }
 }
 #endif
 
