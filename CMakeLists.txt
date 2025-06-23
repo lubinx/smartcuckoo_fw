@@ -9,7 +9,7 @@ set(COMMON_SRCS
     "clock.c"
     "mplayer_voice.c"
     # main
-    "main.c"
+    "main.cpp"
     "shell.cpp"
     "shell_ota.c"
     "../ultracore/src/usb/*.c"

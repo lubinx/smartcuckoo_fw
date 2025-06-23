@@ -22,20 +22,20 @@
 /****************************************************************************
  *  @public
  ****************************************************************************/
-struct CLOCK_setting_t clock_setting = {0};
-struct SMARTCUCKOO_setting_t setting = {0};
-static struct USBD_SCSI_attr_t usbd_scsi;
-
-struct VOICE_attr_t voice_attr = {0};
-static struct PMU_attr_t pmu_attr = {0};
+struct CLOCK_setting_t clock_setting;
+struct SMARTCUCKOO_setting_t setting;
+struct VOICE_attr_t voice_attr;
 
 /****************************************************************************
  *  @private
  ****************************************************************************/
-static struct PMU_attr_t pmu_attr;
 static struct DISKIO_attr_t sdmmc_diskio;
 static struct SDMMC_attr_t sdmmc;
 static struct FAT_attr_t fat;
+
+static struct USBD_SCSI_attr_t usbd_scsi;
+static struct PMU_attr_t pmu_attr;
+static struct DAC_attr_t dac_attr;
 
 #ifdef PIN_BATT_ADC
     struct batt_ad_t
@@ -52,25 +52,8 @@ static struct FAT_attr_t fat;
         struct timeout_t lowbatt_intv;
     };
 
-    static struct batt_ad_t batt_ad = {0};
-    static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad);
+    static struct batt_ad_t batt_ad;
 #endif
-
-static void MAIN_pmu_subscription(enum PMU_event_t event, enum PMU_mode_t, void *)
-{
-    switch (event)
-    {
-    case PMU_EVENT_POWER_DOWN:
-    case PMU_EVENT_SLEEP:
-        mplayer_deinit();
-        SDMMC_card_remove(&sdmmc);
-        DISKIO_flush_cache(&sdmmc_diskio);
-        break;
-
-    case PMU_EVENT_WAKEUP:
-        break;
-    }
-}
 
 void SDIO_power_ctrl(struct SDMMC_implement_t const *sdio_impl, bool en)
 {
@@ -105,21 +88,45 @@ int main(void)
         I2C_pin_mux(I2C1, I2C1_SCL, I2C1_SDA);
     #endif
 
-    PMU_deepsleep_subscribe(&pmu_attr, MAIN_pmu_subscription, NULL);
-    PMU_power_lock();
+#ifdef NDEBUG
+    WDOG_init(8000);
+#endif
 
     PERIPHERAL_gpio_init();
     CLOCK_init();
 
     #ifdef PIN_BATT_ADC
-        ADC_attr_init(&batt_ad.attr, 3000, (void *)batt_adc_callback);
+        ADC_attr_init(&batt_ad.attr, 3000, [](int volt, int raw, void *arg)-> void
+            {
+                struct batt_ad_t *ad = (struct batt_ad_t *)arg;
+
+            #ifdef DEBUG
+                ARG_UNUSED(volt, raw);
+                ad->value = 3300;
+                ADC_stop_convert(&ad->attr);
+            #else
+                ARG_UNUSED(raw);
+                batt_ad.cumul += volt;
+
+                if (5 == ++ ad->cumul_count)
+                {
+                    ad->value = ad->cumul / ad->cumul_count;
+                    ad->cumul = 0;
+                    ad->cumul_count = 0;
+                    ADC_stop_convert(&ad->attr);
+                }
+            #endif
+            });
+
         ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
         ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
 
         while (true)
         {
             PERIPHERAL_batt_ad_start();
-            msleep(10);
+
+            msleep(5);
+            WDOG_feed();
 
             if (BATT_EMPTY_MV > batt_ad.value)
             {
@@ -131,24 +138,27 @@ int main(void)
         }
     #endif
 
+    PMU_power_lock();
+    PMU_deepsleep_subscribe(&pmu_attr, [](enum PMU_event_t event, enum PMU_mode_t, void *) -> void
+        {
+            switch (event)
+            {
+            case PMU_EVENT_POWER_DOWN:
+            case PMU_EVENT_SLEEP:
+                mplayer_deinit();
+                SDMMC_card_remove(&sdmmc);
+                DISKIO_flush_cache(&sdmmc_diskio);
+                break;
+
+            case PMU_EVENT_WAKEUP:
+                break;
+            }
+        },
+    NULL);
+
     DISKIO_init(&sdmmc_diskio, 32);
-    SDMMC_attr_init(&sdmmc, 3300, 8, &sdmmc_diskio);
+    SDMMC_attr_init(&sdmmc, 3300, 0, &sdmmc_diskio);
     FAT_attr_init(&fat, &sdmmc_diskio);
-
-    if (1)  // REVIEW: bind DAC => audio renderer
-    {
-        static struct DAC_attr_t dac_attr;
-
-        DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 150);
-
-        AUDIO_renderer_init(DAC_renderer, &dac_attr);
-    }
-    if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
-    {
-        LC3_register_fileio();
-        mplayer_init(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
-    }
 
     if (1)
     {
@@ -164,37 +174,43 @@ int main(void)
         #ifndef NDEBUG
             SDMMC_print(&sdmmc);
             FAT_attr_print(&fat);
-        #else
-            LOG_info("SDMMC frequency: %u", sdmmc.xfer_configured_hz);
         #endif
 
         if (0)
         {
         sdmmc_print_err:
-            LOG_error("SDMMC error HALT: %s", SDMMC_strerror(err));
-            msleep(1000);
-            NVIC_SystemReset();
+            LOG_error("SDMMC error: %s", SDMMC_strerror(err));
         }
     }
-
-    if (0)  // REVIEW: USB scsi
+    if (1)  // REVIEW: USB scsi
     {
         USBD_pin_mux(USB, PA12, PA11);
         USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
 
-        // USBD_attr_set_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
-        // {
-        //     if (0 == FAT_mount_fs_root(&fat))
-        //         FAT_attr_print(&fat);
-        // });
+        USBD_attr_set_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
+            {
+                if (0 == FAT_mount_fs_root(&fat))
+                    FAT_attr_print(&fat);
+            }
+        );
+    }
+
+    if (1)  // REVIEW: bind DAC => audio renderer
+    {
+        DAC_init(&dac_attr, true);
+        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 150);
+
+        AUDIO_renderer_init(DAC_renderer, &dac_attr);
+    }
+    if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
+    {
+        LC3_register_fileio();
+        mplayer_init(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
     }
 
     PERIPHERAL_init();
     UCSH_register_fileio();
 
-#ifdef NDEBUG
-    WDOG_init(8000);
-#endif
     PMU_power_unlock();
     SHELL_bootstrap();
 }
@@ -291,24 +307,6 @@ uint16_t PERIPHERAL_batt_volt(void)
     return 0;
 #endif
 }
-
-#ifdef PIN_BATT_ADC
-static void batt_adc_callback(int volt, int raw, struct batt_ad_t *ad)
-{
-    ARG_UNUSED(raw);
-
-    batt_ad.cumul += volt;
-
-    if (5 == ++ ad->cumul_count)
-    {
-        batt_ad.value = ad->cumul / ad->cumul_count;
-        ad->cumul = 0;
-        ad->cumul_count = 0;
-
-        ADC_stop_convert(&ad->attr);
-    }
-}
-#endif
 
 uint8_t BATT_mv_level(uint32_t mV)
 {
