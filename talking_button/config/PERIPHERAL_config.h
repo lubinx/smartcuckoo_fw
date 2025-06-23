@@ -36,7 +36,7 @@
 // SDIO
     #define SDIO_CLK                    PE12
     #define SDIO_CMD                    PE13
-    #define SDIO_DAT                    PE08, 0     // PE09, PE10, PE11, 0
+    #define SDIO_DAT                    PE08, PE09, PE10, PE11, 0
     #define SDIO_POWER_PIN              PB01
     #define SDIO_POWER_PULL             PUSH_PULL_DOWN
 
