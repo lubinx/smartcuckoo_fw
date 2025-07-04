@@ -50,7 +50,7 @@
 //      <o0> Minimum advertising interval
 //      <o1> Maximum advertising interval
     #define BLUETOOTH_ADV_MIN_INTERVAL  (650)
-    #define BLUETOOTH_ADV_MAX_INTERVAL  (800)
+    #define BLUETOOTH_ADV_MAX_INTERVAL  (650)
 //  </h>
 //--------------------------------------------------------------------------
 //<<< end of configuration section >>>

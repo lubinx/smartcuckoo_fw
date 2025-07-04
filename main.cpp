@@ -189,8 +189,20 @@ int main(void)
 
         USBD_attr_set_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
             {
+                PMU_power_lock();
+                // struct glist_hdr_t *hdr = sdmmc_diskio.cached_list.entry;
+                // unsigned count = 0;
+                // while (hdr)
+                // {
+                //     count ++;
+                //     hdr = hdr->link_next;
+                // }
+                // printf("%u\n", count);
+
                 if (0 == FAT_mount_fs_root(&fat))
                     FAT_attr_print(&fat);
+
+                PMU_power_unlock();
             }
         );
     }

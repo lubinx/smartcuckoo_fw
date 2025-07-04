@@ -66,7 +66,7 @@ __THREAD_STACK static uint32_t talking_button_stack[1280 / sizeof(uint32_t)];
 void PERIPHERAL_gpio_init(void)
 {
     GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
-    GPIO_setdir_input_pp(HIGH_Z, PIN_SETTING_BUTTON, true);
+    GPIO_setdir_input_pp(PULL_UP, PIN_SETTING_BUTTON, true);
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
 }
 

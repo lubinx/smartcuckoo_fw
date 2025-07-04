@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-
 include(".vscode/intro.cmake")
-
 project(smartcuckoo)
 
 set(COMMON_SRCS
@@ -12,8 +10,7 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    "../ultracore/src/usb/*.c"
-    "../ultracore/src/core/diskio.c"
+    "../ultracore//src/usb/*.c"
 )
 
 # remove prebuild ultracore archs
@@ -41,6 +38,23 @@ build_target(talking_button
     OUTPUT_DIR
         "../_bin"
 )
+
+# generate talking_button.gz
+add_custom_command(TARGET talking_button
+    POST_BUILD
+    COMMAND
+        ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/talking_button.elf" "talking_button.bin"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
+    VERBATIM
+)
+add_custom_command(TARGET talking_button
+    POST_BUILD
+    COMMAND
+        lz4 -f -q --rm "talking_button.bin" "talking_button.lz4"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
+    VERBATIM
+)
+
 
 # if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 #     build_target(panel_b
