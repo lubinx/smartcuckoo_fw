@@ -10,7 +10,7 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    "../ultracore//src/usb/*.c"
+    "../ultracore/src/usb/*.c"
 )
 
 # remove prebuild ultracore archs
@@ -50,7 +50,7 @@ add_custom_command(TARGET talking_button
 add_custom_command(TARGET talking_button
     POST_BUILD
     COMMAND
-        lz4 -f -q --rm "talking_button.bin" "talking_button.lz4"
+        lz4 -f -9 --rm "talking_button.bin" "talking_button.lz4"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
     VERBATIM
 )
@@ -118,6 +118,11 @@ add_custom_command(TARGET talking_button
 # endif()
 
 # NOTE: required lc3
+set(LC3_BUILD_ARCH
+    "-march=armv7e-m"
+    "-mfpu=fpv4-sp-d16"
+    "-mfloat-abi=hard"
+)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()
