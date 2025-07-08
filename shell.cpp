@@ -60,13 +60,6 @@ static void SHELL_register(void)
             return 0;
         });
 
-    UCSH_REGISTER("heap",
-        [](struct UCSH_env *env)
-        {
-            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
-            return 0;
-        });
-
     UCSH_REGISTER("rtcc",
         [](struct UCSH_env *env)
         {
@@ -109,7 +102,31 @@ static void SHELL_register(void)
             return 0;
         });
 
+    UCSH_REGISTER("vol",
+        [](struct UCSH_env *env)
+        {
+            if (2 == env->argc)
+            {
+                int volume = strtol(env->argv[1], NULL, 10);
+                if (0 > volume)
+                    return EINVAL;
+
+                mplayer_set_volume((uint8_t)volume);
+            }
+            UCSH_printf(env, "volume %u%%\n", mplayer_get_volume());
+            return 0;
+        }
+    );
+
+    UCSH_REGISTER("heap",
+        [](struct UCSH_env *env)
+        {
+            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
+            return 0;
+        });
+
     // mplayer
+    /*
     UCSH_REGISTER("mplay",
         [](struct UCSH_env *env)
         {
@@ -136,30 +153,6 @@ static void SHELL_register(void)
         }
     );
 
-    UCSH_REGISTER("mvol",
-        [](struct UCSH_env *env)
-        {
-            if (1 == env->argc)
-            {
-                uint8_t vol = mplayer_get_volume();
-
-                UCSH_printf(env, "volume %u%%\n", vol);
-                return 0;
-
-            }
-            else if (2 == env->argc)
-            {
-                int volume = strtol(env->argv[1], NULL, 10);
-                if (0 > volume)
-                    return EINVAL;
-                else
-                    return mplayer_set_volume((uint8_t)volume);
-            }
-            else
-                return EINVAL;
-        }
-    );
-
     UCSH_REGISTER("mute",
         [](struct UCSH_env *env)
         {
@@ -174,6 +167,7 @@ static void SHELL_register(void)
             return mplayer_unmute();
         }
     );
+    */
 
     // REVIEW: peripheral extensions.
     PERIPHERAL_shell_init();
