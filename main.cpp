@@ -1,5 +1,5 @@
 #include <ultracore/diskio.h>
-#include <audio/file/lc3bin.h>
+#include <audio/lc3bin.h>
 #include <usb/usbd_scsi.h>
 #include <fs/fat.h>
 
@@ -211,8 +211,6 @@ int main(void)
     {
         DAC_init(&dac_attr, true);
         DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 150);
-
-        AUDIO_renderer_init(DAC_renderer, &dac_attr);
     }
     if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
