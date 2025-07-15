@@ -118,11 +118,8 @@ add_custom_command(TARGET talking_button
 # endif()
 
 # NOTE: required lc3
-set(LC3_BUILD_ARCH
-    "-march=armv7e-m"
-    "-mfpu=fpv4-sp-d16"
-    "-mfloat-abi=hard"
-)
+option(LC3_PLUS OFF)
+option(LC3_PLUS_HR OFF)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()
