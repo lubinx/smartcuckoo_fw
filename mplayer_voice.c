@@ -709,22 +709,24 @@ static void LOCALE_set(struct VOICE_attr_t *attr, struct VOICE_t const *locale)
 {
     if (NULL != locale && attr->voice != locale)
     {
-   attr->voice = locale;
+        attr->voice = locale;
 
         if (DFMT_DEFAULT == attr->locale->dfmt)
-   attr->locale->dfmt = locale->default_dfmt;
+            attr->locale->dfmt = locale->default_dfmt;
         if (HFMT_DEFAULT == attr->locale->hfmt)
-   attr->locale->hfmt = locale->default_hfmt;
+            attr->locale->hfmt = locale->default_hfmt;
     }
 }
 
 /***************************************************************************
  * @implements
  ***************************************************************************/
-void VOICE_init(struct VOICE_attr_t *attr, struct SMARTCUCKOO_locale_t *locale)
+void VOICE_init(struct VOICE_attr_t *attr, struct LOCALE_t *locale)
 {
     memset(attr, 0, sizeof(*attr));
-   attr->locale = locale;
+    attr->voice_count = lengthof(__voices);
+
+    attr->locale = locale;
 }
 
 int16_t VOICE_init_locales(struct VOICE_attr_t *attr, int16_t voice_id, bool enum_only_exists)
@@ -734,7 +736,7 @@ int16_t VOICE_init_locales(struct VOICE_attr_t *attr, int16_t voice_id, bool enu
     int16_t select_idx = VOICE_select_voice(attr, voice_id);
     LOCALE_set(attr, &__voices[select_idx]);
 
-    return 0;
+    return select_idx;
 }
 
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)

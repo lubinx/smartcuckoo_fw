@@ -13,7 +13,7 @@
         struct VOICE_t const *voice;
         uint8_t voice_count;
 
-        struct SMARTCUCKOO_locale_t *locale;
+        struct LOCALE_t *locale;
     };
 
     enum VOICE_setting_part_t
@@ -40,7 +40,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    void VOICE_init(struct VOICE_attr_t *attr, struct SMARTCUCKOO_locale_t *locale);
+    void VOICE_init(struct VOICE_attr_t *attr, struct LOCALE_t *locale);
 extern __attribute__((nothrow))
     int16_t VOICE_init_locales(struct VOICE_attr_t *attr, int16_t voice_id, bool enum_only_exists);
 

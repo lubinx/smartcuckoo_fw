@@ -24,7 +24,7 @@
         FAHRENHEIT
     };
 
-    struct SMARTCUCKOO_locale_t
+    struct LOCALE_t
     {
         uint8_t rsv;
 
