@@ -28,6 +28,7 @@
 #include "locale.h"
 #include "limits.h"
 
+#include "clock.h"
 #include "audio/mplayer.h"
 #include "mplayer_voice.h"
 
@@ -42,7 +43,7 @@
 #endif
 
 #ifndef SETTING_TIMEOUT
-    #define SETTING_TIMEOUT             (4800)
+    #define SETTING_TIMEOUT             (6000)
 #endif
 
 #ifndef ALARM_TIMEOUT_MINUTES
@@ -82,46 +83,10 @@
  *  @def: NVM
  ***************************************************************************/
     #define NVM_SETTING                 NVM_DEFINE_KEY('S', 'E', 'T', 'T')
-    #define NVM_ALARM                   NVM_DEFINE_KEY('A', 'L', 'R', 'M')
-    #define NVM_REMINDER                NVM_DEFINE_KEY('R', 'E', 'M', 'D')
-
-    #define NVM_ALARM_COUNT             (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
-    #define NVM_REMINDER_COUNT          (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 
 /***************************************************************************
  *  @def
  ***************************************************************************/
-    #define time_to_mtime(ts)           ((int16_t)(((ts) / 3600) * 100 + ((ts) % 3600) / 60))
-    #define mtime_to_time(mt)           (time_t)((((mt) / 100) * 3600 + ((mt) % 100) * 60))
-
-    struct CLOCK_moment_t
-    {
-        bool enabled;
-        int8_t wdays;
-        bool snooze_once;
-
-        union
-        {
-            uint8_t ringtone_id;
-            uint8_t reminder_id;
-        };
-
-        int16_t mtime;  // 1700
-        int32_t mdate;  // yyyy/mm/dd
-    };
-
-    struct CLOCK_setting_t
-    {
-        struct CLOCK_moment_t alarms[NVM_ALARM_COUNT];
-        int8_t alarming_idx;
-        time_t alarm_snooze_ts_end;
-
-        struct CLOCK_moment_t reminders[NVM_ALARM_COUNT];
-        time_t reminder_ts_end;
-        time_t reminder_snooze_ts_end;
-        struct timeout_t reminder_next_timeo;
-    };
-
     struct SMARTCUCKOO_setting_t
     {
         uint8_t media_volume;
@@ -130,15 +95,13 @@
         int16_t sel_voice_id;
         uint16_t last_noise_id;
 
-        struct SMARTCUCKOO_locale_t locale;
+        struct LOCALE_t locale;
     };
 
 /***************************************************************************
  *  @public
  ***************************************************************************/
     extern struct VOICE_attr_t voice_attr;
-
-    extern struct CLOCK_setting_t clock_setting;
     extern struct SMARTCUCKOO_setting_t setting;
 
 /***************************************************************************
@@ -193,71 +156,6 @@ extern __attribute__((nothrow))
     void PERIPHERAL_on_sleep(void);
 extern __attribute__((nothrow))
     void PERIPHERAL_on_wakeup(void);
-
-/***************************************************************************
- *  CLOCK: alarms & reminders
- ***************************************************************************/
-extern __attribute__((nothrow))
-    void CLOCK_init(void);
-
-extern __attribute__((nothrow))
-    void CLOCK_year_add(struct CLOCK_moment_t *moment, int value);
-extern __attribute__((nothrow))
-    void CLOCK_month_add(struct CLOCK_moment_t *moment, int value);
-extern __attribute__((nothrow))
-    void CLOCK_day_add(struct CLOCK_moment_t *moment, int value);
-extern __attribute__((nothrow))
-    void CLOCK_hour_add(struct CLOCK_moment_t *moment, int value);
-extern __attribute__((nothrow))
-    void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value);
-
-    // return alarm switch on/off
-extern __attribute__((nothrow, pure))
-    bool CLOCK_alarm_switch_is_on(void);
-
-    // return if now is alarming
-extern __attribute__((nothrow, pure))
-    bool CLOCK_is_alarming(void);
-
-    /**
-     *  CLOCK_peek_start_reminders()
-     *      iterator alarms start if nessary
-     *
-     *  @returns
-     *      -1 none alarm is started
-     *      index of alarm is started
-    */
-extern __attribute__((nothrow))
-    int8_t CLOCK_peek_start_alarms(time_t ts);
-
-    /**
-     *  CLOCK_stop_current_alarm()
-     *  @returns
-     *      true if current alarm is ringing and stopped
-    */
-extern __attribute__((nothrow))
-    bool CLOCK_stop_current_alarm(void);
-
-    /**
-     *  CLOCK_peek_start_reminders()
-     *      iterator reminders start if nessary
-     *
-     *  @returns
-     *      reminders count
-    */
-extern __attribute__((nothrow))
-    unsigned CLOCK_peek_start_reminders(time_t ts);
-
-    /**
-     *  CLOCK_say_reminders()
-     *  @returns
-     *      reminders count
-    */
-extern __attribute__((nothrow))
-    unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze);
-
-extern __attribute__((nothrow))
-    void CLOCK_snooze_reminders(void);
 
 /***************************************************************************
  *  shell

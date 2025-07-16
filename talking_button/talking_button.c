@@ -34,7 +34,7 @@ struct talking_button_runtime_t
     enum VOICE_setting_part_t setting_part;
     struct tm setting_dt;
 
-    clock_t batt_last_ts;
+    time_t batt_last_ts;
     uint8_t batt_ctrl_volume;
 };
 
@@ -165,7 +165,7 @@ void mplayer_idle_callback(void)
 
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
-    else if (-1 != clock_setting.alarming_idx)
+    else if (! CLOCK_is_alarming())
         CLOCK_peek_start_alarms(time(NULL));
 }
 
@@ -301,6 +301,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     else
     {
         int16_t old_voice_id;
+        struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
 
         switch (runtime->setting_part)
         {
@@ -346,8 +347,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             goto setting_modify_alarm;
 
         case VOICE_SETTING_ALARM_RINGTONE:
-            clock_setting.alarms[0].ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr,
-                clock_setting.alarms[0].ringtone_id);
+            alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, alarm0->ringtone_id);
             break;
 
         case VOICE_SETTING_COUNT:
@@ -390,19 +390,19 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             ts = mktime(&runtime->setting_dt) % 86400;
             mtime = time_to_mtime(ts);
 
-            if (! clock_setting.alarms[0].enabled || mtime != clock_setting.alarms[0].mtime)
+            if (! alarm0->enabled || mtime != alarm0->mtime)
             {
-                clock_setting.alarms[0].enabled = true;
-                clock_setting.alarms[0].mtime = mtime;
-                clock_setting.alarms[0].mdate = 0;
-                clock_setting.alarms[0].wdays = 0x7F;
+                alarm0->enabled = true;
+                alarm0->mtime = mtime;
+                alarm0->mdate = 0;
+                alarm0->wdays = 0x7F;
                 runtime->setting_alarm_is_modified = true;
             }
         }
 
         VOICE_say_setting_part(&voice_attr, runtime->setting_part,
             &runtime->setting_dt,
-            (void *)(uintptr_t)clock_setting.alarms[0].ringtone_id
+            (void *)(uintptr_t)alarm0->ringtone_id
         );
     }
 
@@ -441,6 +441,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     }
     runtime->setting_part =
         (enum VOICE_setting_part_t)(runtime->click_count % VOICE_SETTING_COUNT);
+    struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
 
     if (VOICE_SETTING_LANG == runtime->setting_part &&
         1 >= voice_attr.voice_count)
@@ -454,7 +455,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
         VOICE_SETTING_ALARM_MIN == runtime->setting_part)
     {
-        time_t ts = mtime_to_time(clock_setting.alarms[0].mtime);
+        time_t ts = mtime_to_time(alarm0->mtime);
 
         localtime_r(&ts, &runtime->setting_dt);
         runtime->setting_dt.tm_sec = 0;
@@ -471,7 +472,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     runtime->click_count ++;
 
     VOICE_say_setting(&voice_attr, runtime->setting_part,
-        (void *)(uintptr_t)clock_setting.alarms[0].ringtone_id);
+        (void *)(uintptr_t)alarm0->ringtone_id);
 
     switch (runtime->setting_part)
     {
@@ -496,7 +497,7 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
         if (runtime->setting_is_modified)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
         if (runtime->setting_alarm_is_modified)
-            NVM_set(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms));
+            CLOCK_update_alarms();
 
         if (battery_checking())
             VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);

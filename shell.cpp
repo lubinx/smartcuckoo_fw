@@ -1,4 +1,5 @@
 #include <ultracore/syscon.h>
+#include <audio/renderer.h>
 #include <hash/md5.h>
 
 #include "smartcuckoo.h"
@@ -21,9 +22,6 @@ static int SHELL_locale(struct UCSH_env *env);
 static int SHELL_dfmt(struct UCSH_env *env);
 static int SHELL_hfmt(struct UCSH_env *env);
 
-static int SHELL_alarm(struct UCSH_env *env);
-static int SHELL_reminder(struct UCSH_env *env);
-
 /// @var
 TUltraCorePeripheral BLE;
 
@@ -39,13 +37,6 @@ static void SHELL_register(void)
     UCSH_REGISTER("hfmt",       SHELL_hfmt);
     // date format: voice only
     UCSH_REGISTER("dfmt",       SHELL_dfmt);
-
-    // alarm
-    UCSH_REGISTER("alm",        SHELL_alarm);
-    UCSH_REGISTER("alarm",      SHELL_alarm);
-    // reminder
-    UCSH_REGISTER("rmd",        SHELL_reminder);
-    UCSH_REGISTER("reminder",   SHELL_reminder);
 
     // upgrade
     UCSH_REGISTER("ota",        SHELL_ota);
@@ -111,9 +102,10 @@ static void SHELL_register(void)
                 if (0 > volume)
                     return EINVAL;
 
-                mplayer_set_volume((uint8_t)volume);
+                AUDIO_renderer_set_volume((uint8_t)volume);
+                VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
             }
-            UCSH_printf(env, "volume %u%%\n", mplayer_get_volume());
+            UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume());
             return 0;
         }
     );
@@ -157,14 +149,14 @@ static void SHELL_register(void)
         [](struct UCSH_env *env)
         {
             (void)env;
-            return mplayer_mute();
+            return AUDIO_renderer_mute();
         }
     );
     UCSH_REGISTER("unmute",
         [](struct UCSH_env *env)
         {
             (void)env;
-            return mplayer_unmute();
+            return AUDIO_renderer_unmute();
         }
     );
     */
@@ -256,6 +248,8 @@ void UCSH_prompt_handle(struct UCSH_env *env)
 {
     if (env->fd == __stdout_fd)
         UCSH_puts(env, "$ ");
+    else
+        UCSH_puts(env, "\n");
 }
 
 /*****************************************************************************/
@@ -295,253 +289,6 @@ static int SHELL_locale(struct UCSH_env *env)
     UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
     VOICE_enum_avail_locales(voice_avail_locales_callback, env);
     UCSH_puts(env, "]}\n");
-
-    return 0;
-}
-
-static int SHELL_alarm(struct UCSH_env *env)
-{
-    if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
-    {
-        int idx = strtol(env->argv[1], NULL, 10);
-        if (0 == idx || (unsigned)idx > lengthof(clock_setting.alarms))
-            return EINVAL;
-
-        bool enabled = true;
-        bool deleted = false;
-
-        if (0 == strcasecmp("disable", env->argv[2]))
-            enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
-            enabled = true;
-        else if (0 == strcasecmp("delete", env->argv[2]))
-            (deleted = true, enabled = false);
-        else
-            return EINVAL;
-
-        struct CLOCK_moment_t *alarm = &clock_setting.alarms[idx - 1];
-        if (enabled != alarm->enabled || deleted)
-        {
-            alarm->enabled = enabled;
-
-            if (deleted)
-            {
-                alarm->mdate = 0;
-                alarm->wdays = 0;
-            }
-            NVM_set(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms));
-        }
-
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-    else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
-    {
-        int idx = strtol(env->argv[1], NULL, 10);
-        if (0 == idx || (unsigned)idx > lengthof(clock_setting.alarms))
-            return EINVAL;
-
-        bool enabled;
-
-        if (0 == strcasecmp("disable", env->argv[2]))
-            enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
-            enabled = true;
-        else
-            return EINVAL;
-
-        int mtime = strtol(env->argv[3], NULL, 10);
-        if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
-            return EINVAL;
-
-        int ringtone = strtol(env->argv[4], NULL, 10);
-        ringtone = VOICE_select_ringtone(&voice_attr, ringtone);
-
-        int wdays = 0;
-        if (true)
-        {
-            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
-            if (wday_str)
-            {
-                wdays = strtol(wday_str, NULL, 10);
-                if (0 == wdays)
-                    wdays = strtol(wday_str, NULL, 16);
-                if (0 == wdays)
-                    return EINVAL;
-            }
-        }
-        else
-            wdays = 0;
-
-        int mdate = 0; // format integer: yyyymmdd
-        if (true)
-        {
-            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
-            if (mdate_str)      // soo.. mdate can set anything, except it will never alarm
-                mdate = strtol(mdate_str, NULL, 10);
-        }
-
-        // least one of alarm date or week days masks must set
-        if (0 == mdate && 0 == wdays)
-            return EINVAL;
-
-        struct CLOCK_moment_t *alarm = &clock_setting.alarms[idx - 1];
-        if (enabled != alarm->enabled || mtime != alarm->mtime ||
-            ringtone != alarm->ringtone_id ||
-            mdate != alarm->mdate || wdays != alarm->wdays)
-        {
-            alarm->enabled = enabled;
-            alarm->mtime = (int16_t)mtime;
-            alarm->ringtone_id = (uint8_t)ringtone;
-            alarm->mdate = mdate;
-            alarm->wdays = (int8_t)wdays;
-            NVM_set(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms));
-        }
-
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-
-    UCSH_puts(env, "{\n\t\"alarms\": [\n");
-    for (unsigned idx = 0, count = 0; idx < lengthof(clock_setting.alarms); idx ++)
-    {
-        struct CLOCK_moment_t *alarm = &clock_setting.alarms[idx];
-
-        // deleted condition
-        if (! alarm->enabled && 0 == alarm->wdays && 0 == alarm->mdate)
-            continue;
-        else if (0 != count ++)
-            UCSH_puts(env, ",\n");
-
-        UCSH_printf(env, "\t\t{\"id\":%d, ", idx + 1);
-        UCSH_printf(env, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
-        UCSH_printf(env, "\"mtime\":%d, ",  alarm->mtime);
-        UCSH_printf(env, "\"ringtone_id\":%d, ", alarm->ringtone_id);
-        UCSH_printf(env, "\"mdate\":%lu, ",  alarm->mdate);
-        UCSH_printf(env, "\"wdays\":%d}", alarm->wdays);
-    }
-    UCSH_puts(env, "\t],\n");
-
-    UCSH_printf(env, "\t\"alarm_count\":%d,\n", lengthof(clock_setting.alarms));
-    UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
-    return 0;
-}
-
-static int SHELL_reminder(struct UCSH_env *env)
-{
-    if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>
-    {
-        int idx = strtol(env->argv[1], NULL, 10);
-        if (0 == idx || (unsigned)idx > lengthof(clock_setting.reminders))
-            return EINVAL;
-
-        bool enabled = true;
-        bool deleted = false;
-
-        if (0 == strcasecmp("disable", env->argv[2]))
-            enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
-            enabled = true;
-        else if (0 == strcasecmp("delete", env->argv[2]))
-            (deleted = true, enabled = false);
-        else
-            return EINVAL;
-
-        struct CLOCK_moment_t *reminder = &clock_setting.reminders[idx - 1];
-        if (enabled != reminder->enabled || deleted)
-        {
-            reminder->enabled = enabled;
-
-            if (deleted)
-            {
-                reminder->mdate = 0;
-                reminder->wdays = 0;
-            }
-            NVM_set(NVM_REMINDER, &clock_setting.reminders, sizeof(clock_setting.reminders));
-        }
-
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-    else if (5 < env->argc)     // rmd <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
-    {
-        int idx = strtol(env->argv[1], NULL, 10);
-        if (0 == idx || (unsigned)idx > lengthof(clock_setting.reminders))
-            return EINVAL;
-
-        bool enabled = true;
-        if (0 == strcasecmp("disable", env->argv[2]))
-            enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
-            enabled = true;
-        else
-            return EINVAL;
-
-        int mtime = strtol(env->argv[3], NULL, 10);
-        if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
-            return EINVAL;
-
-        int reminder_id = strtol(env->argv[4], NULL, 10);
-        int wdays = 0;
-        if (true)
-        {
-            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
-            if (wday_str)
-            {
-                wdays = strtol(wday_str, NULL, 10);
-                if (0 == wdays)
-                    wdays = strtol(wday_str, NULL, 16);
-                if (0 == wdays)
-                    return EINVAL;
-            }
-        }
-
-        int32_t mdate = 0; // format integer: yyyymmdd
-        if (true)
-        {
-            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
-            if (mdate_str)      // soo.. mdate can set anything, except it will never alarm
-                mdate = strtol(mdate_str, NULL, 10);
-        }
-
-        // least one of alarm date or week days masks must set
-        if (0 == mdate && 0 == wdays)
-            return EINVAL;
-
-        struct CLOCK_moment_t *reminder = &clock_setting.reminders[idx - 1];
-
-        if (enabled != reminder->enabled || mtime != reminder->mtime ||
-            reminder_id != reminder->reminder_id ||
-            mdate != reminder->mdate || wdays != reminder->wdays)
-        {
-            reminder->enabled = enabled;
-            reminder->mtime = (int16_t)mtime;
-            reminder->reminder_id = (uint8_t)reminder_id;
-            reminder->mdate = mdate;
-            reminder->wdays = (int8_t)wdays;
-            NVM_set(NVM_REMINDER, &clock_setting.reminders, sizeof(clock_setting.reminders));
-        }
-
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
-    }
-
-    UCSH_puts(env, "{\n\t\"reminders\": [\n");
-    for (unsigned idx = 0, count = 0; idx < lengthof(clock_setting.reminders); idx ++)
-    {
-        struct CLOCK_moment_t *reminder = &clock_setting.reminders[idx];
-
-        // deleted condition
-        if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
-            continue;
-        else if (0 != count ++)
-            UCSH_puts(env, ",\n");
-
-        UCSH_printf(env, "\t{\"id\":%d, ", idx + 1);
-        UCSH_printf(env, "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
-        UCSH_printf(env, "\"mtime\":%d, ",  reminder->mtime);
-        UCSH_printf(env, "\"reminder_id\":%d, ", reminder->reminder_id);
-        UCSH_printf(env, "\"mdate\":%lu, ",  reminder->mdate);
-        UCSH_printf(env, "\"wdays\":%d}", reminder->wdays);
-    }
-    UCSH_puts(env, "\t],\n");
-    UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(clock_setting.reminders));
 
     return 0;
 }

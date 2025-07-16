@@ -9,8 +9,18 @@
     (__DATE__[9] - '0') *   10 +    \
     (__DATE__[10] - '0')   \
 )
-
 #define SUPPORTED_YEAR                  (2037)
+
+#define NVM_ALARM                       NVM_DEFINE_KEY('A', 'L', 'R', 'M')
+#define NVM_REMINDER                    NVM_DEFINE_KEY('R', 'E', 'M', 'D')
+
+#define NVM_ALARM_COUNT                 (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+#define NVM_REMINDER_COUNT              (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+
+/****************************************************************************
+ *  @public: runtime
+ ****************************************************************************/
+struct CLOCK_runtime_t clock_runtime;
 
 /****************************************************************************
  *  @implements: weaks
@@ -20,6 +30,16 @@ bool CLOCK_alarm_switch_is_on(void)
 {
     return true;
 }
+
+/****************************************************************************
+ *  @internal
+ ****************************************************************************/
+static struct CLOCK_moment_t alarms[NVM_ALARM_COUNT];
+static struct CLOCK_moment_t reminders[NVM_ALARM_COUNT];
+
+// shell commands
+static int SHELL_alarm(struct UCSH_env *env);
+static int SHELL_reminder(struct UCSH_env *env);
 
 /****************************************************************************
  *  @implements
@@ -58,20 +78,34 @@ void CLOCK_init()
             dt.tm_hour, dt.tm_min, dt.tm_sec);
     }
 
-    clock_setting.alarming_idx = -1;
-    timeout_init(&clock_setting.reminder_next_timeo, REMINDER_INTV, (void *)CLOCK_say_reminders, 0);
+    clock_runtime.alarming_idx = -1;
+    clock_runtime.is_dst = false;
 
-    if (0 != NVM_get(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms)))
-        memset(&clock_setting.alarms, 0, sizeof(clock_setting.alarms));
+    timeout_init(&clock_runtime.reminder_next_timeo, REMINDER_INTV, (void *)CLOCK_say_reminders, 0);
 
-    if (0 != NVM_get(NVM_REMINDER, &clock_setting.reminders, sizeof(clock_setting.reminders)))
-        memset(&clock_setting.reminders, 0, sizeof(clock_setting.reminders));
+    if (0 != NVM_get(NVM_ALARM, &alarms, sizeof(alarms)))
+        memset(&alarms, 0, sizeof(alarms));
+
+    if (0 != NVM_get(NVM_REMINDER, &reminders, sizeof(reminders)))
+        memset(&reminders, 0, sizeof(reminders));
+
+    // alarm
+    UCSH_REGISTER("alm",        SHELL_alarm);
+    UCSH_REGISTER("alarm",      SHELL_alarm);
+
+    // reminder
+    UCSH_REGISTER("rmd",        SHELL_reminder);
+    UCSH_REGISTER("reminder",   SHELL_reminder);
 }
 
-__attribute__((weak))
-bool CLOCK_alarm_switch_on(void)
+void CLOCK_update_alarms(void)
 {
-    return true;
+    NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
+}
+
+unsigned CLOCK_alarm_count(void)
+{
+    return lengthof(alarms);
 }
 
 static struct tm CLOCK_moment_to_dt(struct CLOCK_moment_t *moment)
@@ -107,6 +141,160 @@ static struct tm CLOCK_moment_to_dt(struct CLOCK_moment_t *moment)
     return dt;
 }
 
+bool CLOCK_is_alarming(void)
+{
+    return -1 != clock_runtime.alarming_idx;
+}
+
+struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
+{
+    return &alarms[idx];
+}
+
+int8_t CLOCK_peek_start_alarms(time_t ts)
+{
+    if (! CLOCK_alarm_switch_is_on())
+        return -1;
+    if (ts <= clock_runtime.alarm_snooze_ts_end)
+        return -1;
+
+    struct tm dt;
+    localtime_r(&ts, &dt);
+    int16_t mtime = time_to_mtime(ts % 86400);
+    struct CLOCK_moment_t *current_alarm = NULL;
+
+    if (-1 != clock_runtime.alarming_idx)
+    {
+        current_alarm = &alarms[clock_runtime.alarming_idx];
+        time_t ts_end = (mtime_to_time(current_alarm->mtime) + 60 * ALARM_TIMEOUT_MINUTES) % 86400;
+
+        if (ts_end < time(NULL) % 86400)
+        {
+            current_alarm = NULL;
+            clock_runtime.alarming_idx = -1;
+        }
+    }
+
+    for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+    {
+        struct CLOCK_moment_t *alarm = &alarms[idx];
+
+        if (! alarm->enabled || alarm == current_alarm)
+            continue;
+
+        // matching week days mask or mdate
+        if (0 == ((1 << dt.tm_wday) & alarm->wdays))
+        {
+            int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+
+            if (mdate != alarm->mdate)
+                continue;
+        }
+
+        if (mtime != alarm->mtime)
+            continue;
+
+        current_alarm = alarm;
+        clock_runtime.alarming_idx = (int8_t)idx;
+        break;
+    }
+
+    if (NULL != current_alarm)
+    {
+        VOICE_play_ringtone(&voice_attr, current_alarm->ringtone_id);
+        return (int8_t)(current_alarm - alarms);
+    }
+    else
+        return -1;
+}
+
+bool CLOCK_stop_current_alarm(void)
+{
+    if (-1 != clock_runtime.alarming_idx)
+    {
+        clock_runtime.alarming_idx = -1;
+        clock_runtime.alarm_snooze_ts_end = time(NULL) + 60;
+        return true;
+    }
+    else
+        return false;
+}
+
+unsigned CLOCK_peek_start_reminders(time_t ts)
+{
+    if (! timeout_is_running(&clock_runtime.reminder_next_timeo))
+    {
+        unsigned reminder_count = CLOCK_say_reminders(ts, false);
+
+        if (0 != reminder_count &&
+            clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
+        {
+            timeout_start(&clock_runtime.reminder_next_timeo, NULL);
+        }
+        else
+            timeout_stop(&clock_runtime.reminder_next_timeo);
+
+        return reminder_count;
+    }
+    else
+        return 0;
+}
+
+unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
+{
+    unsigned reminder_count = 0;
+    clock_runtime.reminder_ts_end = 0;
+
+    struct tm dt;
+    localtime_r(&ts, &dt);
+
+    time_t ts_base = ts - ts % 86400;
+    int16_t mtime = time_to_mtime(ts % 86400);
+
+    for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+    {
+        struct CLOCK_moment_t *reminder = &reminders[idx];
+
+        if (! reminder->enabled)
+            continue;
+
+        time_t end_ts = ts_base + mtime_to_time(reminder->mtime) + 60 * REMINDER_TIMEOUT_MINUTES;
+
+        // matching week days mask or mdate
+        if (0 == ((1 << dt.tm_wday) & reminder->wdays))
+        {
+            int32_t mdate =
+                (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+
+            if (mdate != reminder->mdate)
+                continue;
+        }
+
+        if (mtime >= reminder->mtime && end_ts > ts)
+        {
+            if (clock_runtime.reminder_ts_end < end_ts)
+                clock_runtime.reminder_ts_end = end_ts;
+
+            if (ignore_snooze ||
+                clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
+            {
+                reminder_count ++;
+                VOICE_play_reminder(&voice_attr, reminder->reminder_id);
+            }
+        }
+    }
+    return reminder_count;
+}
+
+void CLOCK_snooze_reminders(void)
+{
+    timeout_stop(&clock_runtime.reminder_next_timeo);
+    clock_runtime.reminder_snooze_ts_end = clock_runtime.reminder_ts_end;
+}
+
+/***************************************************************************
+ * @implements: utils
+ ***************************************************************************/
 static void CLOCK_dt_to_moment(struct CLOCK_moment_t *moment, struct tm const *dt)
 {
     moment->mdate = ((dt->tm_year + 1900) * 100 + (dt->tm_mon + 1)) * 100 + dt->tm_mday;
@@ -160,148 +348,252 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
     moment->mtime = (int16_t)((moment->mtime - moment->mtime % 100) +  minute);
 }
 
-bool CLOCK_is_alarming(void)
+/****************************************************************************
+ *  @internal: shell commands
+ ****************************************************************************/
+static int SHELL_alarm(struct UCSH_env *env)
 {
-    return -1 != clock_setting.alarming_idx;
-}
-
-int8_t CLOCK_peek_start_alarms(time_t ts)
-{
-    if (! CLOCK_alarm_switch_is_on())
-        return -1;
-    if (ts <= clock_setting.alarm_snooze_ts_end)
-        return -1;
-
-    struct tm dt;
-    localtime_r(&ts, &dt);
-    int16_t mtime = time_to_mtime(ts % 86400);
-    struct CLOCK_moment_t *current_alarm = NULL;
-
-    if (-1 != clock_setting.alarming_idx)
+    if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
     {
-        current_alarm = &clock_setting.alarms[clock_setting.alarming_idx];
-        time_t ts_end = (mtime_to_time(current_alarm->mtime) + 60 * ALARM_TIMEOUT_MINUTES) % 86400;
+        int idx = strtol(env->argv[1], NULL, 10);
+        if (0 == idx || (unsigned)idx > lengthof(alarms))
+            return EINVAL;
 
-        if (ts_end < time(NULL) % 86400)
-        {
-            current_alarm = NULL;
-            clock_setting.alarming_idx = -1;
-        }
-    }
+        bool enabled = true;
+        bool deleted = false;
 
-    for (unsigned idx = 0; idx < lengthof(clock_setting.alarms); idx ++)
-    {
-        struct CLOCK_moment_t *alarm = &clock_setting.alarms[idx];
-
-        if (! alarm->enabled || alarm == current_alarm)
-            continue;
-
-        // matching week days mask or mdate
-        if (0 == ((1 << dt.tm_wday) & alarm->wdays))
-        {
-            int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
-
-            if (mdate != alarm->mdate)
-                continue;
-        }
-
-        if (mtime != alarm->mtime)
-            continue;
-
-        current_alarm = alarm;
-        clock_setting.alarming_idx = (int8_t)idx;
-        break;
-    }
-
-    if (NULL != current_alarm)
-    {
-        VOICE_play_ringtone(&voice_attr, current_alarm->ringtone_id);
-        return (int8_t)(current_alarm - clock_setting.alarms);
-    }
-    else
-        return -1;
-}
-
-bool CLOCK_stop_current_alarm(void)
-{
-    if (-1 != clock_setting.alarming_idx)
-    {
-        clock_setting.alarming_idx = -1;
-        clock_setting.alarm_snooze_ts_end = time(NULL) + 60;
-        return true;
-    }
-    else
-        return false;
-}
-
-unsigned CLOCK_peek_start_reminders(time_t ts)
-{
-    if (! timeout_is_running(&clock_setting.reminder_next_timeo))
-    {
-        unsigned reminder_count = CLOCK_say_reminders(ts, false);
-
-        if (0 != reminder_count &&
-            clock_setting.reminder_ts_end > clock_setting.reminder_snooze_ts_end)
-        {
-            timeout_start(&clock_setting.reminder_next_timeo, NULL);
-        }
+        if (0 == strcasecmp("disable", env->argv[2]))
+            enabled = false;
+        else if (0 == strcasecmp("enable", env->argv[2]))
+            enabled = true;
+        else if (0 == strcasecmp("delete", env->argv[2]))
+            (deleted = true, enabled = false);
         else
-            timeout_stop(&clock_setting.reminder_next_timeo);
+            return EINVAL;
 
-        return reminder_count;
-    }
-    else
-        return 0;
-}
-
-unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
-{
-    unsigned reminder_count = 0;
-    clock_setting.reminder_ts_end = 0;
-
-    struct tm dt;
-    localtime_r(&ts, &dt);
-
-    time_t ts_base = ts - ts % 86400;
-    int16_t mtime = time_to_mtime(ts % 86400);
-
-    for (unsigned idx = 0; idx < lengthof(clock_setting.alarms); idx ++)
-    {
-        struct CLOCK_moment_t *reminder = &clock_setting.reminders[idx];
-
-        if (! reminder->enabled)
-            continue;
-
-        time_t end_ts = ts_base + mtime_to_time(reminder->mtime) + 60 * REMINDER_TIMEOUT_MINUTES;
-
-        // matching week days mask or mdate
-        if (0 == ((1 << dt.tm_wday) & reminder->wdays))
+        struct CLOCK_moment_t *alarm = &alarms[idx - 1];
+        if (enabled != alarm->enabled || deleted)
         {
-            int32_t mdate =
-                (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+            alarm->enabled = enabled;
 
-            if (mdate != reminder->mdate)
-                continue;
+            if (deleted)
+            {
+                alarm->mdate = 0;
+                alarm->wdays = 0;
+            }
+            NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
         }
 
-        if (mtime >= reminder->mtime && end_ts > ts)
-        {
-            if (clock_setting.reminder_ts_end < end_ts)
-                clock_setting.reminder_ts_end = end_ts;
+        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+    }
+    else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
+    {
+        int idx = strtol(env->argv[1], NULL, 10);
+        if (0 == idx || (unsigned)idx > lengthof(alarms))
+            return EINVAL;
 
-            if (ignore_snooze ||
-                clock_setting.reminder_ts_end > clock_setting.reminder_snooze_ts_end)
+        bool enabled;
+
+        if (0 == strcasecmp("disable", env->argv[2]))
+            enabled = false;
+        else if (0 == strcasecmp("enable", env->argv[2]))
+            enabled = true;
+        else
+            return EINVAL;
+
+        int mtime = strtol(env->argv[3], NULL, 10);
+        if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
+            return EINVAL;
+
+        int ringtone = strtol(env->argv[4], NULL, 10);
+        ringtone = VOICE_select_ringtone(&voice_attr, ringtone);
+
+        int wdays = 0;
+        if (true)
+        {
+            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+            if (wday_str)
             {
-                reminder_count ++;
-                VOICE_play_reminder(&voice_attr, reminder->reminder_id);
+                wdays = strtol(wday_str, NULL, 10);
+                if (0 == wdays)
+                    wdays = strtol(wday_str, NULL, 16);
+                if (0 == wdays)
+                    return EINVAL;
             }
         }
+        else
+            wdays = 0;
+
+        int mdate = 0; // format integer: yyyymmdd
+        if (true)
+        {
+            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
+            if (mdate_str)      // soo.. mdate can set anything, except it will never alarm
+                mdate = strtol(mdate_str, NULL, 10);
+        }
+
+        // least one of alarm date or week days masks must set
+        if (0 == mdate && 0 == wdays)
+            return EINVAL;
+
+        struct CLOCK_moment_t *alarm = &alarms[idx - 1];
+        if (enabled != alarm->enabled || mtime != alarm->mtime ||
+            ringtone != alarm->ringtone_id ||
+            mdate != alarm->mdate || wdays != alarm->wdays)
+        {
+            alarm->enabled = enabled;
+            alarm->mtime = (int16_t)mtime;
+            alarm->ringtone_id = (uint8_t)ringtone;
+            alarm->mdate = mdate;
+            alarm->wdays = (int8_t)wdays;
+            NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
+        }
+
+        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
     }
-    return reminder_count;
+
+    UCSH_puts(env, "{\n\t\"alarms\": [\n");
+    for (unsigned idx = 0, count = 0; idx < lengthof(alarms); idx ++)
+    {
+        struct CLOCK_moment_t *alarm = &alarms[idx];
+
+        // deleted condition
+        if (! alarm->enabled && 0 == alarm->wdays && 0 == alarm->mdate)
+            continue;
+        else if (0 != count ++)
+            UCSH_puts(env, ",\n");
+
+        UCSH_printf(env, "\t\t{\"id\":%d, ", idx + 1);
+        UCSH_printf(env, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
+        UCSH_printf(env, "\"mtime\":%d, ",  alarm->mtime);
+        UCSH_printf(env, "\"ringtone_id\":%d, ", alarm->ringtone_id);
+        UCSH_printf(env, "\"mdate\":%lu, ",  alarm->mdate);
+        UCSH_printf(env, "\"wdays\":%d}", alarm->wdays);
+    }
+    UCSH_puts(env, "\t],\n");
+
+    UCSH_printf(env, "\t\"alarm_count\":%d,\n", lengthof(alarms));
+    UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
+    return 0;
 }
 
-void CLOCK_snooze_reminders(void)
+static int SHELL_reminder(struct UCSH_env *env)
 {
-    timeout_stop(&clock_setting.reminder_next_timeo);
-    clock_setting.reminder_snooze_ts_end = clock_setting.reminder_ts_end;
+    if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>
+    {
+        int idx = strtol(env->argv[1], NULL, 10);
+        if (0 == idx || (unsigned)idx > lengthof(reminders))
+            return EINVAL;
+
+        bool enabled = true;
+        bool deleted = false;
+
+        if (0 == strcasecmp("disable", env->argv[2]))
+            enabled = false;
+        else if (0 == strcasecmp("enable", env->argv[2]))
+            enabled = true;
+        else if (0 == strcasecmp("delete", env->argv[2]))
+            (deleted = true, enabled = false);
+        else
+            return EINVAL;
+
+        struct CLOCK_moment_t *reminder = &reminders[idx - 1];
+        if (enabled != reminder->enabled || deleted)
+        {
+            reminder->enabled = enabled;
+
+            if (deleted)
+            {
+                reminder->mdate = 0;
+                reminder->wdays = 0;
+            }
+            NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
+        }
+
+        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+    }
+    else if (5 < env->argc)     // rmd <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
+    {
+        int idx = strtol(env->argv[1], NULL, 10);
+        if (0 == idx || (unsigned)idx > lengthof(reminders))
+            return EINVAL;
+
+        bool enabled = true;
+        if (0 == strcasecmp("disable", env->argv[2]))
+            enabled = false;
+        else if (0 == strcasecmp("enable", env->argv[2]))
+            enabled = true;
+        else
+            return EINVAL;
+
+        int mtime = strtol(env->argv[3], NULL, 10);
+        if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
+            return EINVAL;
+
+        int reminder_id = strtol(env->argv[4], NULL, 10);
+        int wdays = 0;
+        if (true)
+        {
+            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+            if (wday_str)
+            {
+                wdays = strtol(wday_str, NULL, 10);
+                if (0 == wdays)
+                    wdays = strtol(wday_str, NULL, 16);
+                if (0 == wdays)
+                    return EINVAL;
+            }
+        }
+
+        int32_t mdate = 0; // format integer: yyyymmdd
+        if (true)
+        {
+            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
+            if (mdate_str)      // soo.. mdate can set anything, except it will never alarm
+                mdate = strtol(mdate_str, NULL, 10);
+        }
+
+        // least one of alarm date or week days masks must set
+        if (0 == mdate && 0 == wdays)
+            return EINVAL;
+
+        struct CLOCK_moment_t *reminder = &reminders[idx - 1];
+
+        if (enabled != reminder->enabled || mtime != reminder->mtime ||
+            reminder_id != reminder->reminder_id ||
+            mdate != reminder->mdate || wdays != reminder->wdays)
+        {
+            reminder->enabled = enabled;
+            reminder->mtime = (int16_t)mtime;
+            reminder->reminder_id = (uint8_t)reminder_id;
+            reminder->mdate = mdate;
+            reminder->wdays = (int8_t)wdays;
+            NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
+        }
+
+        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+    }
+
+    UCSH_puts(env, "{\n\t\"reminders\": [\n");
+    for (unsigned idx = 0, count = 0; idx < lengthof(reminders); idx ++)
+    {
+        struct CLOCK_moment_t *reminder = &reminders[idx];
+
+        // deleted condition
+        if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
+            continue;
+        else if (0 != count ++)
+            UCSH_puts(env, ",\n");
+
+        UCSH_printf(env, "\t{\"id\":%d, ", idx + 1);
+        UCSH_printf(env, "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
+        UCSH_printf(env, "\"mtime\":%d, ",  reminder->mtime);
+        UCSH_printf(env, "\"reminder_id\":%d, ", reminder->reminder_id);
+        UCSH_printf(env, "\"mdate\":%lu, ",  reminder->mdate);
+        UCSH_printf(env, "\"wdays\":%d}", reminder->wdays);
+    }
+    UCSH_puts(env, "\t],\n");
+    UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
+
+    return 0;
 }

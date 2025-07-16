@@ -22,7 +22,6 @@
 /****************************************************************************
  *  @public
  ****************************************************************************/
-struct CLOCK_setting_t clock_setting;
 struct SMARTCUCKOO_setting_t setting;
 struct VOICE_attr_t voice_attr;
 
@@ -214,7 +213,7 @@ int main(void)
     }
     if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
-        LC3_register_fileio();
+        LC3_register_codec();
         mplayer_init(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
     }
 

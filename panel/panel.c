@@ -119,7 +119,7 @@ void PERIPHERAL_init(void)
     mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
-    mplayer_set_volume(setting.media_volume);
+    AUDIO_renderer_set_volume(setting.media_volume);
     */
 
     // init voice with using alt folder
@@ -248,7 +248,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 
         if (SETTING_group_is_alarms(group))
         {
-            struct CLOCK_moment_t *moment = &clock_setting.alarms[group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(group - SETTING_ALARM_1_GROUP);
 
             if (moment->enabled)
             {
@@ -279,7 +279,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 
         for (unsigned i = 0; i < 4; i ++)
         {
-            struct CLOCK_moment_t *moment = &clock_setting.alarms[i];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(i);
 
             if (moment->enabled)
                 PANEL_attr_set_flags(&runtime->panel_attr, PANEL_IND_1 << i);
@@ -360,7 +360,7 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 
         for (unsigned i = 0; i < 4; i ++)
         {
-            struct CLOCK_moment_t *moment = &clock_setting.alarms[i];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(i);
             if (moment->enabled)
                 PANEL_attr_set_flags(&runtime->panel_attr, PANEL_IND_1 << i);
             else
@@ -637,8 +637,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
             SETTING_ALARM_4_GROUP >= runtime->setting.group)
         {
-            struct CLOCK_moment_t *moment
-                = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             if (0 == moment->mdate && 0 >= moment->wdays)
                 moment->wdays = 0x3E;
@@ -692,8 +691,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
             if (SETTING_group_is_alarms(runtime->setting.group))
             {
-                struct CLOCK_moment_t *moment
-                    = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+                struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
                 if (! moment->enabled)
                 {
@@ -708,8 +706,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         else if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
             SETTING_ALARM_4_GROUP >= runtime->setting.group)
         {
-            struct CLOCK_moment_t *moment
-                = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             if (SETTING_part_is_wdays(runtime->setting.part))
             {
@@ -845,8 +842,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
         if (SETTING_A_RINGTONE == runtime->setting.part)
         {
-            struct CLOCK_moment_t *moment =
-                &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
             VOICE_play_ringtone(&voice_attr, moment->ringtone_id);
@@ -869,8 +865,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
         if (SETTING_A_RINGTONE == runtime->setting.part)
         {
-            struct CLOCK_moment_t *moment =
-                &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
             VOICE_play_ringtone(&voice_attr, moment->ringtone_id);
@@ -891,7 +886,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
     ringtone_inc_dec:
         mplayer_stop();
 
-        moment = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+        moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
         if (0 < value)
             moment->ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, moment->ringtone_id);
         else
@@ -909,7 +904,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
             SETTING_ALARM_4_GROUP >= runtime->setting.group)
         {
-            moment = &clock_setting.alarms[runtime->setting.group - SETTING_ALARM_1_GROUP];
+            moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
         }
         else
             moment = NULL;
@@ -1029,7 +1024,7 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         break;
 
     case MSG_VOLUME_INC:
-        volume = mplayer_volume_inc();
+        volume = AUDIO_renderer_inc_volume();
         if (volume != setting.media_volume)
         {
             setting.media_volume = volume;
@@ -1038,7 +1033,7 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         break;
 
     case MSG_VOLUME_DEC:
-        volume = mplayer_volume_dec();
+        volume = AUDIO_renderer_dec_volume();
         if (volume != setting.media_volume)
         {
             setting.media_volume = volume;
@@ -1061,9 +1056,9 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     {
         int ringtone_id = -1;
 
-        for (unsigned i = 0; i < lengthof(clock_setting.alarms); i ++)
+        for (unsigned i = 0; i < CLOCK_alarm_count(); i ++)
         {
-            struct CLOCK_moment_t *moment = &clock_setting.alarms[i];
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(i);
 
             if (moment->enabled)
             {
@@ -1362,7 +1357,7 @@ static void setting_done(struct PANEL_runtime_t *runtime)
     if (runtime->setting.alarm_is_modified)
     {
         runtime->setting.alarm_is_modified = false;
-        NVM_set(NVM_ALARM, &clock_setting.alarms, sizeof(clock_setting.alarms));
+        CLOCK_update_alarms();
     }
 
     mplayer_stop();
