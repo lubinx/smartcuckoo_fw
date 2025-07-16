@@ -55,7 +55,7 @@
         uint32_t blinky_parts;
         uint32_t blinky_mask;
 
-        struct SMARTCUCKOO_locale_t const *locale;
+        struct LOCALE_t const *locale;
         struct
         {
             int16_t mtime;
@@ -82,7 +82,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct SMARTCUCKOO_locale_t const *locale);
+    void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct LOCALE_t const *locale);
 extern __attribute__((nothrow))
     void PANEL_test(struct PANEL_attr_t *attr);
 

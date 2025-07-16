@@ -8,7 +8,7 @@
 /****************************************************************************
  *  attributes
  ****************************************************************************/
-void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct SMARTCUCKOO_locale_t const *locale)
+void PANEL_attr_init(struct PANEL_attr_t *attr, void *i2c_dev, struct LOCALE_t const *locale)
 {
     memset(attr, 0, sizeof(*attr));
     memset(&attr->set, 0xFF, sizeof(attr->set));
