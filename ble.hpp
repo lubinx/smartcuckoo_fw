@@ -5,7 +5,6 @@
 
 #include <bluetooth/gap.tlv.hpp>
 #include <bluetooth/gatt.service.serialp.hpp>
-
 #include "nations.bluetooth.hpp"
 
     class TUltraCorePeripheral :public Bluetooth::Nations::TPeripheral
@@ -17,7 +16,9 @@
             inherited(PROJECT_NAME),
             Shell()
         {
-            // Connections.SetInactiveTimeout(15000);
+            #ifdef NDEBUG
+                Connections.SetInactiveTimeout(30000);
+            #endif
         }
 
         virtual void GAP_OnReady(void) override
