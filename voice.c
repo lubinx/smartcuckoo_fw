@@ -9,7 +9,7 @@
 
 #include "limits.h"
 #include "audio/mplayer.h"
-#include "mplayer_voice.h"
+#include "voice.h"
 
 /***************************************************************************
  * @def: voices

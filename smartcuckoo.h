@@ -30,7 +30,7 @@
 
 #include "clock.h"
 #include "audio/mplayer.h"
-#include "mplayer_voice.h"
+#include "voice.h"
 
 #include "N32X45X_config.h"
 #include "PERIPHERAL_config.h"
