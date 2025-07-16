@@ -103,7 +103,7 @@ static void SHELL_register(void)
                     return EINVAL;
 
                 AUDIO_renderer_set_volume((uint8_t)volume);
-                VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
             }
             UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume());
             return 0;
@@ -276,14 +276,14 @@ static int SHELL_locale(struct UCSH_env *env)
         int16_t old_voice_id = setting.sel_voice_id;
 
         if ('\0' == *end_ptr)
-            setting.sel_voice_id = VOICE_select_voice(&voice_attr, (int16_t)id);
+            setting.sel_voice_id = VOICE_select_voice((int16_t)id);
         else
-            setting.sel_voice_id = VOICE_select_lcid(&voice_attr, env->argv[1]);
+            setting.sel_voice_id = VOICE_select_lcid(env->argv[1]);
 
         if (old_voice_id != setting.sel_voice_id)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
     UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
@@ -319,10 +319,10 @@ static int SHELL_hfmt(struct UCSH_env *env)
         if (old_fmt != fmt)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
-    UCSH_printf(env, "hfmt=%d\n", voice_attr.locale->hfmt);
+    UCSH_printf(env, "hfmt=%d\n", setting.locale.hfmt);
     return 0;
 }
 
@@ -355,10 +355,10 @@ static int SHELL_dfmt(struct UCSH_env *env)
         if (old_fmt != fmt)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
-    switch (voice_attr.locale->dfmt)
+    switch (setting.locale.dfmt)
     {
     case DFMT_DDMMYY:
         UCSH_printf(env, "dfmt=(%u)DDMMYY\n", DFMT_DDMMYY);

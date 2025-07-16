@@ -5,12 +5,12 @@ project(smartcuckoo)
 set(COMMON_SRCS
     "datetime_utils.c"
     "clock.c"
-    "mplayer_voice.c"
+    "voice.c"
     # main
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    "../ultracore/src/usb/*.c"
+    "ultracore/src/usb/*.c"
 )
 
 # remove prebuild ultracore archs
@@ -119,7 +119,7 @@ add_custom_command(TARGET talking_button
 
 # NOTE: required lc3
 option(LC3_PLUS OFF)
-option(LC3_PLUS_HR OFF)
+# option(LC3_PLUS_HR OFF)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()

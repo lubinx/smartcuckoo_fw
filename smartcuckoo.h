@@ -46,18 +46,6 @@
     #define SETTING_TIMEOUT             (6000)
 #endif
 
-#ifndef ALARM_TIMEOUT_MINUTES
-    #define ALARM_TIMEOUT_MINUTES       (3)
-#endif
-
-#ifndef REMINDER_INTV
-    #define REMINDER_INTV               (60000)
-#endif
-
-#ifndef REMINDER_TIMEOUT_MINUTES
-    #define REMINDER_TIMEOUT_MINUTES    (15)
-#endif
-
 #ifndef RTC_CALIBRATION_SECONDS
     #define RTC_CALIBRATION_SECONDS     (3)
 #endif
@@ -101,7 +89,6 @@
 /***************************************************************************
  *  @public
  ***************************************************************************/
-    extern struct VOICE_attr_t voice_attr;
     extern struct SMARTCUCKOO_setting_t setting;
 
 /***************************************************************************

@@ -86,10 +86,7 @@ void PERIPHERAL_init(void)
         memset(&setting, 0, sizeof(setting));
         setting.media_volume = 100;
     }
-
-    VOICE_init(&voice_attr, &setting.locale);
-    // init locales
-    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, true);
+    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
 
     talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
@@ -275,7 +272,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_LOW_BATT, NULL);
+        VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
 
     if (! runtime->setting)
     {
@@ -287,12 +284,12 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             break;
 
         case BUTTON_SAY_TIME:
-            VOICE_say_time_epoch(&voice_attr, ts);
+            VOICE_say_time_epoch(ts);
             CLOCK_say_reminders(ts, true);
             break;
 
         case BUTTON_SAY_DATE:
-            VOICE_say_date_epoch(&voice_attr, ts);
+            VOICE_say_date_epoch(ts);
             break;
         }
 
@@ -312,7 +309,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
         case VOICE_SETTING_LANG:
             old_voice_id = setting.sel_voice_id;
-            setting.sel_voice_id = VOICE_next_locale(&voice_attr);
+            setting.sel_voice_id = VOICE_next_locale();
 
             if (old_voice_id != setting.sel_voice_id)
                 runtime->setting_is_modified = true;
@@ -347,7 +344,8 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             goto setting_modify_alarm;
 
         case VOICE_SETTING_ALARM_RINGTONE:
-            alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, alarm0->ringtone_id);
+            alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
+            runtime->setting_alarm_is_modified = true;
             break;
 
         case VOICE_SETTING_COUNT:
@@ -400,7 +398,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             }
         }
 
-        VOICE_say_setting_part(&voice_attr, runtime->setting_part,
+        VOICE_say_setting_part(runtime->setting_part,
             &runtime->setting_dt,
             (void *)(uintptr_t)alarm0->ringtone_id
         );
@@ -430,7 +428,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     }
     // say low battery only
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_LOW_BATT, NULL);
+        VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
 
     if (! runtime->setting)
     {
@@ -444,7 +442,7 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
 
     if (VOICE_SETTING_LANG == runtime->setting_part &&
-        1 >= voice_attr.voice_count)
+        1 >= VOICE_get_count())
     {
         // skip language setting since is only 1 language
         runtime->click_count ++;
@@ -471,13 +469,13 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
         (enum VOICE_setting_part_t)(runtime->click_count % VOICE_SETTING_COUNT);
     runtime->click_count ++;
 
-    VOICE_say_setting(&voice_attr, runtime->setting_part,
+    VOICE_say_setting(runtime->setting_part,
         (void *)(uintptr_t)alarm0->ringtone_id);
 
     switch (runtime->setting_part)
     {
     default:
-        VOICE_say_setting_part(&voice_attr, runtime->setting_part, &runtime->setting_dt, NULL);
+        VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, NULL);
         break;
 
     case VOICE_SETTING_LANG:
@@ -500,7 +498,7 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
             CLOCK_update_alarms();
 
         if (battery_checking())
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+            VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 }
 
@@ -512,9 +510,9 @@ static void MSG_alarm_sw(struct talking_button_runtime_t *runtime, bool en)
         mplayer_stop(false);
 
         if (en)
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_ON, NULL);
+            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
         else
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_EXT_ALARM_OFF, NULL);
+            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
     }
 }
 

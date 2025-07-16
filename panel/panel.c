@@ -123,7 +123,7 @@ void PERIPHERAL_init(void)
     */
 
     // init voice with using alt folder
-    VOICE_init(&voice_attr, &setting.locale);
+    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     // RTC_calibration_init();
@@ -145,9 +145,6 @@ void PERIPHERAL_init(void)
         }
     #endif
     timeout_init(&panel.gpio_repeat_intv, 500, IOEXT_repeat_callback, TIMEOUT_FLAG_REPEAT);
-
-    // init locales
-    setting.sel_voice_id = VOICE_init_locales(&voice_attr, setting.sel_voice_id, false);
 
     if (true)
     {
@@ -550,12 +547,12 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
     if (0 == click_count ++ % 2)
     {
         tmp_content_start(runtime, PANEL_TIME, 0, PANEL_TIME);
-        VOICE_say_time_epoch(&voice_attr, time(NULL));
+        VOICE_say_time_epoch(time(NULL));
     }
     else
     {
         tmp_content_start(runtime, PANEL_DATE, 0, PANEL_DATE);
-        VOICE_say_date_epoch(&voice_attr, time(NULL));
+        VOICE_say_date_epoch(time(NULL));
     }
 }
 
@@ -586,7 +583,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             NOISE_stop(true);
             mplayer_stop();
 
-            VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+            VOICE_say_setting(VOICE_SETTING_DONE, NULL);
         }
         else
         {
@@ -845,7 +842,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
-            VOICE_play_ringtone(&voice_attr, moment->ringtone_id);
+            VOICE_play_ringtone(moment->ringtone_id);
         }
         goto post_set_blinky;
 
@@ -868,7 +865,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
-            VOICE_play_ringtone(&voice_attr, moment->ringtone_id);
+            VOICE_play_ringtone(moment->ringtone_id);
         }
         goto post_set_blinky;
     }
@@ -888,11 +885,11 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
         moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
         if (0 < value)
-            moment->ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, moment->ringtone_id);
+            moment->ringtone_id = (uint8_t)VOICE_next_ringtone(moment->ringtone_id);
         else
-            moment->ringtone_id = (uint8_t)VOICE_prev_ringtone(&voice_attr, moment->ringtone_id);
+            moment->ringtone_id = (uint8_t)VOICE_prev_ringtone(moment->ringtone_id);
 
-        VOICE_play_ringtone(&voice_attr, moment->ringtone_id);
+        VOICE_play_ringtone(moment->ringtone_id);
         mqueue_postv(runtime->mqd, MSG_ALIVE, 0, 0);
     }
 
@@ -1068,9 +1065,9 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
         }
 
         if (-1 == ringtone_id)
-            ringtone_id = (uint8_t)VOICE_next_ringtone(&voice_attr, ringtone_id);
+            ringtone_id = (uint8_t)VOICE_next_ringtone(ringtone_id);
 
-        VOICE_play_ringtone(&voice_attr, ringtone_id);
+        VOICE_play_ringtone(ringtone_id);
     }
 
     if (modified)
@@ -1361,7 +1358,7 @@ static void setting_done(struct PANEL_runtime_t *runtime)
     }
 
     mplayer_stop();
-    VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
 
     PANEL_attr_set_blinky(&runtime->panel_attr, 0);
     PANEL_attr_set_disable(&runtime->panel_attr, 0);
