@@ -2,11 +2,13 @@
 #define __SMARTCUCKOO_H                 1
 
 #include <features.h>
+
 #include <ultracore/log.h>
 #include <ultracore/mq.h>
 #include <ultracore/timeo.h>
 #include <ultracore/nvm.h>
 #include <sh/ucsh.h>
+#include <audio/mplayer.h>
 
 #include <errno.h>
 #include <pthread.h>
@@ -17,8 +19,6 @@
 #include <unistd.h>
 #include <stropts.h>
 
-#include <vinfo.h>
-#include <flash.h>
 #include <pmu.h>
 #include <rtc.h>
 #include <uart.h>
@@ -29,7 +29,6 @@
 #include "limits.h"
 
 #include "clock.h"
-#include "audio/mplayer.h"
 #include "voice.h"
 
 #include "N32X45X_config.h"

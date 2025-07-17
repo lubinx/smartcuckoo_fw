@@ -1,6 +1,7 @@
 #ifndef __PERIPHERAL_CONFIG_H
 #define __PERIPHERAL_CONFIG_H           1
 
+#include <vinfo.h>
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"

@@ -1,9 +1,36 @@
-#include "smartcuckoo.h"
+#include <ultracore/log.h>
+#include <ultracore/timeo.h>
+
+#include <stdlib.h>
+#include <strings.h>
+
+#include <sh/ucsh.h>
+#include <sys/errno.h>
+#include <flash.h>
+#include <rtc.h>
+
+#include "datetime_utils.h"
+#include "voice.h"
+#include "clock.h"
+
+#include "PERIPHERAL_config.h"
+
+#ifndef ALARM_TIMEOUT_MINUTES
+    #define ALARM_TIMEOUT_MINUTES       (3)
+#endif
+
+#ifndef REMINDER_INTV
+    #define REMINDER_INTV               (60000)
+#endif
+
+#ifndef REMINDER_TIMEOUT_MINUTES
+    #define REMINDER_TIMEOUT_MINUTES    (15)
+#endif
 
 /****************************************************************************
  *  @def
  ****************************************************************************/
-#define COMPILE_YEAR                    (\
+ #define COMPILE_YEAR                    (\
     (__DATE__[7] - '0') * 1000 +    \
     (__DATE__[8] - '0') *  100 +    \
     (__DATE__[9] - '0') *   10 +    \
@@ -13,9 +40,25 @@
 
 #define NVM_ALARM                       NVM_DEFINE_KEY('A', 'L', 'R', 'M')
 #define NVM_REMINDER                    NVM_DEFINE_KEY('R', 'E', 'M', 'D')
+#define NVM_TIME_ZONE                   NVM_DEFINE_KEY('T', 'I', 'Z', 'E')
+#define NVM_DST                         NVM_DEFINE_KEY('D', 'S', 'T', 'B')
 
 #define NVM_ALARM_COUNT                 (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 #define NVM_REMINDER_COUNT              (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+
+struct DST_t
+{
+    bytebool_t en;
+    int8_t dst_minute_offset;
+
+    uint8_t tbl_count;
+    struct
+    {
+        int32_t start;      // YYYYMMDDHH
+        int32_t end;
+    } tbl[20];
+};
+#define NVM_DST_COUNT                   sizeof(struct DST_t)
 
 /****************************************************************************
  *  @public: runtime
@@ -34,12 +77,18 @@ bool CLOCK_alarm_switch_is_on(void)
 /****************************************************************************
  *  @internal
  ****************************************************************************/
+static struct timeout_t reminder_next_timeo;
+
 static struct CLOCK_moment_t alarms[NVM_ALARM_COUNT];
 static struct CLOCK_moment_t reminders[NVM_ALARM_COUNT];
+
+static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst);
 
 // shell commands
 static int SHELL_alarm(struct UCSH_env *env);
 static int SHELL_reminder(struct UCSH_env *env);
+static int SHELL_timezone(struct UCSH_env *env);
+static int SHELL_dst(struct UCSH_env *env);
 
 /****************************************************************************
  *  @implements
@@ -76,12 +125,12 @@ void CLOCK_init()
         LOG_printf("%04d/%02d/%02d %02d:%02d:%02d",
             dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday,
             dt.tm_hour, dt.tm_min, dt.tm_sec);
+
+        CLOCK_assign_dst_offset(&dt, NULL);
     }
 
     clock_runtime.alarming_idx = -1;
-    clock_runtime.is_dst = false;
-
-    timeout_init(&clock_runtime.reminder_next_timeo, REMINDER_INTV, (void *)CLOCK_say_reminders, 0);
+    timeout_init(&reminder_next_timeo, REMINDER_INTV, (void *)CLOCK_say_reminders, 0);
 
     if (0 != NVM_get(NVM_ALARM, &alarms, sizeof(alarms)))
         memset(&alarms, 0, sizeof(alarms));
@@ -96,6 +145,10 @@ void CLOCK_init()
     // reminder
     UCSH_REGISTER("rmd",        SHELL_reminder);
     UCSH_REGISTER("reminder",   SHELL_reminder);
+
+    // dst
+    UCSH_REGISTER("tz",         SHELL_timezone);
+    UCSH_REGISTER("dst",        SHELL_dst);
 }
 
 void CLOCK_update_alarms(void)
@@ -153,6 +206,8 @@ struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
 
 int8_t CLOCK_peek_start_alarms(time_t ts)
 {
+    static int dst_tm_hour = 0;
+
     if (! CLOCK_alarm_switch_is_on())
         return -1;
     if (ts <= clock_runtime.alarm_snooze_ts_end)
@@ -160,6 +215,14 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
 
     struct tm dt;
     localtime_r(&ts, &dt);
+
+    // NOTE: checking DST is in applied once per hour
+    if (dst_tm_hour != dt.tm_hour)
+    {
+        dst_tm_hour = dt.tm_hour;
+        CLOCK_assign_dst_offset(&dt, NULL);
+    }
+
     int16_t mtime = time_to_mtime(ts % 86400);
     struct CLOCK_moment_t *current_alarm = NULL;
 
@@ -201,7 +264,7 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
 
     if (NULL != current_alarm)
     {
-        VOICE_play_ringtone(&voice_attr, current_alarm->ringtone_id);
+        VOICE_play_ringtone(current_alarm->ringtone_id);
         return (int8_t)(current_alarm - alarms);
     }
     else
@@ -222,17 +285,17 @@ bool CLOCK_stop_current_alarm(void)
 
 unsigned CLOCK_peek_start_reminders(time_t ts)
 {
-    if (! timeout_is_running(&clock_runtime.reminder_next_timeo))
+    if (! timeout_is_running(&reminder_next_timeo))
     {
         unsigned reminder_count = CLOCK_say_reminders(ts, false);
 
         if (0 != reminder_count &&
             clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
         {
-            timeout_start(&clock_runtime.reminder_next_timeo, NULL);
+            timeout_start(&reminder_next_timeo, NULL);
         }
         else
-            timeout_stop(&clock_runtime.reminder_next_timeo);
+            timeout_stop(&reminder_next_timeo);
 
         return reminder_count;
     }
@@ -279,7 +342,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
                 clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
             {
                 reminder_count ++;
-                VOICE_play_reminder(&voice_attr, reminder->reminder_id);
+                VOICE_play_reminder(reminder->reminder_id);
             }
         }
     }
@@ -288,7 +351,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
 
 void CLOCK_snooze_reminders(void)
 {
-    timeout_stop(&clock_runtime.reminder_next_timeo);
+    timeout_stop(&reminder_next_timeo);
     clock_runtime.reminder_snooze_ts_end = clock_runtime.reminder_ts_end;
 }
 
@@ -349,6 +412,38 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
 }
 
 /****************************************************************************
+ *  @internal
+ ****************************************************************************/
+static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst)
+{
+    bool dynamic_alloc = NULL == dst;
+    if (dynamic_alloc)
+    {
+        dst = malloc(sizeof(*dst));
+
+        if (0 != NVM_get(NVM_DST, dst, sizeof(*dst)))
+            dst->en = false;
+    }
+
+    if (dst->en && 0 < dst->tbl_count)
+    {
+        int dt = (tm->tm_year + 1900) * (1000000) + (tm->tm_mon + 1) * 10000 + tm->tm_mday * 100 + tm->tm_hour;
+
+        for (unsigned i = 0; i < dst->tbl_count; i ++)
+        {
+            if (dt >= dst->tbl[i].start && dt < dst->tbl[i].end)
+            {
+                clock_runtime.dst_minute_offset = dst->dst_minute_offset;
+                break;
+            }
+        }
+    }
+
+    if (dynamic_alloc)
+        free(dst);
+}
+
+/****************************************************************************
  *  @internal: shell commands
  ****************************************************************************/
 static int SHELL_alarm(struct UCSH_env *env)
@@ -384,7 +479,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
         }
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
     else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -406,7 +501,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             return EINVAL;
 
         int ringtone = strtol(env->argv[4], NULL, 10);
-        ringtone = VOICE_select_ringtone(&voice_attr, ringtone);
+        ringtone = VOICE_select_ringtone(ringtone);
 
         int wdays = 0;
         if (true)
@@ -449,7 +544,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
         }
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
     UCSH_puts(env, "{\n\t\"alarms\": [\n");
@@ -510,7 +605,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
         }
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
     else if (5 < env->argc)     // rmd <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -571,7 +666,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
         }
 
-        VOICE_say_setting(&voice_attr, VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
     UCSH_puts(env, "{\n\t\"reminders\": [\n");
@@ -596,4 +691,165 @@ static int SHELL_reminder(struct UCSH_env *env)
     UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
 
     return 0;
+}
+
+static int SHELL_timezone(struct UCSH_env *env)
+{
+    char *tz = malloc(FLASH_NVM_OBJECT_SIZE);
+
+    if (2 == env->argc)
+    {
+        strncpy(tz, env->argv[1], FLASH_NVM_OBJECT_SIZE);
+        NVM_set(NVM_TIME_ZONE, tz, FLASH_NVM_OBJECT_SIZE);
+    }
+
+    if (0 == NVM_get(NVM_TIME_ZONE, tz, FLASH_NVM_OBJECT_SIZE))
+        UCSH_printf(env, "%s\n", tz);
+
+    free(tz);
+    return 0;
+}
+
+static int SHELL_dst(struct UCSH_env *env)
+{
+    struct DST_t *dst = malloc(sizeof(struct DST_t));
+    int err = 0;
+
+    if (1 == env->argc)
+    {
+        if (0 == NVM_get(NVM_DST, dst, sizeof(struct DST_t)))
+        {
+            UCSH_printf(env, "dst=%s\n", dst->en ? "ON" : "OFF");
+            UCSH_printf(env, "\t%d minute\n", dst->dst_minute_offset);
+
+            for (unsigned i = 0; i < dst->tbl_count; i ++)
+                UCSH_printf(env, "\t%d~%d\n", dst->tbl[i].start, dst->tbl[i].end);
+        }
+        else
+        {
+            dst->en = false;
+            UCSH_printf(env, "dst=%s\n", dst->en ? "ON" : "OFF");
+        }
+    }
+    else if (2 == env->argc)
+    {
+        if (0 != strcasecmp(env->argv[1], "ON") && 0 != strcasecmp(env->argv[1], "OFF"))
+            err = EINVAL;
+
+        if (0 == err)
+        {
+            if (0 == NVM_get(NVM_DST, dst, sizeof(*dst)))
+            {
+                dst->en = 0 == strcasecmp(env->argv[1], "ON");
+
+                if (0 == NVM_set(NVM_DST, dst, sizeof(*dst)))
+                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                else
+                    dst->en = false;
+            }
+            else
+                err = EIO;
+        }
+    }
+    else
+    {
+        memset(dst, 0, sizeof(*dst));
+        if (1)
+        {
+            int offset = strtol(env->argv[1], NULL, 10);
+            if (60 < abs(offset))
+                err = ERANGE;
+            else
+                dst->dst_minute_offset = (int8_t)offset;
+        }
+
+        if (0 == err)
+        {
+            for (unsigned i = 2; i < env->argc; i ++)
+            {
+                char *p = env->argv[i];
+                while (*p && '~' != *p) p ++;
+
+                if ('~' != *p)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                else
+                    *p ++ = '\0';
+
+                int val = strtol(env->argv[i], NULL, 10);
+                int hour = val % 100;
+                if ((COMPILE_YEAR - 1) * (100 * 100 * 100) > val)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                if ((COMPILE_YEAR + 50) * (100 * 100 * 100) < val)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                if (24 < hour)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                dst->tbl[dst->tbl_count].start = val;
+
+                val = strtol(p, NULL, 10);
+                hour = val % 100;
+                if ((COMPILE_YEAR - 1) * (100 * 100 * 100) > val)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                if ((COMPILE_YEAR + 50) * (100 * 100 * 100) < val)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                if (24 < hour)
+                {
+                    err = EINVAL;
+                    break;
+                }
+                dst->tbl[dst->tbl_count].end = val;
+
+                if (dst->tbl[dst->tbl_count].start > dst->tbl[dst->tbl_count].end)
+                {
+                    int tmp = dst->tbl[dst->tbl_count].start;
+                    dst->tbl[dst->tbl_count].start = dst->tbl[dst->tbl_count].end;
+                    dst->tbl[dst->tbl_count].end = tmp;
+                }
+
+                dst->tbl_count ++;
+            }
+        }
+
+        if (0 == err)
+        {
+            dst->en = 0 != dst->dst_minute_offset && 0 != dst->tbl_count;
+
+            if (0 == NVM_set(NVM_DST, dst, sizeof(*dst)))
+                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        }
+    }
+
+    if (0 == err)
+    {
+        if (dst->en)
+        {
+            time_t ts = time(NULL);
+            struct tm tm;
+            localtime_r(&ts, &tm);
+
+            CLOCK_assign_dst_offset(&tm, dst);
+        }
+        else
+            clock_runtime.dst_minute_offset = 0;
+    }
+
+    free(dst);
+    return err;
 }

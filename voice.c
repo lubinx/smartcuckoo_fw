@@ -997,7 +997,7 @@ int VOICE_say_time(struct tm const *tm)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    LOG_printf("%04d/%02d/%02d %02d:%02d:%02d",
+    LOG_info("%04d/%02d/%02d %02d:%02d:%02d",
         tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
         tm->tm_hour, tm->tm_min, tm->tm_sec);
 
@@ -1153,9 +1153,15 @@ int VOICE_say_time(struct tm const *tm)
     return retval;
 }
 
-int VOICE_say_time_epoch(time_t epoch)
+int VOICE_say_time_epoch(time_t epoch, int8_t dst_minute_offset)
 {
-    return VOICE_say_time(localtime(&epoch));
+    epoch += (int)dst_minute_offset * 60;
+    struct tm *tm = localtime(&epoch);
+
+    if (0 != dst_minute_offset)
+        LOG_warning("DST shift %d minutes", dst_minute_offset);
+
+    return VOICE_say_time(tm);
 }
 
 int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)

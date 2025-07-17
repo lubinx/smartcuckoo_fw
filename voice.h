@@ -80,7 +80,7 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow))
     int VOICE_say_time(struct tm const *tm);
 extern __attribute__((nothrow))
-    int VOICE_say_time_epoch(time_t epoch);
+    int VOICE_say_time_epoch(time_t epoch, int8_t dst_minute_offset);
 
     /**
      *  say aux voice

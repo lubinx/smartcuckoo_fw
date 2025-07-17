@@ -284,7 +284,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             break;
 
         case BUTTON_SAY_TIME:
-            VOICE_say_time_epoch(ts);
+            VOICE_say_time_epoch(ts, clock_runtime.dst_minute_offset);
             CLOCK_say_reminders(ts, true);
             break;
 

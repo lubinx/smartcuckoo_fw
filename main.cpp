@@ -6,9 +6,6 @@
 #include <adc.h>
 #include <dac.h>
 #include <i2c.h>
-#include <pmu.h>
-#include <uart.h>
-#include <wdt.h>
 #include <sdmmc.h>
 
 #include "smartcuckoo.h"

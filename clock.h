@@ -2,18 +2,20 @@
 #define __CLOCK_H
 
 #include <features.h>
+#include <sys/types.h>
 
+#include <stdbool.h>
 #include <stdint.h>
-#include <sys/time.h>
+#include <time.h>
 
     #define time_to_mtime(ts)           ((int16_t)(((ts) / 3600) * 100 + ((ts) % 3600) / 60))
     #define mtime_to_time(mt)           (time_t)((((mt) / 100) * 3600 + ((mt) % 100) * 60))
 
     struct CLOCK_moment_t
     {
-        bool enabled;
+        bytebool_t enabled;
         int8_t wdays;
-        bool snooze_once;
+        // bytebool_t snooze_once;
 
         union
         {
@@ -27,13 +29,12 @@
 
     struct CLOCK_runtime_t
     {
+        int8_t dst_minute_offset;
         int8_t alarming_idx;
-        bytebool_t is_dst;
-        time_t alarm_snooze_ts_end;
 
+        time_t alarm_snooze_ts_end;
         time_t reminder_ts_end;
         time_t reminder_snooze_ts_end;
-        struct timeout_t reminder_next_timeo;
     };
     extern struct CLOCK_runtime_t clock_runtime;
 

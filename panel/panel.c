@@ -547,7 +547,7 @@ static void MSG_button_snooze(struct PANEL_runtime_t *runtime)
     if (0 == click_count ++ % 2)
     {
         tmp_content_start(runtime, PANEL_TIME, 0, PANEL_TIME);
-        VOICE_say_time_epoch(time(NULL));
+        VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
     }
     else
     {
