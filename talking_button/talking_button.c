@@ -80,16 +80,19 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
+    timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
+
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
         setting.media_volume = 100;
     }
-    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
+    setting.media_volume = MAX(50, setting.media_volume);
+    AUDIO_set_volume_percent(setting.media_volume);
 
+    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
     talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
-    timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
 
     GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
@@ -260,6 +263,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     if (true == CLOCK_stop_current_alarm())
     {
         mplayer_stop(true);
+        VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
         return;
     }
     else
@@ -493,7 +497,19 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
         runtime->setting = false;
 
         if (runtime->setting_is_modified)
+        {
+            // struct SMARTCUCKOO_setting_t old_setting = {0};
+            // NVM_get(NVM_SETTING, &old_setting, sizeof(old_setting));
+
+            // // NOTE: rollback hfmt/dfmt to default once language(void_id) is changed
+            // if (old_setting.sel_voice_id != setting.sel_voice_id)
+            // {
+            //     setting.locale.hfmt = HFMT_DEFAULT;
+            //     setting.locale.dfmt = DFMT_DEFAULT;
+            // }
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
+        }
+
         if (runtime->setting_alarm_is_modified)
             CLOCK_update_alarms();
 

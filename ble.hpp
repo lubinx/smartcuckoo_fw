@@ -17,7 +17,7 @@
             Shell()
         {
             #ifdef NDEBUG
-                Connections.SetInactiveTimeout(30000);
+                Connections.SetInactiveTimeout(15000);
             #endif
         }
 

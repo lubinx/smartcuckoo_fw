@@ -32,7 +32,7 @@ static void SHELL_register(void)
 {
     // locale
     UCSH_REGISTER("loc",        SHELL_locale);
-    UCSH_REGISTER("locale",     SHELL_locale);
+    // UCSH_REGISTER("locale",     SHELL_locale);
     // hour format
     UCSH_REGISTER("hfmt",       SHELL_hfmt);
     // date format: voice only
@@ -99,13 +99,19 @@ static void SHELL_register(void)
             if (2 == env->argc)
             {
                 int volume = strtol(env->argv[1], NULL, 10);
-                if (0 > volume)
+                if (0 > volume || 100 < volume)
                     return EINVAL;
 
-                AUDIO_renderer_set_volume((uint8_t)volume);
-                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                if (0 == AUDIO_set_volume_percent((uint8_t)volume))
+                {
+                    setting.media_volume = (uint8_t)volume;
+                    NVM_set(NVM_SETTING, &setting, sizeof(setting));
+                }
+
+                VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
+                // VOICE_say_setting(VOICE_SETTING_DONE, NULL);
             }
-            UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume());
+            UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume_percent());
             return 0;
         }
     );

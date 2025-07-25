@@ -765,7 +765,7 @@ static int SHELL_dst(struct UCSH_env *env)
 
         if (0 == err)
         {
-            for (unsigned i = 2; i < env->argc; i ++)
+            for (int i = 2; i < env->argc; i ++)
             {
                 char *p = env->argv[i];
                 while (*p && '~' != *p) p ++;

@@ -1428,5 +1428,5 @@ int VOICE_play_reminder(int reminder_id)
     char filename[64];
     sprintf(filename, filefmt, voice_sel->folder, voice_sel->lcidx, IDX_REMINDER_0 + reminder_id);
 
-    return mplayer_play(filename);
+    return mplayer_playlist_queue(filename);
 }
