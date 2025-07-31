@@ -108,8 +108,8 @@ static void SHELL_register(void)
                     NVM_set(NVM_SETTING, &setting, sizeof(setting));
                 }
 
-                VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
-                // VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
+                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
             }
             UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume_percent());
             return 0;
@@ -261,10 +261,13 @@ void UCSH_prompt_handle(struct UCSH_env *env)
 /*****************************************************************************/
 /** @internal
 *****************************************************************************/
-static void voice_avail_locales_callback(int id, char const *lcid, char const *voice, void *arg, bool final)
+static void voice_avail_locales_callback(int id, char const *lcid,
+    enum LOCALE_dfmt_t dfmt, enum LOCALE_hfmt_t hfmt,  char const *voice, void *arg, bool final)
 {
     UCSH_printf((struct UCSH_env *)arg, "\t{\"id\":%d, ", id);
     UCSH_printf((struct UCSH_env *)arg, "\"lcid\":\"%s\", ", lcid);
+    UCSH_printf((struct UCSH_env *)arg, "\"dfmt\":\"%d\", ", dfmt);
+    UCSH_printf((struct UCSH_env *)arg, "\"hfmt\":\"%d\", ", hfmt);
     UCSH_printf((struct UCSH_env *)arg, "\"voice\":\"%s\"}", voice);
 
     if (final)
@@ -290,11 +293,14 @@ static int SHELL_locale(struct UCSH_env *env)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
         VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        UCSH_printf(env, "voice_id=%d\n", setting.sel_voice_id);
     }
-
-    UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
-    VOICE_enum_avail_locales(voice_avail_locales_callback, env);
-    UCSH_puts(env, "]}\n");
+    else if (1 == env->argc)
+    {
+        UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.sel_voice_id);
+        VOICE_enum_avail_locales(voice_avail_locales_callback, env);
+        UCSH_puts(env, "]}\n");
+    }
 
     return 0;
 }
@@ -311,14 +317,10 @@ static int SHELL_hfmt(struct UCSH_env *env)
         default:
             return EINVAL;
 
-        case 0:
-            setting.locale.hfmt = HFMT_DEFAULT;
-            break;
-        case 12:
-            setting.locale.hfmt = HFMT_12;
-            break;
-        case 24:
-            setting.locale.hfmt = HFMT_24;
+        case HFMT_DEFAULT:
+        case HFMT_12:
+        case HFMT_24:
+            setting.locale.hfmt = (LOCALE_hfmt_t)fmt;
             break;
         }
 
@@ -328,7 +330,14 @@ static int SHELL_hfmt(struct UCSH_env *env)
         VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
-    UCSH_printf(env, "hfmt=%d\n", setting.locale.hfmt);
+    if (1)
+    {
+        enum LOCALE_hfmt_t fmt = setting.locale.hfmt;
+        if (HFMT_DEFAULT == fmt)
+            fmt = VOICE_get_default_hfmt();
+
+        UCSH_printf(env, "hfmt=%d\n", fmt);
+    }
     return 0;
 }
 
@@ -345,16 +354,10 @@ static int SHELL_dfmt(struct UCSH_env *env)
             return EINVAL;
 
         case DFMT_DEFAULT:
-            setting.locale.dfmt = DFMT_DEFAULT;
-            break;
         case DFMT_DDMMYY:
-            setting.locale.dfmt  = DFMT_DDMMYY;
-            break;
         case DFMT_YYMMDD:
-            setting.locale.dfmt  = DFMT_YYMMDD;
-            break;
         case DFMT_MMDDYY:
-            setting.locale.dfmt  = DFMT_MMDDYY;
+            setting.locale.dfmt = (enum LOCALE_dfmt_t)fmt;
             break;
         }
 
@@ -364,21 +367,27 @@ static int SHELL_dfmt(struct UCSH_env *env)
         VOICE_say_setting(VOICE_SETTING_DONE, NULL);
     }
 
-    switch (setting.locale.dfmt)
+    if (1)
     {
-    case DFMT_DDMMYY:
-        UCSH_printf(env, "dfmt=(%u)DDMMYY\n", DFMT_DDMMYY);
-        break;
-    case DFMT_YYMMDD:
-        UCSH_printf(env, "dfmt=(%u)YYMMDD\n", DFMT_YYMMDD);
-        break;
-    case DFMT_MMDDYY:
-        UCSH_printf(env, "dfmt=(%u)MMDDYY\n", DFMT_MMDDYY);
-        break;
+        enum LOCALE_dfmt_t fmt = setting.locale.dfmt;
+        if (DFMT_DEFAULT == fmt)
+            fmt =  VOICE_get_default_dfmt();
 
-    case DFMT_DEFAULT:
-        // no possiable value
-        break;
+        switch (fmt)
+        {
+        case DFMT_DEFAULT:
+            break;
+
+        case DFMT_DDMMYY:
+            UCSH_printf(env, "dfmt=(%u)DDMMYY\n", DFMT_DDMMYY);
+            break;
+        case DFMT_YYMMDD:
+            UCSH_printf(env, "dfmt=(%u)YYMMDD\n", DFMT_YYMMDD);
+            break;
+        case DFMT_MMDDYY:
+            UCSH_printf(env, "dfmt=(%u)MMDDYY\n", DFMT_MMDDYY);
+            break;
+        }
     }
     return 0;
 }
