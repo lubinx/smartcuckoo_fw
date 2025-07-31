@@ -140,7 +140,6 @@ int main(void)
             {
             case PMU_EVENT_POWER_DOWN:
             case PMU_EVENT_SLEEP:
-                mplayer_deinit();
                 SDMMC_card_remove(&sdmmc);
                 DISKIO_flush_cache(&sdmmc_diskio);
                 break;
@@ -210,7 +209,7 @@ int main(void)
     if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
         LC3_register_codec();
-        mplayer_init(MPLAYER_QUEUE_SIZE, MPLAYER_STACK_SIZE, NULL);
+        mplayer_init(MPLAYER_QUEUE_SIZE);
     }
 
     PERIPHERAL_init();

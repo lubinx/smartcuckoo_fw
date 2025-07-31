@@ -29,7 +29,8 @@
         VOICE_SETTING_EXT_ALARM_OFF,
     };
 
-    typedef void (* VOICE_avail_locales_callback_t)(int id, char const *lcid, char const *voice, void *arg, bool final);
+    typedef void (* VOICE_avail_locales_callback_t)(int id, char const *lcid,
+        enum LOCALE_dfmt_t dfmt, enum LOCALE_hfmt_t hfmt,  char const *voice, void *arg, bool final);
 
 __BEGIN_DECLS
 
