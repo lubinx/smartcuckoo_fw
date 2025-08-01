@@ -102,11 +102,9 @@ static void SHELL_register(void)
                 if (0 > volume || 100 < volume)
                     return EINVAL;
 
-                if (0 == AUDIO_set_volume_percent((uint8_t)volume))
-                {
-                    setting.media_volume = (uint8_t)volume;
-                    NVM_set(NVM_SETTING, &setting, sizeof(setting));
-                }
+                AUDIO_set_volume_percent((uint8_t)volume);
+                setting.media_volume = (uint8_t)volume;
+                NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
                 // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
                 VOICE_say_setting(VOICE_SETTING_DONE, NULL);

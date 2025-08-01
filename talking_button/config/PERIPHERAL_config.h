@@ -16,7 +16,7 @@
 // buttons
     #define PIN_VOICE_BUTTON            PC00
     #define PIN_SETTING_BUTTON          PC01
-    #define PIN_ALARM_ON                PA02
+    #define PIN_ALARM_SW                PA02
 
 // rtc
     #define PIN_RTC_CAL_IN              PB00

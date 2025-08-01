@@ -8,10 +8,10 @@
 
 enum talking_button_message_t
 {
-    MSG_ALARM_SW                    = 1,
-    MSG_BUTTON_VOICE,
+    MSG_BUTTON_VOICE            = 1,
     MSG_BUTTON_SETTING,
 
+    MSG_ALARM_SW,
     MSG_SETTING_TIMEOUT,
 };
 
@@ -21,6 +21,7 @@ struct talking_button_runtime_t
     int mp3_uartfd;
 
     timeout_t setting_timeo;
+    timeout_t alarm_sw_timeo;
 
     unsigned click_count;
     clock_t voice_loop_stick;
@@ -55,6 +56,7 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 
 static bool battery_checking(void);
 static void setting_timeout_callback(void *arg);
+static void alaramsw_timeout_callback(void *arg);
 
 // var
 static struct talking_button_runtime_t talking_button = {0};
@@ -67,7 +69,7 @@ void PERIPHERAL_gpio_init(void)
 {
     GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_SETTING_BUTTON, true);
-    GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_ON, true);
+    GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_SW, true);
 }
 
 void PERIPHERAL_shell_init(void)
@@ -81,6 +83,10 @@ void PERIPHERAL_ota_init(void)
 void PERIPHERAL_init(void)
 {
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
+    timeout_init(&talking_button.alarm_sw_timeo, 50, alaramsw_timeout_callback, 0);
+
+    talking_button.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+    alaramsw_timeout_callback(NULL);
 
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
@@ -92,13 +98,12 @@ void PERIPHERAL_init(void)
     AUDIO_set_volume_percent(setting.media_volume);
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
-    talking_button.alarm_is_on = 0 != GPIO_peek(PIN_ALARM_ON);
 
     GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
     GPIO_intr_enable(PIN_SETTING_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
-    GPIO_intr_enable(PIN_ALARM_ON, TRIG_BY_BOTH_EDGE,
+    GPIO_intr_enable(PIN_ALARM_SW, TRIG_BY_BOTH_EDGE,
         (void *)GPIO_button_callback, &talking_button);
 
     MQUEUE_INIT(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
@@ -131,11 +136,11 @@ void PERIPHERAL_init(void)
             if (GPIO_peek(PIN_RTC_CAL_IN))
             {
                 LOG_debug("calibration");
-                mplayer_play("voice/FFFF.lc3");
+                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
                 mplayer_waitfor_idle();
 
                 if (0 == RTC_calibration_ppb(PIN_RTC_CAL_IN))
-                    mplayer_play("voice/FFFF.lc3");
+                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
                 break;
             }
         }
@@ -181,11 +186,8 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
     if (PIN_VOICE_BUTTON == (PIN_VOICE_BUTTON & pins))
         mqueue_postv(ctx->mqd, MSG_BUTTON_VOICE, 0, 0);
 
-    if (PIN_ALARM_ON == (PIN_ALARM_ON & pins))
-    {
-        if (talking_button.alarm_is_on != (0 != GPIO_peek(PIN_ALARM_ON)))
-            mqueue_postv(ctx->mqd, MSG_ALARM_SW, 0, 1, ! talking_button.alarm_is_on);
-    }
+    if (PIN_ALARM_SW == (PIN_ALARM_SW & pins))
+        timeout_start(&talking_button.alarm_sw_timeo, (void *)1);
 }
 
 static bool battery_checking(void)
@@ -210,6 +212,25 @@ static void setting_timeout_callback(void *arg)
 {
     ARG_UNUSED(arg);
     mqueue_postv(talking_button.mqd, MSG_SETTING_TIMEOUT, 0, 0);
+}
+
+static void alaramsw_timeout_callback(void *arg)
+{
+    // REVIEW: need to pull-up to stable
+    GPIO_setdir_input_pp(PULL_UP, PIN_ALARM_SW, true);
+    {
+        usleep(100);
+        talking_button.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+    }
+    GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_SW, true);
+
+    if (NULL != arg && BATT_EMPTY_MV < PERIPHERAL_batt_volt())
+    {
+        if (talking_button.alarm_is_on)
+            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
+        else
+            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
+    }
 }
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
@@ -501,19 +522,6 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
     }
 }
 
-static void MSG_alarm_sw(struct talking_button_runtime_t *runtime, bool en)
-{
-    if (BATT_EMPTY_MV < PERIPHERAL_batt_volt())
-    {
-        runtime->alarm_is_on = en;
-
-        if (en)
-            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
-        else
-            VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
-    }
-}
-
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button_runtime_t *runtime)
 {
     while (true)
@@ -539,7 +547,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
                 break;
 
             case MSG_ALARM_SW:
-                MSG_alarm_sw(runtime, msg->payload.as_u32[0]);
+                // alaramsw_timeout_callback((void *)1);
+                timeout_start(&runtime->alarm_sw_timeo, (void *)1);
                 break;
             }
 
