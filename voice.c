@@ -694,6 +694,8 @@ enum LOCALE_hfmt_t VOICE_get_default_hfmt()
 
 int16_t VOICE_select_voice(int16_t voice_id)
 {
+    voice_id = (unsigned)voice_id < lengthof(__voices) ? voice_id : (int16_t)(voice_sel - __voices);
+
     if ((unsigned)voice_id < lengthof(__voices))
     {
         struct VOICE_t const *voice = &__voices[voice_id];
@@ -702,18 +704,19 @@ int16_t VOICE_select_voice(int16_t voice_id)
         sprintf(filename, filefmt, voice->folder, IDX_SETTING_LANG);
         int fd = open(filename, O_RDONLY);
 
-        if (-1 == fd)
-            goto select_voice_fallback;
-
-        close(fd);
-        return voice_id;
+        if (-1 != fd)
+        {
+            close(fd);
+            voice_sel = &__voices[voice_id];
+        }
+        else
+            voice_id = 0;
     }
     else
-    {
-    select_voice_fallback:
-        LOCALE_set(&__voices[0]);
-        return 0;
-    };
+        voice_id = 0;
+
+    LOCALE_set(&__voices[voice_id]);
+    return voice_id;
 }
 
 int16_t VOICE_select_lcid(char const *lcid)
