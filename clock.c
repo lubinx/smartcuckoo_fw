@@ -68,6 +68,11 @@ struct CLOCK_runtime_t clock_runtime;
 /****************************************************************************
  *  @implements: weaks
  ****************************************************************************/
+int get_dst_offset(void)
+{
+    return 60 * clock_runtime.dst_minute_offset;
+}
+
 __attribute__((weak))
 bool CLOCK_alarm_switch_is_on(void)
 {
@@ -107,6 +112,7 @@ void CLOCK_init()
         dt.tm_hour = 0;
         dt.tm_min = 0;
         dt.tm_sec = 0;
+        dt.tm_isdst = 0;
         time_t ts_min = mktime(&dt);
 
         dt.tm_year = SUPPORTED_YEAR + 1 - 1900;
@@ -206,8 +212,6 @@ struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
 
 int8_t CLOCK_peek_start_alarms(time_t ts)
 {
-    static int dst_tm_hour = 0;
-
     if (! CLOCK_alarm_switch_is_on())
         return -1;
     if (ts <= clock_runtime.alarm_snooze_ts_end)
@@ -216,11 +220,11 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
     struct tm dt;
     localtime_r(&ts, &dt);
 
-    // NOTE: checking DST is in applied once per hour
-    if (dst_tm_hour != dt.tm_hour)
+    // NOTE: checking DST
+    if (0 != clock_runtime.dst_end)
     {
-        dst_tm_hour = dt.tm_hour;
-        CLOCK_assign_dst_offset(&dt, NULL);
+        if ((dt.tm_year + 1900) * (1000000) + (dt.tm_mon + 1) * 10000 + dt.tm_mday * 100 + dt.tm_hour > clock_runtime.dst_end)
+            CLOCK_assign_dst_offset(&dt, NULL);
     }
 
     int16_t mtime = time_to_mtime(ts % 86400);
@@ -424,6 +428,7 @@ static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst)
         if (0 != NVM_get(NVM_DST, dst, sizeof(*dst)))
             dst->en = false;
     }
+    clock_runtime.dst_end = 0;
 
     if (dst->en && 0 < dst->tbl_count)
     {
@@ -434,6 +439,7 @@ static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst)
             if (dt >= dst->tbl[i].start && dt < dst->tbl[i].end)
             {
                 clock_runtime.dst_minute_offset = dst->dst_minute_offset;
+                clock_runtime.dst_end = dst->tbl[i].end;
                 break;
             }
         }
@@ -705,6 +711,8 @@ static int SHELL_timezone(struct UCSH_env *env)
 
     if (0 == NVM_get(NVM_TIME_ZONE, tz, FLASH_NVM_OBJECT_SIZE))
         UCSH_printf(env, "%s\n", tz);
+    else
+        UCSH_puts(env, "0");
 
     free(tz);
     return 0;
@@ -847,7 +855,10 @@ static int SHELL_dst(struct UCSH_env *env)
             CLOCK_assign_dst_offset(&tm, dst);
         }
         else
+        {
+            clock_runtime.dst_end = 0;
             clock_runtime.dst_minute_offset = 0;
+        }
     }
 
     free(dst);

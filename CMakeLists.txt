@@ -55,7 +55,6 @@ add_custom_command(TARGET talking_button
     VERBATIM
 )
 
-
 # if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 #     build_target(panel_b
 #         DEVICE
@@ -119,7 +118,7 @@ add_custom_command(TARGET talking_button
 
 # NOTE: required lc3
 option(LC3_PLUS OFF)
-# option(LC3_PLUS_HR OFF)
+option(LC3_PLUS_HR OFF)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()

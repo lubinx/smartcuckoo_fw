@@ -1069,15 +1069,9 @@ int VOICE_say_time(struct tm const *tm)
     return retval;
 }
 
-int VOICE_say_time_epoch(time_t epoch, int8_t dst_minute_offset)
+int VOICE_say_time_epoch(time_t epoch)
 {
-    epoch += (int)dst_minute_offset * 60;
-    struct tm *tm = localtime(&epoch);
-
-    if (0 != dst_minute_offset)
-        LOG_warning("DST shift %d minutes", dst_minute_offset);
-
-    return VOICE_say_time(tm);
+    return VOICE_say_time(localtime(&epoch));
 }
 
 int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
