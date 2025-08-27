@@ -44,13 +44,12 @@ add_custom_command(TARGET talking_button
     POST_BUILD
     COMMAND
         ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/talking_button.elf" "talking_button.bin"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
-    VERBATIM
-)
-add_custom_command(TARGET talking_button
-    POST_BUILD
     COMMAND
-        lz4 -f -9 --rm "talking_button.bin" "talking_button.lz4"
+        echo "gzip: "
+    COMMAND
+        gzip -f -k "talking_button.bin"
+    COMMAND
+        gzip -l "talking_button.bin.gz"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
     VERBATIM
 )

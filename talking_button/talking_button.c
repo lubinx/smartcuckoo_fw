@@ -78,6 +78,9 @@ void PERIPHERAL_shell_init(void)
 
 void PERIPHERAL_ota_init(void)
 {
+    GPIO_disable(PIN_VOICE_BUTTON);
+    GPIO_disable(PIN_SETTING_BUTTON);
+    GPIO_disable(PIN_ALARM_SW);
 }
 
 void PERIPHERAL_init(void)
@@ -170,7 +173,7 @@ void mplayer_idle_callback(void)
 
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
-    else if (! CLOCK_is_alarming())
+    else // if (! CLOCK_is_alarming())
         CLOCK_peek_start_alarms(time(NULL));
 }
 
