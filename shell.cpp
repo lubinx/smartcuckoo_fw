@@ -278,19 +278,23 @@ static int SHELL_locale(struct UCSH_env *env)
 {
     if (2 == env->argc)
     {
-        char *end_ptr = env->argv[1];
-        int id = strtol(env->argv[1], &end_ptr, 10);
-        int16_t old_voice_id = setting.sel_voice_id;
+        if (0 != strcasecmp("get", env->argv[1]))
+        {
+            char *end_ptr = env->argv[1];
+            int id = strtol(env->argv[1], &end_ptr, 10);
+            int16_t old_voice_id = setting.sel_voice_id;
 
-        if ('\0' == *end_ptr)
-            setting.sel_voice_id = VOICE_select_voice((int16_t)id);
-        else
-            setting.sel_voice_id = VOICE_select_lcid(env->argv[1]);
+            if ('\0' == *end_ptr)
+                setting.sel_voice_id = VOICE_select_voice((int16_t)id);
+            else
+                setting.sel_voice_id = VOICE_select_lcid(env->argv[1]);
 
-        if (old_voice_id != setting.sel_voice_id)
-            NVM_set(NVM_SETTING, &setting, sizeof(setting));
-
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+            if (old_voice_id != setting.sel_voice_id)
+            {
+                NVM_set(NVM_SETTING, &setting, sizeof(setting));
+                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+            }
+        }
         UCSH_printf(env, "voice_id=%d\n", setting.sel_voice_id);
     }
     else if (1 == env->argc)

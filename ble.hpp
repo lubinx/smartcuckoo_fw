@@ -44,9 +44,9 @@
         {
             if (Char == &Shell.Char)
             {
-                struct UCSH_env *env = (struct UCSH_env *)malloc(sizeof(struct UCSH_env) + 2048);
+                struct UCSH_env *env = (struct UCSH_env *)malloc(sizeof(struct UCSH_env) + 4096);
 
-                UCSH_init_instance(env, Shell.CreateVFd(), 2048, (uint32_t *)(env + 1));
+                UCSH_init_instance(env, Shell.CreateVFd(), 4096, (uint32_t *)(env + 1));
                 UCSH_set_destructor(env, UCSH_destruct);
                 LOG_debug("BLE: creating shell 0x%08x", env);
             }
