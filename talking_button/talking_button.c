@@ -95,7 +95,7 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
-        setting.media_volume = 100;
+        setting.media_volume = 75;
     }
     setting.media_volume = MAX(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
@@ -196,19 +196,26 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 static bool battery_checking(void)
 {
     PERIPHERAL_batt_ad_sync();
-    LOG_printf("batt %dmV", PERIPHERAL_batt_volt());
+    uint16_t mv = PERIPHERAL_batt_volt();
+    LOG_printf("batt %dmV", mv);
 
-    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
+    if (BATT_EMPTY_MV > mv)
     {
         // discard settings
         talking_button.click_count = 0;
         talking_button.setting = false;
-
-        mplayer_stop();
         return false;
     }
     else
+    {
+        uint8_t percent = BATT_mv_level(mv);
+        if (50 > percent)
+        {
+            percent = MIN(setting.media_volume, MAX(25, percent));
+            AUDIO_set_volume_percent(percent);
+        }
         return true;
+    }
 }
 
 static void setting_timeout_callback(void *arg)
@@ -274,6 +281,8 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
+    mplayer_playlist_clear();
+
     if (! runtime->setting)
     {
         if (! battery_checking())
@@ -437,6 +446,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_setting(struct talking_button_runtime_t *runtime)
 {
+    mplayer_playlist_clear();
     runtime->voice_loop_stick = clock();
 
     // any button will stop alarming

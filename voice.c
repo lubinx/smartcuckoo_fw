@@ -920,8 +920,6 @@ int VOICE_say_date(struct tm const *tm)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    mplayer_playlist_clear();
-
     int full_year = tm->tm_year + 1900;
     full_year = YEAR_ROUND_LO > full_year ? YEAR_ROUND_LO :
         (YEAR_ROUND_HI < full_year ?        YEAR_ROUND_HI : full_year);
@@ -1045,7 +1043,7 @@ int VOICE_say_time(struct tm const *tm)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    mplayer_playlist_clear();
+    // mplayer_playlist_clear();
 
     LOG_info("%04d/%02d/%02d %02d:%02d:%02d",
         tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
