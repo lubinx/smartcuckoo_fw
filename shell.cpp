@@ -117,7 +117,7 @@ static void SHELL_register(void)
     UCSH_REGISTER("heap",
         [](struct UCSH_env *env)
         {
-            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_avail());
+            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_unused());
             return 0;
         });
 
@@ -174,15 +174,15 @@ void SHELL_bootstrap(void)
     SHELL_register();
 
     #if 0 == PMU_EM2_EN
-        __EM3_VOLATILE static struct UCSH_env UART_sh_env;
-        __EM3_VOLATILE static uint32_t UART_sh_stack[1536 / sizeof(uint32_t)];
+        __VOLATILE_DATA static struct UCSH_env UART_sh_env;
+        __VOLATILE_DATA static uint32_t UART_sh_stack[1536 / sizeof(uint32_t)];
 
         UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
         LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_get_calibration_ppb());
     #endif
 
-    LOG_info("heap avail: %d", SYSCON_get_heap_avail());
+    LOG_info("heap avail: %d", SYSCON_get_heap_unused());
     BLE.Run();
 }
 
