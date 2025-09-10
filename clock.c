@@ -54,8 +54,8 @@ struct DST_t
     uint8_t tbl_count;
     struct
     {
-        int32_t start;      // YYYYMMDDHH
-        int32_t end;
+        int start;      // YYYYMMDDHH
+        int end;
     } tbl[20];
 };
 #define NVM_DST_COUNT                   sizeof(struct DST_t)
@@ -68,9 +68,21 @@ struct CLOCK_runtime_t clock_runtime;
 /****************************************************************************
  *  @implements: weaks
  ****************************************************************************/
-int get_dst_offset(void)
+int get_dst_offset(struct tm *tm)
 {
-    return 60 * clock_runtime.dst_minute_offset;
+    struct DST_t *dst =NVM_get_ptr(NVM_DST);
+
+    if (dst->en && 0 < dst->tbl_count)
+    {
+        int dt = (tm->tm_year + 1900) * (1000000) + (tm->tm_mon + 1) * 10000 + tm->tm_mday * 100 + tm->tm_hour;
+
+        for (unsigned i = 0; i < dst->tbl_count; i ++)
+        {
+            if (dt >= dst->tbl[i].start && dt < dst->tbl[i].end)
+                return 60 * dst->dst_minute_offset;
+        }
+    }
+    return 0;
 }
 
 __attribute__((weak))
@@ -86,8 +98,6 @@ static struct timeout_t reminder_next_timeo;
 
 static struct CLOCK_moment_t alarms[NVM_ALARM_COUNT];
 static struct CLOCK_moment_t reminders[NVM_ALARM_COUNT];
-
-static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst);
 
 // shell commands
 static int SHELL_alarm(struct UCSH_env *env);
@@ -131,8 +141,6 @@ void CLOCK_init()
         LOG_printf("%04d/%02d/%02d %02d:%02d:%02d",
             dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday,
             dt.tm_hour, dt.tm_min, dt.tm_sec);
-
-        CLOCK_assign_dst_offset(&dt, NULL);
     }
 
     clock_runtime.alarming_idx = -1;
@@ -219,13 +227,6 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
 
     struct tm dt;
     localtime_r(&ts, &dt);
-
-    // NOTE: checking DST
-    if (0 != clock_runtime.dst_end)
-    {
-        if ((dt.tm_year + 1900) * (1000000) + (dt.tm_mon + 1) * 10000 + dt.tm_mday * 100 + dt.tm_hour > clock_runtime.dst_end)
-            CLOCK_assign_dst_offset(&dt, NULL);
-    }
 
     int16_t mtime = time_to_mtime(ts % 86400);
     struct CLOCK_moment_t *current_alarm = NULL;
@@ -413,40 +414,6 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
     minute %= 60;
 
     moment->mtime = (int16_t)((moment->mtime - moment->mtime % 100) +  minute);
-}
-
-/****************************************************************************
- *  @internal
- ****************************************************************************/
-static void CLOCK_assign_dst_offset(struct tm const *tm, struct DST_t *dst)
-{
-    bool dynamic_alloc = NULL == dst;
-    if (dynamic_alloc)
-    {
-        dst = malloc(sizeof(*dst));
-
-        if (0 != NVM_get(NVM_DST, dst, sizeof(*dst)))
-            dst->en = false;
-    }
-    clock_runtime.dst_end = 0;
-
-    if (dst->en && 0 < dst->tbl_count)
-    {
-        int dt = (tm->tm_year + 1900) * (1000000) + (tm->tm_mon + 1) * 10000 + tm->tm_mday * 100 + tm->tm_hour;
-
-        for (unsigned i = 0; i < dst->tbl_count; i ++)
-        {
-            if (dt >= dst->tbl[i].start && dt < dst->tbl[i].end)
-            {
-                clock_runtime.dst_minute_offset = dst->dst_minute_offset;
-                clock_runtime.dst_end = dst->tbl[i].end;
-                break;
-            }
-        }
-    }
-
-    if (dynamic_alloc)
-        free(dst);
 }
 
 /****************************************************************************
@@ -841,23 +808,6 @@ static int SHELL_dst(struct UCSH_env *env)
 
             if (0 == NVM_set(NVM_DST, dst, sizeof(*dst)))
                 VOICE_say_setting(VOICE_SETTING_DONE, NULL);
-        }
-    }
-
-    if (0 == err)
-    {
-        if (dst->en)
-        {
-            time_t ts = time(NULL);
-            struct tm tm;
-            localtime_r(&ts, &tm);
-
-            CLOCK_assign_dst_offset(&tm, dst);
-        }
-        else
-        {
-            clock_runtime.dst_end = 0;
-            clock_runtime.dst_minute_offset = 0;
         }
     }
 

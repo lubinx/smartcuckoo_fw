@@ -29,9 +29,6 @@
 
     struct CLOCK_runtime_t
     {
-        int dst_end;
-
-        int8_t dst_minute_offset;
         int8_t alarming_idx;
 
         time_t alarm_snooze_ts_end;
