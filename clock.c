@@ -70,7 +70,7 @@ struct CLOCK_runtime_t clock_runtime;
  ****************************************************************************/
 int get_dst_offset(struct tm *tm)
 {
-    struct DST_t *dst =NVM_get_ptr(NVM_DST);
+    struct DST_t *dst = NVM_get_ptr(NVM_DST);
 
     if (dst->en && 0 < dst->tbl_count)
     {
