@@ -194,7 +194,9 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
 
 static bool battery_checking(void)
 {
+    talking_button.batt_last_ts = time(NULL);
     PERIPHERAL_batt_ad_sync();
+
     uint16_t mv = PERIPHERAL_batt_volt();
     LOG_printf("batt %dmV", mv);
 
@@ -283,13 +285,14 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
-    mplayer_playlist_clear();
-
     if (! runtime->setting)
     {
         if (! battery_checking())
             return;
     }
+
+    PMU_power_lock();
+    mplayer_playlist_clear();
 
     if (SETTING_TIMEOUT < clock() - talking_button.voice_loop_stick)
         talking_button.click_count = 0;
@@ -298,8 +301,6 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     // any button will stop alarming
     if (true == CLOCK_stop_current_alarm())
         runtime->click_count = 0;
-
-    PMU_power_lock();
 
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
@@ -448,7 +449,9 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_setting(struct talking_button_runtime_t *runtime)
 {
+    PMU_power_lock();
     mplayer_playlist_clear();
+
     runtime->voice_loop_stick = clock();
 
     // any button will stop alarming
@@ -518,6 +521,8 @@ static void MSG_button_setting(struct talking_button_runtime_t *runtime)
     case VOICE_SETTING_ALARM_RINGTONE:
         break;
     }
+
+    PMU_power_unlock();
 }
 
 static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
