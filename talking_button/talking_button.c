@@ -36,7 +36,6 @@ struct talking_button_runtime_t
     struct tm setting_dt;
 
     time_t batt_last_ts;
-    uint8_t batt_ctrl_volume;
 };
 
 enum buttion_action_t
@@ -214,6 +213,9 @@ static bool battery_checking(void)
             percent = MIN(setting.media_volume, MAX(25, percent));
             AUDIO_set_volume_percent(percent);
         }
+        else
+            AUDIO_set_volume_percent(setting.media_volume);
+
         return true;
     }
 }
