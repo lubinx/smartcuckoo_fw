@@ -395,7 +395,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
         {
         setting_rtc_set_time:
             runtime->setting_dt.tm_sec = 0;
-            RTC_set_epoch_time(mktime(&runtime->setting_dt));
+            RTC_set_epoch_time(mktime(&runtime->setting_dt) - get_dst_offset(&runtime->setting_dt));
 
             LOG_info("%02d:%02d:%02d", runtime->setting_dt.tm_hour,
                 runtime->setting_dt.tm_min,
@@ -411,7 +411,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             date.tm_hour = 0;
             date.tm_min = 0;
             date.tm_sec = 0;
-            RTC_set_epoch_time(time(NULL) % 86400 + mktime(&date));
+            RTC_set_epoch_time(time(NULL) % 86400 + mktime(&date) - get_dst_offset(&runtime->setting_dt));
 
             LOG_info("%04d/%02d/%02d", runtime->setting_dt.tm_year + 1900,
                 runtime->setting_dt.tm_mon + 1,

@@ -79,7 +79,12 @@ int get_dst_offset(struct tm *tm)
         for (unsigned i = 0; i < dst->tbl_count; i ++)
         {
             if (dt >= dst->tbl[i].start && dt < dst->tbl[i].end)
-                return 60 * dst->dst_minute_offset;
+            {
+                if (dt == dst->tbl[i].start && 0 == tm->tm_sec)
+                    return 0;
+                else
+                    return 60 * dst->dst_minute_offset;
+            }
         }
     }
     return 0;
