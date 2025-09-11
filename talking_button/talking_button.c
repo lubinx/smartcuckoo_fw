@@ -218,7 +218,7 @@ static void alaramsw_timeout_callback(void *arg)
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
 {
-    LOG_warning("alive: %u", PMU_get_power_lock_count());
+    LOG_debug("alive");
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
