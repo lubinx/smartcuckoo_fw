@@ -143,7 +143,7 @@ void CLOCK_init()
         now = time(NULL);
         localtime_r(&now, &dt);
 
-        LOG_printf("%04d/%02d/%02d %02d:%02d:%02d",
+        LOG_info("%04d/%02d/%02d %02d:%02d:%02d",
             dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday,
             dt.tm_hour, dt.tm_min, dt.tm_sec);
     }

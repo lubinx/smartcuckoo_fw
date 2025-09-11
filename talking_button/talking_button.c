@@ -53,7 +53,6 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
 
 static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *runtime);
 
-static bool battery_checking(void);
 static void setting_timeout_callback(void *arg);
 static void alaramsw_timeout_callback(void *arg);
 
@@ -192,36 +191,6 @@ static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t 
         timeout_start(&talking_button.alarm_sw_timeo, (void *)1);
 }
 
-static bool battery_checking(void)
-{
-    talking_button.batt_last_ts = time(NULL);
-    PERIPHERAL_batt_ad_sync();
-
-    uint16_t mv = PERIPHERAL_batt_volt();
-    LOG_printf("batt %dmV", mv);
-
-    if (BATT_EMPTY_MV > mv)
-    {
-        // discard settings
-        talking_button.click_count = 0;
-        talking_button.setting = false;
-        return false;
-    }
-    else
-    {
-        uint8_t percent = BATT_mv_level(mv);
-        if (50 > percent)
-        {
-            percent = MIN(setting.media_volume, MAX(25, percent));
-            AUDIO_set_volume_percent(percent);
-        }
-        else
-            AUDIO_set_volume_percent(setting.media_volume);
-
-        return true;
-    }
-}
-
 static void setting_timeout_callback(void *arg)
 {
     ARG_UNUSED(arg);
@@ -249,7 +218,7 @@ static void alaramsw_timeout_callback(void *arg)
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
 {
-    LOG_debug("alive");
+    LOG_warning("alive: %u", PMU_get_power_lock_count());
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
@@ -285,10 +254,32 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_button_voice(struct talking_button_runtime_t *runtime)
 {
-    if (! runtime->setting)
+    if (0 == (0x1 & talking_button.click_count))
     {
-        if (! battery_checking())
+        talking_button.batt_last_ts = time(NULL);
+        PERIPHERAL_batt_ad_sync();
+
+        uint16_t mv = PERIPHERAL_batt_volt();
+        LOG_info("batt %dmV", mv);
+
+        if (BATT_EMPTY_MV > mv)
+        {
+            // discard settings
+            talking_button.click_count = 0;
+            talking_button.setting = false;
             return;
+        }
+        else
+        {
+            uint8_t percent = BATT_mv_level(mv);
+            if (50 > percent)
+            {
+                percent = MIN(setting.media_volume, MAX(25, percent));
+                AUDIO_set_volume_percent(percent);
+            }
+            else
+                AUDIO_set_volume_percent(setting.media_volume);
+        }
     }
 
     PMU_power_lock();
@@ -411,7 +402,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
             date.tm_hour = 0;
             date.tm_min = 0;
             date.tm_sec = 0;
-            RTC_set_epoch_time(time(NULL) % 86400 + mktime(&date) - get_dst_offset(&runtime->setting_dt));
+            RTC_set_epoch_time(time(NULL) % 86400 + mktime(&date));
 
             LOG_info("%04d/%02d/%02d", runtime->setting_dt.tm_year + 1900,
                 runtime->setting_dt.tm_mon + 1,
