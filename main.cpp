@@ -181,7 +181,7 @@ int main(void)
         USBD_pin_mux(USB, PA12, PA11);
         USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
 
-        USBD_attr_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
+        USBD_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
             {
                 if (0 == FAT_mount_fs_root(&fat))
                     FAT_attr_print(&fat);
