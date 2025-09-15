@@ -10,14 +10,18 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
+    "ultracore/src/hw/common_i2s.c"
+    "ultracore/src/audio/codec/es8156.c"
+    "ultracore/src/audio/wavefile.c"
+    "ultracore/src/audio/renderer.c"
     "ultracore/src/usb/*.c"
 )
 
 # remove prebuild ultracore archs
-file(GLOB glob_list "${CMAKE_BINARY_DIR}/talking_button.*")
-foreach(iter ${glob_list})
-    file(REMOVE ${iter})
-endforeach()
+# file(GLOB glob_list "${CMAKE_BINARY_DIR}/*.elf")
+# foreach(iter ${glob_list})
+#     file(REMOVE ${iter})
+# endforeach()
 
 build_target(talking_button
     DEVICE
@@ -38,22 +42,51 @@ build_target(talking_button
     OUTPUT_DIR
         "../_bin"
 )
-
 # generate talking_button.gz
 add_custom_command(TARGET talking_button
     POST_BUILD
     COMMAND
-        echo "firmare: "
-    COMMAND
-        ${CMAKE_SIZE_UTIL} "talking_button.hex"
-    COMMAND
         ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/talking_button.elf" "talking_button.bin"
-    COMMAND
-        echo "ota filesize: "
     COMMAND
         gzip -f "talking_button.bin"
     COMMAND
-        stat -c "\t%s" "talking_button.bin.gz"
+        stat -c "talking_button.bin.gz: %s" "talking_button.bin.gz"
+    COMMAND
+        echo --------------------------------------------------
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
+    VERBATIM
+)
+
+build_target(zone
+    DEVICE
+        "N32WB452LE"
+    DRIVER
+        "../n32x45x"
+    CONFIG_DIR
+        "zone/config"
+    INCLUDE_DIRS
+        "."
+    SRCS
+        ${COMMON_SRCS}
+        "zone/*.c"
+    DEFINITIONS
+        NVM_TAG="zone"
+    DEPENDENCIES
+        "lc3"
+    OUTPUT_DIR
+        "../_bin"
+)
+# generate talking_button.gz
+add_custom_command(TARGET zone
+    POST_BUILD
+    COMMAND
+        ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/zone.elf" "zone.bin"
+    COMMAND
+        gzip -f "zone.bin"
+    COMMAND
+        stat -c "zone.bin.gz: %s" "zone.bin.gz"
+    COMMAND
+        echo --------------------------------------------------
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
     VERBATIM
 )
@@ -121,7 +154,7 @@ add_custom_command(TARGET talking_button
 
 # NOTE: required lc3
 option(LC3_PLUS OFF)
-option(LC3_PLUS_HR OFF)
+# option(LC3_PLUS_HR OFF)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()

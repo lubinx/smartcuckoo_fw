@@ -8,7 +8,9 @@
 #include <ultracore/timeo.h>
 #include <ultracore/nvm.h>
 #include <sh/ucsh.h>
+
 #include <audio/mplayer.h>
+#include <audio/mynoise.h>
 
 #include <errno.h>
 #include <pthread.h>

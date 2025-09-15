@@ -18,7 +18,6 @@ enum talking_button_message_t
 struct talking_button_runtime_t
 {
     int mqd;
-    int mp3_uartfd;
 
     timeout_t setting_timeo;
     timeout_t alarm_sw_timeo;

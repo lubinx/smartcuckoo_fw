@@ -37,7 +37,7 @@
     #define PIN_IRDA                    PC03
 
 // mp3 player & lineout
-    #define PIN_MUTE                    PA00
+    #define AMPIFIER_PIN                PA00
     #define PIN_HEADPHONE_DET           PA08
     #define PIN_PLAY_BUSYING            PB00
 

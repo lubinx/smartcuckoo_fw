@@ -121,8 +121,8 @@ static void SHELL_register(void)
             return 0;
         });
 
+#ifdef DEBUG
     // mplayer
-    /*
     UCSH_REGISTER("mplay",
         [](struct UCSH_env *env)
         {
@@ -145,7 +145,7 @@ static void SHELL_register(void)
         [](struct UCSH_env *env)
         {
             (void)env;
-            return mplayer_stop(true);
+            return mplayer_stop();
         }
     );
 
@@ -163,7 +163,32 @@ static void SHELL_register(void)
             return AUDIO_renderer_unmute();
         }
     );
-    */
+#endif
+
+    UCSH_REGISTER("noise",
+        [](struct UCSH_env *env)
+        {
+            if (2 != env->argc)
+                return EINVAL;
+
+            if (0 == strcasecmp(env->argv[1], "start"))
+                return MYNOISE_start();
+            if (0 == strcasecmp(env->argv[1], "stop"))
+                return MYNOISE_stop();
+
+            if (0 == strcasecmp(env->argv[1], "next"))
+                return MYNOISE_next();
+            if (0 == strcasecmp(env->argv[1], "prev"))
+                return MYNOISE_prev();
+
+            if (0 == strcasecmp(env->argv[1], "pause"))
+                return MYNOISE_pause();
+            if (0 == strcasecmp(env->argv[1], "resume"))
+                return MYNOISE_resume();
+
+            return EINVAL;
+        }
+    );
 
     // REVIEW: peripheral extensions.
     PERIPHERAL_shell_init();

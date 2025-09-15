@@ -5,8 +5,8 @@
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"
-    #define PROJECT_VERSION             VERSION_INFO(1, 0, 27)
-    #define PROJECT_ID                  "tbtn"
+    #define PROJECT_VERSION             VERSION_INFO(1, 0, 1)
+    #define PROJECT_ID                  "zone"
 
 // console
     #define CONSOLE_DEV                 USART1
@@ -39,13 +39,31 @@
     #define SDIO_POWER_PIN              PB01
     #define SDIO_POWER_PULL             PUSH_PULL_DOWN
 
+// I2S
+    #define I2S_PINS                    PC06, PB13, PB12, PB15, 0
+    #define I2S_CODEC_I2C_PINS          I2C2, PB10, PB11
+
 // ampifier
     #define AMPIFIER_PIN                PB14
     #define AMPIFIER_EN_PULL            PUSH_PULL_DOWN
 
+// LEDs
+    #define LED_POWER                   PD08
+    #define LED1                        PA07
+    #define LED2                        PC04
+    #define LED3                        PC05
+
 // buttons
-    #define PIN_VOICE_BUTTON            PC00
-    #define PIN_SETTING_BUTTON          PC01
-    #define PIN_ALARM_SW                PA02
+    // #define PIN_VOICE_BUTTON            PC00
+    #define PIN_POWER_BUTTON            PA02
+    #define PIN_PREV_BUTTON             PC01
+    // #define PIN_NEXT_BUTTON             PD14
+    #define PIN_VOLUME_UP_BUTTON        PD15
+    #define PIN_VOLUME_DOWN_BUTTON      PD00
+
+// volume
+    #define VOLUME_MAX_PERCENT          (100)
+    #define VOLUME_MIN_PERCENT          (25)
+    #define VOLUME_ADJ_HOLD_INTV        (250)
 
 #endif

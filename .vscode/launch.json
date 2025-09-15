@@ -35,40 +35,11 @@
       "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
     },
     {
-      "name": "Debug Panel B",
+      "name": "Debug zone",
       "type": "cppdbg",
       "request": "launch",
       "miDebuggerServerAddress": "127.0.0.1:2331",
-      "program": "${workspaceFolder}/build/panel_b.elf",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
-      "stopAtConnect": true,
-      "postRemoteConnectCommands": [
-        {
-          "text": "set mem inaccessible-by-default off"
-        },
-        {
-          "text": "monitor reset"
-        },
-        {
-          "text": "load"
-        },
-        {
-          "text": "monitor reset"
-        },
-      ],
-      "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
-    },
-    {
-      "name": "Debug Panel C",
-      "type": "cppdbg",
-      "request": "launch",
-      "miDebuggerServerAddress": "127.0.0.1:2331",
-      "program": "${workspaceFolder}/build/panel_c.elf",
+      "program": "${workspaceFolder}/build/zone.elf",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

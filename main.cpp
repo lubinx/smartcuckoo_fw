@@ -10,6 +10,15 @@
 
 #include "smartcuckoo.h"
 
+#ifdef I2S_PINS
+    #include <i2s.h>
+    #include <audio/codec/es8156.h>
+#endif
+
+#ifdef DEBUG
+    #include <rcc.h>
+#endif
+
 /****************************************************************************
  *  @def
  ****************************************************************************/
@@ -30,7 +39,12 @@ static struct FAT_attr_t fat;
 
 static struct USBD_SCSI_attr_t usbd_scsi;
 static struct PMU_attr_t pmu_attr;
-static struct DAC_attr_t dac_attr;
+
+#ifdef I2S_PINS
+    static struct I2S_attr_t i2s_attr;
+#else
+    static struct DAC_attr_t dac_attr;
+#endif
 
 #ifdef PIN_BATT_ADC
     struct batt_ad_t
@@ -75,6 +89,14 @@ int main(void)
     UART_pin_mux(CONSOLE_DEV, CONSOLE_TXD, CONSOLE_RXD);
     __stdout_fd = UART_createfd(CONSOLE_DEV, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
     LOG_info("smartcuckoo %s booting", PROJECT_ID);
+
+    #ifdef DEBUG
+        printf("CLK configure:\n");
+        printf("\tSYSCLK: %u MHz\n", (unsigned)(SYSCLK_FREQ / _MHZ));
+        printf("\tAPB1  : %u MHz\n", (unsigned)(APB1_FREQ / _MHZ));
+        printf("\tAPB2  : %u MHz\n", (unsigned)(APB2_FREQ / _MHZ));
+        printf("\n");
+    #endif
 
     #ifdef I2C0_SCL
         I2C_pin_mux(I2C0, I2C0_SCL, I2C0_SDA);
@@ -178,7 +200,7 @@ int main(void)
     }
     if (1)  // REVIEW: USB scsi
     {
-        USBD_pin_mux(USB, PA12, PA11);
+        USBD_pin_mux(USB, USB_PINS);
         USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
 
         USBD_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
@@ -189,16 +211,21 @@ int main(void)
         );
     }
 
-    if (1)  // REVIEW: bind DAC => audio renderer
-    {
-        DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, PIN_MUTE, PUSH_PULL_UP, 150);
-    }
     if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
     {
         LC3_register_codec();
         mplayer_init(MPLAYER_QUEUE_SIZE);
     }
+
+    #ifdef I2S_PINS
+        I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
+        I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
+        // I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
+        GPIO_setdir_output(PUSH_PULL_DOWN, PB14);
+    #else   // REVIEW: bind DAC => audio renderer
+        DAC_init(&dac_attr, true);
+        DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
+    #endif
 
     PERIPHERAL_init();
     UCSH_register_fileio();
