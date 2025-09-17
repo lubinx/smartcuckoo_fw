@@ -8,8 +8,8 @@
 
 enum talking_button_message_t
 {
-    MSG_BUTTON_VOICE            = 1,
-    MSG_BUTTON_SETTING,
+    MSG_VOICE_BUTTON            = 1,
+    MSG_SETTING_BUTTON,
 
     MSG_ALARM_SW,
     MSG_SETTING_TIMEOUT,
@@ -177,14 +177,14 @@ void mplayer_idle_callback(void)
 /****************************************************************************
  *  @private: buttons
  ****************************************************************************/
-static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *ctx)
+static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *runtime)
 {
     timeout_stop(&talking_button.setting_timeo);
 
     if (PIN_SETTING_BUTTON == (PIN_SETTING_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_BUTTON_SETTING, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_SETTING_BUTTON, 0, 0);
     if (PIN_VOICE_BUTTON == (PIN_VOICE_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_BUTTON_VOICE, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_VOICE_BUTTON, 0, 0);
 
     if (PIN_ALARM_SW == (PIN_ALARM_SW & pins))
         timeout_start(&talking_button.alarm_sw_timeo, (void *)1);
@@ -251,7 +251,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
     }
 }
 
-static void MSG_button_voice(struct talking_button_runtime_t *runtime)
+static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 {
     if (0 == (0x1 & talking_button.click_count))
     {
@@ -437,7 +437,7 @@ static void MSG_button_voice(struct talking_button_runtime_t *runtime)
     PMU_power_unlock();
 }
 
-static void MSG_button_setting(struct talking_button_runtime_t *runtime)
+static void MSG_setting_button(struct talking_button_runtime_t *runtime)
 {
     PMU_power_lock();
     mplayer_playlist_clear();
@@ -543,12 +543,12 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button
         {
             switch ((enum talking_button_message_t)msg->msgid)
             {
-            case MSG_BUTTON_VOICE:
-                MSG_button_voice(runtime);
+            case MSG_VOICE_BUTTON:
+                MSG_voice_button(runtime);
                 break;
 
-            case MSG_BUTTON_SETTING:
-                MSG_button_setting(runtime);
+            case MSG_SETTING_BUTTON:
+                MSG_setting_button(runtime);
                 break;
 
             case MSG_SETTING_TIMEOUT:

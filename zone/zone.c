@@ -8,7 +8,8 @@
 
 enum zone_message
 {
-    MSG_POWER_BUTTON            = 1,
+    MSG_VOICE_BUTTON        = 0,
+    MSG_POWER_BUTTON,
     MSG_PREV_BUTTON,
     MSG_NEXT_BUTTON,
     MSG_VOLUME_UP_BUTTON,
@@ -67,9 +68,10 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_output(PUSH_PULL_UP, LED2);
     GPIO_setdir_output(PUSH_PULL_UP, LED3);
 
+    GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_POWER_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_PREV_BUTTON, true);
-    // GPIO_setdir_input_pp(PULL_UP, PIN_NEXT_BUTTON, true);
+    GPIO_setdir_input_pp(PULL_UP, PIN_NEXT_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_UP_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_DOWN_BUTTON, true);
 }
@@ -80,15 +82,16 @@ void PERIPHERAL_shell_init(void)
 
 void PERIPHERAL_ota_init(void)
 {
-    // GPIO_disable(PIN_VOICE_BUTTON);
-    // GPIO_disable(PIN_SETTING_BUTTON);
-    // GPIO_disable(PIN_ALARM_SW);
+    GPIO_disable(PIN_VOICE_BUTTON);
+    GPIO_disable(PIN_POWER_BUTTON);
+    GPIO_disable(PIN_PREV_BUTTON);
+    GPIO_disable(PIN_NEXT_BUTTON);
+    GPIO_disable(PIN_VOLUME_UP_BUTTON);
+    GPIO_disable(PIN_VOLUME_DOWN_BUTTON);
 }
 
 void PERIPHERAL_init(void)
 {
-    GPIO_setdir_output(PUSH_PULL_DOWN, PB14);
-
     timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, volume_adj_intv_callback, TIMEOUT_FLAG_REPEAT);
     timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
 
@@ -96,9 +99,9 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
-        setting.media_volume = 75;
+        setting.media_volume = 30;
     }
-    setting.media_volume = MAX(50, setting.media_volume);
+    setting.media_volume = MIN(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
@@ -107,8 +110,8 @@ void PERIPHERAL_init(void)
         (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_PREV_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &zone);
-    // GPIO_intr_enable(PIN_NEXT_BUTTON, TRIG_BY_FALLING_EDGE,
-    //     (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_NEXT_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_VOLUME_UP_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_VOLUME_DOWN_BUTTON, TRIG_BY_FALLING_EDGE,
@@ -185,24 +188,23 @@ void mplayer_idle_callback(void)
 /****************************************************************************
  *  @private: buttons
  ****************************************************************************/
-static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *ctx)
+static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
 {
     (void)pins;
-    (void)ctx;
     timeout_stop(&zone.setting_timeo);
 
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_POWER_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
 
     if (PIN_PREV_BUTTON == (PIN_PREV_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_PREV_BUTTON, 0, 0);
-    // if (PIN_NEXT_BUTTON == (PIN_NEXT_BUTTON & pins))
-    //     mqueue_postv(ctx->mqd, MSG_NEXT_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_PREV_BUTTON, 0, 0);
+    if (PIN_NEXT_BUTTON == (PIN_NEXT_BUTTON & pins))
+        mqueue_postv(runtime->mqd, MSG_NEXT_BUTTON, 0, 0);
 
     if (PIN_VOLUME_UP_BUTTON == (PIN_VOLUME_UP_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
     if (PIN_VOLUME_DOWN_BUTTON == (PIN_VOLUME_DOWN_BUTTON & pins))
-        mqueue_postv(ctx->mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
 }
 
 static void setting_timeout_callback(void *arg)
@@ -230,6 +232,9 @@ static void volume_adj_intv_callback(void *arg)
     {
     volume_adj_stop:
         timeout_stop(&zone.volume_adj_intv);
+
+        setting.media_volume = AUDIO_get_volume_percent();
+        NVM_set(NVM_SETTING, &setting, sizeof(setting));
     }
 }
 
@@ -286,6 +291,9 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
         {
             switch ((enum zone_message)msg->msgid)
             {
+            case MSG_VOICE_BUTTON:
+                break;
+
             case MSG_POWER_BUTTON:
                 MSG_power_button(runtime);
                 break;

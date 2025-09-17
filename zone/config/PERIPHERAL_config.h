@@ -54,16 +54,16 @@
     #define LED3                        PC05
 
 // buttons
-    // #define PIN_VOICE_BUTTON            PC00
+    #define PIN_VOICE_BUTTON            PC11
     #define PIN_POWER_BUTTON            PA02
     #define PIN_PREV_BUTTON             PC01
-    // #define PIN_NEXT_BUTTON             PD14
+    #define PIN_NEXT_BUTTON             PC09
     #define PIN_VOLUME_UP_BUTTON        PD15
     #define PIN_VOLUME_DOWN_BUTTON      PD00
 
 // volume
     #define VOLUME_MAX_PERCENT          (100)
-    #define VOLUME_MIN_PERCENT          (25)
+    #define VOLUME_MIN_PERCENT          (10)
     #define VOLUME_ADJ_HOLD_INTV        (250)
 
 #endif

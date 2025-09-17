@@ -29,24 +29,24 @@
         MSG_VOLUME_INC,
         MSG_VOLUME_DEC,
 
-        MSG_BUTTON_SETTING,
-        MSG_BUTTON_SNOOZE,
-        MSG_BUTTON_MESSAGE,
-        MSG_BUTTON_NOISE,
-        MSG_BUTTON_LAMP_EN,
-        MSG_BUTTON_LAMP,
-        MSG_BUTTON_RECORD,
+        MSG_SETTING_BUTTON,
+        MSG_SNOOZE_BUTTON,
+        MSG_MESSAGE_BUTTON,
+        MSG_NOISE_BUTTON,
+        MSG_LAMP_EN_BUTTON,
+        MSG_LAMP_BUTTON,
+        MSG_RECORD_BUTTON,
 
-        MSG_BUTTON_UP,
-        MSG_BUTTON_DOWN,
-        MSG_BUTTON_LEFT,
-        MSG_BUTTON_RIGHT,
-        MSG_BUTTON_OK,
+        MSG_UP_BUTTON,
+        MSG_DOWN_BUTTON,
+        MSG_LEFT_BUTTON,
+        MSG_RIGHT_BUTTON,
+        MSG_OK_BUTTON,
 
         // PANEL B
-        MSG_BUTTON_ALM1,
-        MSG_BUTTON_ALM2,
-        MSG_BUTTON_MEDIA,
+        MSG_ALM1_BUTTON,
+        MSG_ALM2_BUTTON,
+        MSG_MEDIA_BUTTON,
 
     };
 
@@ -156,7 +156,7 @@ __BEGIN_DECLS
 static inline
     bool MSG_is_repeatable(enum PANEL_message_t msgid)
     {
-        return (MSG_BUTTON_UP <= msgid && MSG_BUTTON_RIGHT >= msgid) ||
+        return (MSG_UP_BUTTON <= msgid && MSG_RIGHT_BUTTON >= msgid) ||
             MSG_VOLUME_INC == msgid ||
             MSG_VOLUME_DEC == msgid;
     }
