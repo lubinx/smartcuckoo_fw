@@ -107,7 +107,8 @@ static void SHELL_register(void)
                 NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
                 // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
-                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                if (AUDIO_renderer_is_idle())
+                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
             }
             UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume_percent());
             return 0;
@@ -117,7 +118,40 @@ static void SHELL_register(void)
     UCSH_REGISTER("heap",
         [](struct UCSH_env *env)
         {
-            UCSH_printf(env, "heap avail: %d\n", SYSCON_get_heap_unused());
+            #ifdef __NEWLIB__
+                UCSH_puts(env, "fragment\n");
+                if (1)
+                {
+                    struct malloc_chunk *iter = __malloc_sbrk_start;
+                    struct malloc_chunk *__malloc_end = (struct malloc_chunk *)sbrk(0);
+
+                    while (iter < __malloc_end)
+                    {
+                        UCSH_printf(env, "\tchunk: 0x%08X, size: %u\n", (uintptr_t)iter, (unsigned)iter->size);
+                        iter = (struct malloc_chunk *)((uint8_t *)iter + iter->size);
+                    }
+                }
+
+                size_t freed = 0;
+                UCSH_puts(env, "freed\n");
+                if (1)
+                {
+                    struct malloc_chunk *iter = __malloc_free_list;
+
+                    while (NULL != iter)
+                    {
+                        UCSH_printf(env, "\tchunk: 0x%08X, size: %u\n", (uintptr_t)iter, (unsigned)iter->size);
+                        freed += iter->size;
+                        iter = iter->next;
+                    }
+                }
+                // UCSH_printf(env, "heap freed:\n", heap_avail);
+
+                UCSH_puts(env, "summary\n");
+                UCSH_printf(env, "\ttotal   : %u\n", SYSCON_get_heap_total());
+                UCSH_printf(env, "\tunused  : %u\n", SYSCON_get_heap_unused());
+                UCSH_printf(env, "\tfreed   : %u\n", freed);
+            #endif
             return 0;
         });
 
