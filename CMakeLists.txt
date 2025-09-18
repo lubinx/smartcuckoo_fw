@@ -10,10 +10,6 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    "ultracore/src/hw/common_i2s.c"
-    "ultracore/src/audio/codec/es8156.c"
-    "ultracore/src/audio/wavefile.c"
-    "ultracore/src/audio/renderer.c"
     "ultracore/src/usb/*.c"
 )
 

@@ -7,6 +7,7 @@
 #include <ultracore/mq.h>
 #include <ultracore/timeo.h>
 #include <ultracore/nvm.h>
+#include <ultracore/thread.h>
 #include <sh/ucsh.h>
 
 #include <audio/mplayer.h>
@@ -80,6 +81,7 @@
     {
         uint8_t media_volume;
         uint8_t dim;
+        bytebool_t alarm_on_simulate;   // REVIEW: has no hardware switcher
 
         int16_t sel_voice_id;
         uint16_t last_noise_id;

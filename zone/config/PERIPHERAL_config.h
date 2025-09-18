@@ -61,6 +61,8 @@
     #define PIN_VOLUME_UP_BUTTON        PD15
     #define PIN_VOLUME_DOWN_BUTTON      PD00
 
+    #define BUTTION_LONG_PRESS_TIMEO    (1500)
+
 // volume
     #define VOLUME_MAX_PERCENT          (100)
     #define VOLUME_MIN_PERCENT          (10)

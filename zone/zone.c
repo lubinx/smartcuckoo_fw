@@ -6,6 +6,8 @@
 #define MQUEUE_PAYLOAD_SIZE             (8)
 #define MQUEUE_LENGTH                   (8)
 
+#define MQUEUE_ALIVE_INTV_SECONDS       (5)
+
 enum zone_message
 {
     MSG_VOICE_BUTTON        = 0,
@@ -23,9 +25,6 @@ struct zone_runtime_t
     timeout_t setting_timeo;
     timeout_t volume_adj_intv;
 
-    unsigned click_count;
-    clock_t voice_loop_stick;
-
     bool setting;
     bool setting_is_modified;
     bool setting_alarm_is_modified;
@@ -33,6 +32,13 @@ struct zone_runtime_t
     enum VOICE_setting_part_t setting_part;
     struct tm setting_dt;
 
+    clock_t power_button_tick;
+    clock_t voice_button_tick;
+
+    unsigned click_count;
+    clock_t voice_loop_stick;
+
+    uint32_t noise_off_seconds;
     time_t batt_last_ts;
 };
 
@@ -51,8 +57,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
 
-static void volume_adj_intv_callback(void *arg);
-static void setting_timeout_callback(void *arg);
+static void setting_timeout_callback(struct zone_runtime_t *runtime);
+static void volume_adj_intv_callback(uint32_t button_pin);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -92,8 +98,8 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, volume_adj_intv_callback, TIMEOUT_FLAG_REPEAT);
-    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
+    timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, (void *)volume_adj_intv_callback, TIMEOUT_FLAG_REPEAT);
+    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)setting_timeout_callback, 0);
 
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
@@ -106,6 +112,8 @@ void PERIPHERAL_init(void)
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
 
+    GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_POWER_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_PREV_BUTTON, TRIG_BY_FALLING_EDGE,
@@ -120,7 +128,7 @@ void PERIPHERAL_init(void)
     MQUEUE_INIT(&zone.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
-        uint32_t timeout = 5000;
+        uint32_t timeout = 1000 * MQUEUE_ALIVE_INTV_SECONDS;
         ioctl(zone.mqd, OPT_RD_TIMEO, &timeout);
 
         pthread_attr_t attr;
@@ -172,7 +180,7 @@ void PERIPHERAL_on_sleep(void)
 
 bool CLOCK_alarm_switch_is_on(void)
 {
-    return true;
+    return setting.alarm_on_simulate;
 }
 
 void mplayer_idle_callback(void)
@@ -180,7 +188,7 @@ void mplayer_idle_callback(void)
     zone.voice_loop_stick = clock();
 
     if (zone.setting)
-        timeout_start(&zone.setting_timeo, NULL);
+        timeout_start(&zone.setting_timeo, &zone);
     else // if (! CLOCK_is_alarming())
         CLOCK_peek_start_alarms(time(NULL));
 }
@@ -193,8 +201,17 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     (void)pins;
     timeout_stop(&zone.setting_timeo);
 
+    if (PIN_VOICE_BUTTON == (PIN_VOICE_BUTTON & pins))
+    {
+        runtime->voice_button_tick = clock();
+        mqueue_postv(runtime->mqd, MSG_VOICE_BUTTON, 0, 0);
+    }
+
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
+    {
+        runtime->power_button_tick = clock();
         mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+    }
 
     if (PIN_PREV_BUTTON == (PIN_PREV_BUTTON & pins))
         mqueue_postv(runtime->mqd, MSG_PREV_BUTTON, 0, 0);
@@ -207,34 +224,41 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
         mqueue_postv(runtime->mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
 }
 
-static void setting_timeout_callback(void *arg)
+static void setting_timeout_callback(struct zone_runtime_t *runtime)
 {
-    ARG_UNUSED(arg);
+    if (runtime->setting)
+        runtime->setting = false;
+
+    if (runtime->setting_alarm_is_modified)
+        CLOCK_update_alarms();
+    if (runtime->setting_is_modified)
+        NVM_set(NVM_SETTING, &setting, sizeof(setting));
 }
 
-static void volume_adj_intv_callback(void *arg)
+static void volume_adj_intv_callback(uint32_t button_pin)
 {
-    if (PIN_VOLUME_UP_BUTTON == (uintptr_t)arg)
+    if (PIN_VOLUME_UP_BUTTON == button_pin)
     {
         if (0 == GPIO_peek(PIN_VOLUME_UP_BUTTON))
             mqueue_postv(zone.mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
         else
-            goto volume_adj_stop;
+            goto volume_adj_done;
     }
-    else if (PIN_VOLUME_DOWN_BUTTON ==(uintptr_t)arg)
+    else if (PIN_VOLUME_DOWN_BUTTON == button_pin)
     {
         if (0 == GPIO_peek(PIN_VOLUME_DOWN_BUTTON))
             mqueue_postv(zone.mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
         else
-            goto volume_adj_stop;
+            goto volume_adj_done;
     }
     else
     {
-    volume_adj_stop:
+    volume_adj_done:
         timeout_stop(&zone.volume_adj_intv);
 
+        zone.setting_is_modified = true;
         setting.media_volume = AUDIO_get_volume_percent();
-        NVM_set(NVM_SETTING, &setting, sizeof(setting));
+        timeout_start(&zone.setting_timeo, &zone);
     }
 }
 
@@ -272,12 +296,230 @@ static void MSG_alive(struct zone_runtime_t *runtime)
             }
         }
     }
+
+    if (BATT_HINT_MV > PERIPHERAL_batt_volt())
+        MYNOISE_stop();
+
+    if (0 != runtime->noise_off_seconds)
+    {
+        if (MQUEUE_ALIVE_INTV_SECONDS >= runtime->noise_off_seconds)
+        {
+            MYNOISE_stop();
+            runtime->noise_off_seconds = 0;
+        }
+        else
+            runtime->noise_off_seconds -= MQUEUE_ALIVE_INTV_SECONDS;
+    }
 }
 
-static void MSG_power_button(struct zone_runtime_t *runtime)
+static void MSG_voice_button(struct zone_runtime_t *runtime)
 {
-    (void)runtime;
-    MYNOISE_start();
+    if (0 == (0x1 & zone.click_count))
+    {
+        zone.batt_last_ts = time(NULL);
+        PERIPHERAL_batt_ad_sync();
+
+        uint16_t mv = PERIPHERAL_batt_volt();
+        LOG_info("batt %dmV", mv);
+
+        if (BATT_EMPTY_MV > mv)
+        {
+            // discard settings
+            zone.click_count = 0;
+            zone.setting = false;
+            return;
+        }
+        else
+        {
+            uint8_t percent = BATT_mv_level(mv);
+            if (50 > percent)
+            {
+                percent = MIN(setting.media_volume, MAX(25, percent));
+                AUDIO_set_volume_percent(percent);
+            }
+            else
+                AUDIO_set_volume_percent(setting.media_volume);
+        }
+    }
+
+    PMU_power_lock();
+    mplayer_playlist_clear();
+
+    if (SETTING_TIMEOUT < clock() - zone.voice_loop_stick)
+        zone.click_count = 0;
+    runtime->voice_loop_stick = clock();
+
+    // any button will stop alarming
+    if (true == CLOCK_stop_current_alarm())
+        runtime->click_count = 0;
+
+    // any button will snooze all current reminder
+    CLOCK_snooze_reminders();
+
+    // insert say low battery
+    if (BATT_HINT_MV > PERIPHERAL_batt_volt())
+        VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
+
+    if (! runtime->setting)
+    {
+        time_t ts = time(NULL);
+
+        switch ((enum buttion_action_t)(runtime->click_count % BUTTON_ACTION_COUNT))
+        {
+        case BUTTON_ACTION_COUNT:
+            break;
+
+        case BUTTON_SAY_TIME:
+            VOICE_say_time_epoch(ts);
+            CLOCK_say_reminders(ts, true);
+            break;
+
+        case BUTTON_SAY_DATE:
+            VOICE_say_date_epoch(ts);
+            break;
+        }
+
+        runtime->click_count ++;
+    }
+    else
+    {
+        int16_t old_voice_id;
+        struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
+
+        switch (runtime->setting_part)
+        {
+        case VOICE_SETTING_EXT_LOW_BATT:
+        case VOICE_SETTING_EXT_ALARM_ON:
+        case VOICE_SETTING_EXT_ALARM_OFF:
+            break;
+
+        case VOICE_SETTING_LANG:
+            old_voice_id = setting.sel_voice_id;
+            setting.sel_voice_id = VOICE_next_locale();
+
+            if (old_voice_id != setting.sel_voice_id)
+            {
+                setting.locale.dfmt = DFMT_DEFAULT;
+                setting.locale.hfmt = HFMT_DEFAULT;
+                runtime->setting_is_modified = true;
+            }
+            break;
+
+        case VOICE_SETTING_HOUR:
+            runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
+            goto setting_rtc_set_time;
+
+        case VOICE_SETTING_MINUTE:
+            runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 1) % 60;
+            goto setting_rtc_set_time;
+
+        case VOICE_SETTING_YEAR:
+            TM_year_add(&runtime->setting_dt, 1);
+            goto setting_rtc_set_date;
+
+        case VOICE_SETTING_MONTH:
+            TM_month_add(&runtime->setting_dt, 1);
+            goto setting_rtc_set_date;
+
+        case VOICE_SETTING_MDAY:
+            TM_mday_add(&runtime->setting_dt, 1);
+            goto setting_rtc_set_date;
+
+        case VOICE_SETTING_ALARM_HOUR:
+            runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
+            goto setting_modify_alarm;
+
+        case VOICE_SETTING_ALARM_MIN:
+            runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 1) % 60;
+            goto setting_modify_alarm;
+
+        case VOICE_SETTING_ALARM_RINGTONE:
+            alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
+            runtime->setting_alarm_is_modified = true;
+            break;
+
+        case VOICE_SETTING_COUNT:
+            break;
+        };
+
+        if (false)
+        {
+        setting_rtc_set_time:
+            runtime->setting_dt.tm_sec = 0;
+            RTC_set_epoch_time(mktime(&runtime->setting_dt) - get_dst_offset(&runtime->setting_dt));
+
+            LOG_info("%02d:%02d:%02d", runtime->setting_dt.tm_hour,
+                runtime->setting_dt.tm_min,
+                runtime->setting_dt.tm_sec);
+        }
+
+        if (false)
+        {
+            struct tm date;
+
+        setting_rtc_set_date:
+            date = runtime->setting_dt;
+            date.tm_hour = 0;
+            date.tm_min = 0;
+            date.tm_sec = 0;
+            RTC_set_epoch_time(time(NULL) % 86400 + mktime(&date));
+
+            LOG_info("%04d/%02d/%02d", runtime->setting_dt.tm_year + 1900,
+                runtime->setting_dt.tm_mon + 1,
+                runtime->setting_dt.tm_mday);
+        }
+
+        if (false)
+        {
+            time_t ts;
+            int16_t mtime;
+
+        setting_modify_alarm:
+            ts = mktime(&runtime->setting_dt) % 86400;
+            mtime = time_to_mtime(ts);
+
+            if (! alarm0->enabled || mtime != alarm0->mtime)
+            {
+                alarm0->enabled = true;
+                alarm0->mtime = mtime;
+                alarm0->mdate = 0;
+                alarm0->wdays = 0x7F;
+                runtime->setting_alarm_is_modified = true;
+            }
+        }
+
+        mplayer_playlist_clear();
+        VOICE_say_setting_part(runtime->setting_part,
+            &runtime->setting_dt,
+            (void *)(uintptr_t)alarm0->ringtone_id
+        );
+    }
+
+    PMU_power_unlock();
+}
+
+static void MSG_mynoise_toggle(struct zone_runtime_t *runtime)
+{
+    if (! MYNOISE_is_idle())
+    {
+        MYNOISE_stop();
+    }
+    else
+        MYNOISE_start();
+}
+
+static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
+{
+    setting.alarm_on_simulate = ! setting.alarm_on_simulate;
+
+    runtime->setting_is_modified = true;
+    timeout_start(&zone.setting_timeo, &zone);
+
+    if (setting.alarm_on_simulate)
+        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
+    else
+        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
+
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)
@@ -292,17 +534,65 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
             switch ((enum zone_message)msg->msgid)
             {
             case MSG_VOICE_BUTTON:
+                if (0 == GPIO_peek(PIN_VOICE_BUTTON))
+                {
+                    if (BUTTION_LONG_PRESS_TIMEO > clock() - runtime->voice_button_tick)
+                    {
+                        thread_yield();
+                        mqueue_postv(runtime->mqd, MSG_VOICE_BUTTON, 0, 0);
+                    }
+                    else
+                        MYNOISE_toggle();
+                }
+                else
+                    MSG_voice_button(runtime);
                 break;
 
             case MSG_POWER_BUTTON:
-                MSG_power_button(runtime);
+                if (0 == GPIO_peek(PIN_POWER_BUTTON))
+                {
+                    if (BUTTION_LONG_PRESS_TIMEO > clock() - runtime->power_button_tick)
+                    {
+                        thread_yield();
+                        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                    }
+                    else
+                    {
+                        runtime->setting = true;
+                    }
+                }
+                else
+                    MSG_mynoise_toggle(runtime);
                 break;
 
             case MSG_PREV_BUTTON:
-                MYNOISE_prev();
+                if (0 == GPIO_peek(PIN_PREV_BUTTON))
+                {
+                    if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                    {
+                        thread_yield();
+                        mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
+                    }
+                    else
+                        MSG_alarm_toggle(runtime);
+                }
+                else
+                    MYNOISE_prev();
                 break;
+
             case MSG_NEXT_BUTTON:
-                MYNOISE_next();
+                if (0 == GPIO_peek(PIN_NEXT_BUTTON))
+                {
+                    if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                    {
+                        thread_yield();
+                        mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
+                    }
+                    else
+                        MSG_alarm_toggle(runtime);
+                }
+                else
+                    MYNOISE_next();
                 break;
 
             case MSG_VOLUME_UP_BUTTON:
