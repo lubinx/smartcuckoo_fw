@@ -46,10 +46,12 @@ extern __attribute__((nothrow))
     void CLOCK_init(void);
 
     /**
-     *  CLOCK_alarm_switch_is_on()
+     *  CLOCK_get_alarm_is_on()
+     *
+     *  NOTE: overridable
     */
 extern __attribute__((nothrow, pure))
-    bool CLOCK_alarm_switch_is_on(void);
+    bool CLOCK_get_alarm_is_on(void);
 
     /**
      *  CLOCK_update_alarms()
@@ -73,6 +75,12 @@ extern __attribute__((nothrow, pure))
     */
 extern __attribute__((nothrow, pure))
     struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx);
+
+    /**
+     *  CLOCK_get_next_alarm_ringtone_id()
+    */
+extern __attribute__((nothrow))
+    int CLOCK_get_next_alarm_ringtone_id(void);
 
     /**
      *  CLOCK_peek_start_reminders()

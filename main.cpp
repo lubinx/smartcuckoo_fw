@@ -30,6 +30,28 @@
  ****************************************************************************/
 struct SMARTCUCKOO_setting_t setting;
 
+bool CLOCK_get_alarm_is_on(void)
+{
+    return setting.alarm_is_on;
+}
+
+enum LOCALE_dfmt_t LOCALE_dfmt(void)
+{
+    if (DFMT_DEFAULT == setting.locale.dfmt)
+        return VOICE_get_default_dfmt();
+    else
+        return setting.locale.dfmt;
+}
+
+enum LOCALE_hfmt_t LOCALE_hfmt(void)
+{
+    if (DFMT_DEFAULT == setting.locale.dfmt)
+        return VOICE_get_default_hfmt();
+    else
+        return setting.locale.hfmt;
+}
+
+
 /****************************************************************************
  *  @private
  ****************************************************************************/
@@ -229,22 +251,6 @@ int main(void)
 
     PMU_power_unlock();
     SHELL_bootstrap();
-}
-
-enum LOCALE_dfmt_t LOCALE_dfmt(void)
-{
-    if (DFMT_DEFAULT == setting.locale.dfmt)
-        return VOICE_get_default_dfmt();
-    else
-        return setting.locale.dfmt;
-}
-
-enum LOCALE_hfmt_t LOCALE_hfmt(void)
-{
-    if (DFMT_DEFAULT == setting.locale.dfmt)
-        return VOICE_get_default_hfmt();
-    else
-        return setting.locale.hfmt;
 }
 
 /***************************************************************************/

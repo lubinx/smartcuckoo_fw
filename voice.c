@@ -1441,10 +1441,7 @@ int VOICE_next_ringtone(int ringtone_id)
 
 int VOICE_prev_ringtone(int ringtone_id)
 {
-    if (ringtone_id > 0)
-        return ringtone_id - 1;
-    else
-        return RING_TONE_COUNT - 1;
+    return (ringtone_id + RING_TONE_COUNT - 1) % RING_TONE_COUNT;
 }
 
 int VOICE_play_ringtone(int ringtone_id)

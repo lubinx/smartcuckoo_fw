@@ -22,12 +22,10 @@ struct talking_button_runtime_t
     timeout_t setting_timeo;
     timeout_t alarm_sw_timeo;
 
-    unsigned click_count;
-    clock_t voice_loop_stick;
+    unsigned voice_click_count;
+    clock_t voice_click_stick;
 
     bool setting;
-    bool alarm_is_on;
-
     bool setting_is_modified;
     bool setting_alarm_is_modified;
 
@@ -81,15 +79,16 @@ void PERIPHERAL_init(void)
     timeout_init(&talking_button.setting_timeo, SETTING_TIMEOUT, setting_timeout_callback, 0);
     timeout_init(&talking_button.alarm_sw_timeo, 50, alaramsw_timeout_callback, 0);
 
-    talking_button.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
-    alaramsw_timeout_callback(NULL);
-
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
         setting.media_volume = 75;
     }
+
+    setting.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+    alaramsw_timeout_callback(NULL);
+
     setting.media_volume = MAX(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
 
@@ -155,14 +154,9 @@ void PERIPHERAL_on_sleep(void)
 {
 }
 
-bool CLOCK_alarm_switch_is_on(void)
-{
-    return talking_button.alarm_is_on;
-}
-
 void mplayer_idle_callback(void)
 {
-    talking_button.voice_loop_stick = clock();
+    talking_button.voice_click_stick = clock();
 
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
@@ -198,13 +192,13 @@ static void alaramsw_timeout_callback(void *arg)
     GPIO_setdir_input_pp(PULL_UP, PIN_ALARM_SW, true);
     {
         usleep(100);
-        talking_button.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+        setting.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
     }
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_SW, true);
 
     if (NULL != arg && BATT_EMPTY_MV < PERIPHERAL_batt_volt())
     {
-        if (talking_button.alarm_is_on)
+        if (setting.alarm_is_on)
             VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
         else
             VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
@@ -249,7 +243,7 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 {
-    if (0 == (0x1 & talking_button.click_count))
+    if (0 == (0x1 & talking_button.voice_click_count))
     {
         talking_button.batt_last_ts = time(NULL);
         PERIPHERAL_batt_ad_sync();
@@ -260,7 +254,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         if (BATT_EMPTY_MV > mv)
         {
             // discard settings
-            talking_button.click_count = 0;
+            talking_button.voice_click_count = 0;
             talking_button.setting = false;
             return;
         }
@@ -280,13 +274,13 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    if (SETTING_TIMEOUT < clock() - talking_button.voice_loop_stick)
-        talking_button.click_count = 0;
-    runtime->voice_loop_stick = clock();
+    if (SETTING_TIMEOUT < clock() - talking_button.voice_click_stick)
+        talking_button.voice_click_count = 0;
+    runtime->voice_click_stick = clock();
 
     // any button will stop alarming
     if (true == CLOCK_stop_current_alarm())
-        runtime->click_count = 0;
+        runtime->voice_click_count = 0;
 
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
@@ -299,7 +293,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
     {
         time_t ts = time(NULL);
 
-        switch ((enum buttion_action_t)(runtime->click_count % BUTTON_ACTION_COUNT))
+        switch ((enum buttion_action_t)(runtime->voice_click_count % BUTTON_ACTION_COUNT))
         {
         case BUTTON_ACTION_COUNT:
             break;
@@ -314,7 +308,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
             break;
         }
 
-        runtime->click_count ++;
+        runtime->voice_click_count ++;
     }
     else
     {
@@ -438,7 +432,7 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    runtime->voice_loop_stick = clock();
+    runtime->voice_click_stick = clock();
 
     // any button will stop alarming
     CLOCK_stop_current_alarm();
@@ -457,23 +451,23 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
 
     if (! runtime->setting)
     {
-        runtime->click_count = 0;
+        runtime->voice_click_count = 0;
         runtime->setting = true;
         runtime->setting_is_modified = false;
         runtime->setting_alarm_is_modified = false;
     }
     runtime->setting_part =
-        (enum VOICE_setting_part_t)(runtime->click_count % VOICE_SETTING_COUNT);
+        (enum VOICE_setting_part_t)(runtime->voice_click_count % VOICE_SETTING_COUNT);
     struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
 
     if (VOICE_SETTING_LANG == runtime->setting_part &&
         1 >= VOICE_get_count())
     {
         // skip language setting since is only 1 language
-        runtime->click_count ++;
+        runtime->voice_click_count ++;
     }
     runtime->setting_part =
-        (enum VOICE_setting_part_t)(runtime->click_count % VOICE_SETTING_COUNT);
+        (enum VOICE_setting_part_t)(runtime->voice_click_count % VOICE_SETTING_COUNT);
 
     if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
         VOICE_SETTING_ALARM_MIN == runtime->setting_part)
@@ -491,8 +485,8 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
     }
 
     runtime->setting_part =
-        (enum VOICE_setting_part_t)(runtime->click_count % VOICE_SETTING_COUNT);
-    runtime->click_count ++;
+        (enum VOICE_setting_part_t)(runtime->voice_click_count % VOICE_SETTING_COUNT);
+    runtime->voice_click_count ++;
 
     VOICE_say_setting(runtime->setting_part,
         (void *)(uintptr_t)alarm0->ringtone_id);
@@ -513,7 +507,7 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
 
 static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
 {
-    runtime->click_count = 0;
+    runtime->voice_click_count = 0;
 
     if (runtime->setting)
     {

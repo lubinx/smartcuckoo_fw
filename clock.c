@@ -91,7 +91,7 @@ int get_dst_offset(struct tm *tm)
 }
 
 __attribute__((weak))
-bool CLOCK_alarm_switch_is_on(void)
+bool CLOCK_get_alarm_is_on(void)
 {
     return true;
 }
@@ -225,7 +225,7 @@ struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
 
 int8_t CLOCK_peek_start_alarms(time_t ts)
 {
-    if (! CLOCK_alarm_switch_is_on())
+    if (! CLOCK_get_alarm_is_on())
         return -1;
     if (ts <= clock_runtime.alarm_snooze_ts_end)
         return -1;
@@ -279,6 +279,26 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
     }
     else
         return -1;
+}
+
+int CLOCK_get_next_alarm_ringtone_id(void)
+{
+    int ringtone_id = 0;
+
+    time_t ts = time(NULL);
+    struct tm dt;
+    localtime_r(&ts, &dt);
+
+    for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+    {
+        struct CLOCK_moment_t *alarm = &alarms[idx];
+        if (alarm->enabled)
+            ringtone_id = alarm->ringtone_id;
+
+        if (0 != ((1 << ((dt.tm_wday + 1) % 7)) & alarm->wdays))
+            return alarm->ringtone_id;
+    }
+    return ringtone_id;
 }
 
 bool CLOCK_stop_current_alarm(void)
@@ -546,7 +566,7 @@ static int SHELL_alarm(struct UCSH_env *env)
     UCSH_puts(env, "\t],\n");
 
     UCSH_printf(env, "\t\"alarm_count\":%d,\n", lengthof(alarms));
-    UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
+    UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_get_alarm_is_on() ? "on" : "off");
     return 0;
 }
 

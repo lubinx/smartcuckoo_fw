@@ -10,6 +10,7 @@
 #include <ultracore/thread.h>
 #include <sh/ucsh.h>
 
+#include <audio/renderer.h>
 #include <audio/mplayer.h>
 #include <audio/mynoise.h>
 
@@ -81,7 +82,7 @@
     {
         uint8_t media_volume;
         uint8_t dim;
-        bytebool_t alarm_on_simulate;   // REVIEW: has no hardware switcher
+        bytebool_t alarm_is_on;   // REVIEW: has no hardware switcher
 
         int16_t sel_voice_id;
         uint16_t last_noise_id;
