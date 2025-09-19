@@ -110,8 +110,8 @@ __BEGIN_DECLS
  ***************************************************************************/
 extern __attribute__((nothrow))
     void PERIPHERAL_gpio_init(void);
-extern __attribute__((nothrow))
-    void PERIPHERAL_shell_init(void);
+extern __attribute__((nothrow, pure))
+    bool PERIPHERAL_is_enable_usb(void);
 
 extern __attribute__((nothrow))
     void PERIPHERAL_init(void);
@@ -146,6 +146,9 @@ extern __attribute__((nothrow))
     void PERIPHERAL_on_sleep(void);
 extern __attribute__((nothrow))
     void PERIPHERAL_on_wakeup(void);
+
+extern __attribute__((nothrow))
+    void PERIPHERAL_shell_init(void);
 
 /***************************************************************************
  *  shell

@@ -53,6 +53,8 @@
     #define LED2                        PC04
     #define LED3                        PC05
 
+    #define POWER_OFF_STEP_SECONDS      (1800U)
+
 // buttons
     #define PIN_VOICE_BUTTON            PC11
     #define PIN_POWER_BUTTON            PA02

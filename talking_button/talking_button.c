@@ -69,10 +69,6 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_SW, true);
 }
 
-void PERIPHERAL_shell_init(void)
-{
-}
-
 void PERIPHERAL_ota_init(void)
 {
     GPIO_disable(PIN_VOICE_BUTTON);

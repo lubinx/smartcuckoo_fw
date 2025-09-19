@@ -198,20 +198,18 @@ int main(void)
             LOG_error("SDMMC error: %s", SDMMC_strerror(err));
         }
     }
-    if (1)  // REVIEW: USB scsi
+    if (PERIPHERAL_is_enable_usb())
     {
         USBD_pin_mux(USB, USB_PINS);
         USBD_SCSI_init(&usbd_scsi, USB, &sdmmc_diskio);
 
         USBD_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
-            {
-                if (0 == FAT_mount_fs_root(&fat))
-                    FAT_attr_print(&fat);
-            }
-        );
+        {
+            if (0 == FAT_mount_fs_root(&fat))
+                FAT_attr_print(&fat);
+        });
     }
-
-    if (1)  // REVIEW: register LC3 & init mplayer 64 queue, 8k stack for LC3 decoding
+    if (1)
     {
         LC3_register_codec();
         mplayer_init(MPLAYER_QUEUE_SIZE);
@@ -221,7 +219,7 @@ int main(void)
         I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
         I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
         I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 300);
-    #else   // REVIEW: bind DAC => audio renderer
+    #else
         DAC_init(&dac_attr, true);
         DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
     #endif
@@ -258,6 +256,12 @@ void PERIPHERAL_gpio_init(void)
 }
 
 __attribute__((weak))
+bool PERIPHERAL_is_enable_usb(void)
+{
+    return true;
+}
+
+__attribute__((weak))
 void PERIPHERAL_init(void)
 {
 }
@@ -291,6 +295,11 @@ void PERIPHERAL_on_sleep(void)
 
 __attribute__((weak))
 void PERIPHERAL_on_wakeup(void)
+{
+}
+
+__attribute__((weak))
+void PERIPHERAL_shell_init(void)
 {
 }
 

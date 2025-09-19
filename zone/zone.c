@@ -57,6 +57,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
 
+static void update_power_timeo_led(struct zone_runtime_t *runtime);
 static void setting_timeout_callback(struct zone_runtime_t *runtime);
 static void volume_adj_intv_callback(uint32_t button_pin);
 
@@ -82,8 +83,9 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_DOWN_BUTTON, true);
 }
 
-void PERIPHERAL_shell_init(void)
+bool PERIPHERAL_is_enable_usb(void)
 {
+    return 0 == GPIO_peek(PIN_POWER_BUTTON);
 }
 
 void PERIPHERAL_ota_init(void)
@@ -224,6 +226,23 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
         mqueue_postv(runtime->mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
 }
 
+static void update_power_timeo_led(struct zone_runtime_t *runtime)
+{
+    GPIO_set(LED1);
+    GPIO_set(LED2);
+    GPIO_set(LED3);
+
+    if (0 != runtime->noise_off_seconds)
+    {
+        GPIO_clear(LED1);
+
+        if (POWER_OFF_STEP_SECONDS < runtime->noise_off_seconds)
+            GPIO_clear(LED2);
+        if (2U * POWER_OFF_STEP_SECONDS < runtime->noise_off_seconds)
+            GPIO_clear(LED3);
+    }
+}
+
 static void setting_timeout_callback(struct zone_runtime_t *runtime)
 {
     if (runtime->setting)
@@ -310,10 +329,14 @@ static void MSG_alive(struct zone_runtime_t *runtime)
         else
             runtime->noise_off_seconds -= MQUEUE_ALIVE_INTV_SECONDS;
     }
+    update_power_timeo_led(runtime);
 }
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
 {
+    if (runtime->setting)
+        return;
+
     if (0 == (0x1 & zone.click_count))
     {
         zone.batt_last_ts = time(NULL);
@@ -329,6 +352,7 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
             zone.setting = false;
             return;
         }
+        /*
         else
         {
             uint8_t percent = BATT_mv_level(mv);
@@ -340,6 +364,7 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
             else
                 AUDIO_set_volume_percent(setting.media_volume);
         }
+        */
     }
 
     PMU_power_lock();
@@ -502,7 +527,19 @@ static void MSG_mynoise_toggle(struct zone_runtime_t *runtime)
 {
     if (! MYNOISE_is_idle())
     {
-        MYNOISE_stop();
+        if (0 == runtime->noise_off_seconds)
+            runtime->noise_off_seconds = POWER_OFF_STEP_SECONDS;
+        else if (POWER_OFF_STEP_SECONDS >= runtime->noise_off_seconds)
+            runtime->noise_off_seconds = 2U * POWER_OFF_STEP_SECONDS;
+        else if (2U * POWER_OFF_STEP_SECONDS >= runtime->noise_off_seconds)
+            runtime->noise_off_seconds = 3U * POWER_OFF_STEP_SECONDS;
+        else
+        {
+            MYNOISE_stop();
+            runtime->noise_off_seconds = 0;
+        }
+
+        update_power_timeo_led(runtime);
     }
     else
         MYNOISE_start();
