@@ -199,31 +199,6 @@ static void SHELL_register(void)
     );
 #endif
 
-    UCSH_REGISTER("noise",
-        [](struct UCSH_env *env)
-        {
-            if (2 != env->argc)
-                return EINVAL;
-
-            if (0 == strcasecmp(env->argv[1], "start"))
-                return MYNOISE_start();
-            if (0 == strcasecmp(env->argv[1], "stop"))
-                return MYNOISE_stop();
-
-            if (0 == strcasecmp(env->argv[1], "next"))
-                return MYNOISE_next();
-            if (0 == strcasecmp(env->argv[1], "prev"))
-                return MYNOISE_prev();
-
-            if (0 == strcasecmp(env->argv[1], "pause"))
-                return MYNOISE_pause();
-            if (0 == strcasecmp(env->argv[1], "resume"))
-                return MYNOISE_resume();
-
-            return EINVAL;
-        }
-    );
-
     // REVIEW: peripheral extensions.
     PERIPHERAL_shell_init();
 }

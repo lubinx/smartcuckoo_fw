@@ -61,6 +61,8 @@ static void update_power_timeo_led(struct zone_runtime_t *runtime);
 static void setting_timeout_callback(struct zone_runtime_t *runtime);
 static void volume_adj_intv_callback(uint32_t button_pin);
 
+static int SHELL_noise(struct UCSH_env *env);
+
 // var
 static struct zone_runtime_t zone = {0};
 __THREAD_STACK static uint32_t zone_stack[1280 / sizeof(uint32_t)];
@@ -81,6 +83,11 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_input_pp(PULL_UP, PIN_NEXT_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_UP_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_DOWN_BUTTON, true);
+}
+
+void PERIPHERAL_shell_init(void)
+{
+    UCSH_REGISTER("noise",  SHELL_noise);
 }
 
 bool PERIPHERAL_is_enable_usb(void)
@@ -560,7 +567,10 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             goto setting_rtc_set_date;
 
         case VOICE_SETTING_ALARM_HOUR:
-            runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
+            if (PIN_VOLUME_UP_BUTTON == button)
+                runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
+            else
+                runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 23) % 24;
             goto setting_modify_alarm;
 
         case VOICE_SETTING_ALARM_MIN:
@@ -807,4 +817,102 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
         else
             MSG_alive(runtime);
     }
+}
+
+static int SHELL_noise(struct UCSH_env *env)
+{
+    if (0 == strcasecmp(env->argv[1], "start"))
+    {
+        if (2 == env->argc)
+        {
+            zone.noise_off_seconds = 0;
+            return MYNOISE_start();
+        }
+
+        if (3 == env->argc)
+        {
+            char *end;
+            zone.noise_off_seconds = strtoul(env->argv[2], &end, 10);
+
+            if ('\0' == *end)
+            {
+                zone.noise_off_seconds = MAX(POWER_OFF_STEP_SECONDS, zone.noise_off_seconds);
+
+                int err = MYNOISE_start();
+                if (0 == err)
+                    update_power_timeo_led(&zone);
+                else
+                    zone.noise_off_seconds = 0;
+                return err;
+            }
+            else
+            {
+                char *theme = env->argv[2];
+                char const *senceario = theme;
+
+                while (*theme && '.' != *theme) theme ++;
+
+                if ('.' == *theme)
+                {
+                    *theme = '\0';
+                    theme = theme + 1;
+                }
+                else
+                    theme = NULL;
+
+                int err = MYNOISE_start_senseario(senceario, theme);
+                if (0 == err)
+                    update_power_timeo_led(&zone);
+                else
+                    zone.noise_off_seconds = 0;
+                return err;
+            }
+        }
+
+        if (4 == env->argc)
+        {
+            zone.noise_off_seconds = strtoul(env->argv[2], NULL, 10);
+            zone.noise_off_seconds = MAX(POWER_OFF_STEP_SECONDS, zone.noise_off_seconds);
+
+            char *theme = env->argv[3];
+            char const *senceario = theme;
+
+            while (*theme && '.' != *theme) theme ++;
+
+            if ('.' == *theme)
+            {
+                *theme = '\0';
+                theme = theme + 1;
+            }
+            else
+                theme = NULL;
+
+            int err = MYNOISE_start_senseario(senceario, theme);
+            if (0 == err)
+                update_power_timeo_led(&zone);
+            else
+                zone.noise_off_seconds = 0;
+            return err;
+        }
+        else
+            return EINVAL;
+    }
+
+    if (2 != env->argc)
+        return EINVAL;
+
+    if (0 == strcasecmp(env->argv[1], "stop"))
+        return MYNOISE_stop();
+
+    if (0 == strcasecmp(env->argv[1], "next"))
+        return MYNOISE_next();
+    if (0 == strcasecmp(env->argv[1], "prev"))
+        return MYNOISE_prev();
+
+    if (0 == strcasecmp(env->argv[1], "pause"))
+        return MYNOISE_pause();
+    if (0 == strcasecmp(env->argv[1], "resume"))
+        return MYNOISE_resume();
+
+    return EINVAL;
 }
