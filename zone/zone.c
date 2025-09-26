@@ -10,7 +10,7 @@
 
 enum zone_message
 {
-    MSG_VOICE_BUTTON        = 0,
+    MSG_TOP_BUTTON              = 0,
     MSG_POWER_BUTTON,
     MSG_PREV_BUTTON,
     MSG_NEXT_BUTTON,
@@ -77,7 +77,7 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_output(PUSH_PULL_UP, LED2);
     GPIO_setdir_output(PUSH_PULL_UP, LED3);
 
-    GPIO_setdir_input_pp(PULL_UP, PIN_VOICE_BUTTON, true);
+    GPIO_setdir_input_pp(PULL_UP, PIN_TOP_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_POWER_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_PREV_BUTTON, true);
     GPIO_setdir_input_pp(PULL_UP, PIN_NEXT_BUTTON, true);
@@ -92,12 +92,16 @@ void PERIPHERAL_shell_init(void)
 
 bool PERIPHERAL_is_enable_usb(void)
 {
+#ifdef DEBUG
+    return true;
+#else
     return 0 == GPIO_peek(PIN_POWER_BUTTON);
+#endif
 }
 
 void PERIPHERAL_ota_init(void)
 {
-    GPIO_disable(PIN_VOICE_BUTTON);
+    GPIO_disable(PIN_TOP_BUTTON);
     GPIO_disable(PIN_POWER_BUTTON);
     GPIO_disable(PIN_PREV_BUTTON);
     GPIO_disable(PIN_NEXT_BUTTON);
@@ -122,10 +126,11 @@ void PERIPHERAL_init(void)
 
     setting.media_volume = MIN(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
+    AUDIO_renderer_supress_master_value(75);
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
 
-    GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
+    GPIO_intr_enable(PIN_TOP_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &zone);
     GPIO_intr_enable(PIN_POWER_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &zone);
@@ -209,10 +214,10 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     (void)pins;
     timeout_stop(&zone.setting_timeo);
 
-    if (PIN_VOICE_BUTTON == (PIN_VOICE_BUTTON & pins))
+    if (PIN_TOP_BUTTON == (PIN_TOP_BUTTON & pins))
     {
         runtime->voice_button_tick = 0;
-        mqueue_postv(runtime->mqd, MSG_VOICE_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
     }
 
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
@@ -698,7 +703,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
             {
                 switch ((enum zone_message)msg->msgid)
                 {
-                case MSG_VOICE_BUTTON:
+                case MSG_TOP_BUTTON:
                     break;
 
                 case MSG_POWER_BUTTON:
@@ -726,22 +731,22 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
             {
                 switch ((enum zone_message)msg->msgid)
                 {
-                case MSG_VOICE_BUTTON:
-                    if (0 == GPIO_peek(PIN_VOICE_BUTTON))
+                case MSG_TOP_BUTTON:
+                    if (0 == GPIO_peek(PIN_TOP_BUTTON))
                     {
                         if (0 == runtime->voice_button_tick)
                             runtime->voice_button_tick = clock();
 
-                        if (NOISE_LONG_PRESS_TIMEO > clock() - runtime->voice_button_tick)
+                        if (LONG_PRESS_VOICE > clock() - runtime->voice_button_tick)
                         {
                             thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_VOICE_BUTTON, 0, 0);
+                            mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
                         }
                         else
-                            MYNOISE_toggle();
+                            MSG_voice_button(runtime);
                     }
                     else
-                        MSG_voice_button(runtime);
+                        MYNOISE_toggle();
                     break;
 
                 case MSG_POWER_BUTTON:
@@ -750,7 +755,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         if (0 == runtime->power_button_tick)
                             runtime->power_button_tick = clock();
 
-                        if (SETTING_LONG_PRESS_TIMEO > clock() - runtime->power_button_tick)
+                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_tick)
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
@@ -821,6 +826,17 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
 static int SHELL_noise(struct UCSH_env *env)
 {
+    if (1 == env->argc)
+    {
+        char const *senceario;
+        char const *theme;
+
+        MYNOISE_stat(&senceario, &theme);
+        UCSH_printf(env, "%s.%s", senceario, theme);
+
+        return 0;
+    }
+
     if (0 == strcasecmp(env->argv[1], "start"))
     {
         if (2 == env->argc)

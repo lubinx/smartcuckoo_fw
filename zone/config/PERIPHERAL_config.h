@@ -56,15 +56,15 @@
     #define POWER_OFF_STEP_SECONDS      (1800U)
 
 // buttons
-    #define PIN_VOICE_BUTTON            PC11
+    #define PIN_TOP_BUTTON              PC11
     #define PIN_POWER_BUTTON            PA02
     #define PIN_PREV_BUTTON             PC01
     #define PIN_NEXT_BUTTON             PC09
     #define PIN_VOLUME_UP_BUTTON        PD15
     #define PIN_VOLUME_DOWN_BUTTON      PD00
 
-    #define NOISE_LONG_PRESS_TIMEO      (1500)
-    #define SETTING_LONG_PRESS_TIMEO    (3000)
+    #define LONG_PRESS_VOICE            (1000)
+    #define LONG_PRESS_SETTING          (3000)
     #define VOLUME_ADJ_HOLD_INTV        (250)
 
 // volume
