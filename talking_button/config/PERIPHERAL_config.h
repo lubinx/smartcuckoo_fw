@@ -5,7 +5,7 @@
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"
-    #define PROJECT_VERSION             VERSION_INFO(1, 0, 27)
+    #define PROJECT_VERSION             VERSION_INFO(1, 0, 29)
     #define PROJECT_ID                  "tbtn"
 
 // console

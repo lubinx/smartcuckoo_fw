@@ -45,13 +45,13 @@ struct VOICE_t
  ***************************************************************************/
 static struct VOICE_t const *voice_sel;
 static struct LOCALE_t const *locale_ptr;
-static char const *common_folder = "voice/";
+static char const *common_folder = "/voice/";
 
 static struct VOICE_t const __voices[] =
 {
     {
         .lcid = "en-AU",
-        .folder = "voice/enAUf/",
+        .folder = "/voice/enAUf/",
         .voice = "Chloe",
         .tempo = 100,
         .tail_idx = -1,
@@ -60,7 +60,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-AU",
-        .folder = "voice/enAUm/",
+        .folder = "/voice/enAUm/",
         .voice = "James",
         .tempo = 120,
         .tail_idx = -1,
@@ -69,7 +69,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-UK",
-        .folder = "voice/enUKf/",
+        .folder = "/voice/enUKf/",
         .voice = "Amelia",
         .tempo = 100,
         .tail_idx = -1,
@@ -78,7 +78,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-UK",
-        .folder = "voice/enUKm/",
+        .folder = "/voice/enUKm/",
         .voice = "Harry",
         .tempo = 100,
         .tail_idx = -1,
@@ -87,7 +87,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-US",
-        .folder = "voice/enUSf/",
+        .folder = "/voice/enUSf/",
         .voice = "Ava",
         .tempo = 100,
         .tail_idx = -1,
@@ -96,7 +96,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-US",
-        .folder = "voice/enUSm/",
+        .folder = "/voice/enUSm/",
         .voice = "Ethan",
         .tempo = 100,
         .tail_idx = -1,
@@ -106,7 +106,7 @@ static struct VOICE_t const __voices[] =
     /*
     {
         .lcid = "en-CA",
-        .folder = "voice/enCAf/",
+        .folder = "/voice/enCAf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -115,7 +115,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "en-CA",
-        .folder = "voice/enCAm/",
+        .folder = "/voice/enCAm/",
         .voice = "Unknown",
         .tempo = 120,
         .tail_idx = -1,
@@ -125,7 +125,7 @@ static struct VOICE_t const __voices[] =
     */
     {
         .lcid = "ja-JP",
-        .folder = "voice/jaJPf/",
+        .folder = "/voice/jaJPf/",
         .voice = "Sakura",
         .tempo = 50,
         .tail_idx = 145,
@@ -136,7 +136,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ja-JP",
-        .folder = "voice/jaJPm/",
+        .folder = "/voice/jaJPm/",
         .voice = "Itsuki",
         .tempo = 50,
         .tail_idx = 145,
@@ -147,7 +147,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "fr-FR",
-        .folder = "voice/frFRf/",
+        .folder = "/voice/frFRf/",
         .voice = "Jeanne",
         .tempo = 100,
         .tail_idx = -1,
@@ -156,7 +156,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "fr-FR",
-        .folder = "voice/frFRm/",
+        .folder = "/voice/frFRm/",
         .voice = "Lucien",
         .tempo = 100,
         .tail_idx = -1,
@@ -166,7 +166,7 @@ static struct VOICE_t const __voices[] =
     /*
     {
         .lcid = "fr-CA",
-        .folder = "voice/frCAf/",
+        .folder = "/voice/frCAf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -175,7 +175,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "fr-CA",
-        .folder = "voice/frCAm/",
+        .folder = "/voice/frCAm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -185,7 +185,7 @@ static struct VOICE_t const __voices[] =
     */
     {
         .lcid = "es-ES",
-        .folder = "voice/esESf/",
+        .folder = "/voice/esESf/",
         .voice = "Rosalyn",
         .tempo = 100,
         .tail_idx = -1,
@@ -194,7 +194,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "es-ES",
-        .folder = "voice/esESm/",
+        .folder = "/voice/esESm/",
         .voice = "Felipe",
         .tempo = 100,
         .tail_idx = -1,
@@ -203,7 +203,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "es-MX",
-        .folder = "voice/esMXf/",
+        .folder = "/voice/esMXf/",
         .voice = "Lola",
         .tempo = 100,
         .tail_idx = -1,
@@ -212,7 +212,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "es-MX",
-        .folder = "voice/esMXm/",
+        .folder = "/voice/esMXm/",
         .voice = "Antonio",
         .tempo = 100,
         .tail_idx = -1,
@@ -221,7 +221,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "de-DE",
-        .folder = "voice/deDEf/",
+        .folder = "/voice/deDEf/",
         .voice = "Lena",
         .tempo = 100,
         .tail_idx = -1,
@@ -230,7 +230,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "de-DE",
-        .folder = "voice/deDEm/",
+        .folder = "/voice/deDEm/",
         .voice = "Stefan",
         .tempo = 100,
         .tail_idx = -1,
@@ -239,7 +239,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "it-IT",
-        .folder = "voice/itITf/",
+        .folder = "/voice/itITf/",
         .voice = "Adriana",
         .tempo = 100,
         .tail_idx = -1,
@@ -248,7 +248,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "it-IT",
-        .folder = "voice/itITm/",
+        .folder = "/voice/itITm/",
         .voice = "Francesco",
         .tempo = 100,
         .tail_idx = -1,
@@ -258,7 +258,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-CN",
         .voice = "Liu",
-        .folder = "voice/zhCNf/",
+        .folder = "/voice/zhCNf/",
         .tempo = 100,
         .tail_idx = -1,
         .default_dfmt = DFMT_YYMMDD,
@@ -269,7 +269,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-CN",
         .voice = "Xing",
-        .folder = "voice/zhCNm/",
+        .folder = "/voice/zhCNm/",
         .tempo = 100,
         .tail_idx = -1,
         .default_dfmt = DFMT_YYMMDD,
@@ -280,7 +280,7 @@ static struct VOICE_t const __voices[] =
     {
         .lcid = "zh-HK",
         .voice = "Tai",
-        .folder = "voice/zhHKf/",
+        .folder = "/voice/zhHKf/",
         .tempo = 100,
         .tail_idx = -1,
         .default_dfmt = DFMT_YYMMDD,
@@ -290,7 +290,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "zh-HK",
-        .folder = "voice/zhHKm/",
+        .folder = "/voice/zhHKm/",
         .voice = "Choy",
         .tempo = 100,
         .tail_idx = -1,
@@ -301,7 +301,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "zh-TW",
-        .folder = "voice/zhTWf/",
+        .folder = "/voice/zhTWf/",
         .voice = "Ting",
         .tempo = 100,
         .tail_idx = -1,
@@ -312,7 +312,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "zh-TW",
-        .folder = "voice/zhTWm/",
+        .folder = "/voice/zhTWm/",
         .voice = "Hao",
         .tempo = 100,
         .tail_idx = -1,
@@ -323,7 +323,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pt-BR",
-        .folder = "voice/ptBRf/",
+        .folder = "/voice/ptBRf/",
         .voice = "Carolina",
         .tempo = 100,
         .tail_idx = -1,
@@ -332,7 +332,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pt-BR",
-        .folder = "voice/ptBRm/",
+        .folder = "/voice/ptBRm/",
         .voice = "Pedro",
         .tempo = 100,
         .tail_idx = -1,
@@ -341,7 +341,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pt-PT",
-        .folder = "voice/ptPTf/",
+        .folder = "/voice/ptPTf/",
         .voice = "Maria",
         .tempo = 100,
         .tail_idx = -1,
@@ -350,7 +350,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pt-PT",
-        .folder = "voice/ptPTm/",
+        .folder = "/voice/ptPTm/",
         .voice = "Miguel",
         .tempo = 100,
         .tail_idx = -1,
@@ -359,7 +359,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ko-KR",
-        .folder = "voice/koKRf/",
+        .folder = "/voice/koKRf/",
         .voice = "Jiyoon",
         .tempo = 100,
         .tail_idx = 145,
@@ -370,7 +370,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ko-KR",
-        .folder = "voice/koKRm/",
+        .folder = "/voice/koKRm/",
         .voice = "Byeongho",
         .tempo = 100,
         .tail_idx = 145,
@@ -381,7 +381,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "nb-NO",
-        .folder = "voice/nbNOf/",
+        .folder = "/voice/nbNOf/",
         .voice = "Anita",
         .tempo = 100,
         .tail_idx = -1,
@@ -390,7 +390,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "nb-NO",
-        .folder = "voice/nbNOm/",
+        .folder = "/voice/nbNOm/",
         .voice = "Espen",
         .tempo = 100,
         .tail_idx = -1,
@@ -399,7 +399,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "fi-FI",
-        .folder = "voice/fiFIf/",
+        .folder = "/voice/fiFIf/",
         .voice = "Ada",
         .tempo = 100,
         .tail_idx = -1,
@@ -408,7 +408,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "fi-FI",
-        .folder = "voice/fiFIm/",
+        .folder = "/voice/fiFIm/",
         .voice = "Fidan",
         .tempo = 100,
         .tail_idx = -1,
@@ -417,7 +417,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "sv-SE",
-        .folder = "voice/svSEf/",
+        .folder = "/voice/svSEf/",
         .voice = "Sofie",
         .tempo = 100,
         .tail_idx = -1,
@@ -426,7 +426,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "sv-SE",
-        .folder = "voice/svSEm/",
+        .folder = "/voice/svSEm/",
         .voice = "Mattias",
         .tempo = 100,
         .tail_idx = -1,
@@ -435,7 +435,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "da-DK",
-        .folder = "voice/daDKf/",
+        .folder = "/voice/daDKf/",
         .voice = "Ella",
         .tempo = 100,
         .tail_idx = -1,
@@ -444,7 +444,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "da-DK",
-        .folder = "voice/daDKm/",
+        .folder = "/voice/daDKm/",
         .voice = "Noah",
         .tempo = 100,
         .tail_idx = -1,
@@ -454,7 +454,7 @@ static struct VOICE_t const __voices[] =
     /*
     {
         .lcid = "nl-NL",
-        .folder = "voice/nlNLf/",
+        .folder = "/voice/nlNLf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -463,7 +463,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "nl-NL",
-        .folder = "voice/nlNLm/",
+        .folder = "/voice/nlNLm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -472,7 +472,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pl-PL",
-        .folder = "voice/plPLm/",
+        .folder = "/voice/plPLm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -481,7 +481,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "pl-PL",
-        .folder = "voice/plPLm/",
+        .folder = "/voice/plPLm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -490,7 +490,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ro-RO",
-        .folder = "voice/roROf/",
+        .folder = "/voice/roROf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -499,7 +499,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ro-RO",
-        .folder = "voice/roROm/",
+        .folder = "/voice/roROm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -508,7 +508,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ru-RU",
-        .folder = "voice/ruRUf/",
+        .folder = "/voice/ruRUf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -517,7 +517,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ru-RU",
-        .folder = "voice/ruRUm/",
+        .folder = "/voice/ruRUm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -527,7 +527,7 @@ static struct VOICE_t const __voices[] =
     */
     {
         .lcid = "th-TH",
-        .folder = "voice/thTHf/",
+        .folder = "/voice/thTHf/",
         .voice = "Premwadee",
         .tempo = 100,
         .tail_idx = -1,
@@ -536,7 +536,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "th-TH",
-        .folder = "voice/thTHm/",
+        .folder = "/voice/thTHm/",
         .voice = "Niwat",
         .tempo = 100,
         .tail_idx = -1,
@@ -545,7 +545,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "vi-VN",
-        .folder = "voice/viVNf/",
+        .folder = "/voice/viVNf/",
         .voice = "HoaiMy",
         .tempo = 100,
         .tail_idx = -1,
@@ -554,7 +554,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "vi-VN",
-        .folder = "voice/viVNm/",
+        .folder = "/voice/viVNm/",
         .voice = "NamMinh",
         .tempo = 100,
         .tail_idx = -1,
@@ -563,7 +563,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "id-ID",
-        .folder = "voice/idIDf/",
+        .folder = "/voice/idIDf/",
         .voice = "Indah",
         .tempo = 100,
         .tail_idx = -1,
@@ -572,7 +572,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "id-ID",
-        .folder = "voice/idIDm/",
+        .folder = "/voice/idIDm/",
         .voice = "Adhiarja",
         .tempo = 100,
         .tail_idx = -1,
@@ -581,7 +581,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "km-KH",
-        .folder = "voice/kmKHf/",
+        .folder = "/voice/kmKHf/",
         .voice = "Sreymom",
         .tempo = 100,
         .tail_idx = -1,
@@ -591,7 +591,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "km-KH",
-        .folder = "voice/kmKHm/",
+        .folder = "/voice/kmKHm/",
         .voice = "Piseth",
         .tempo = 100,
         .tail_idx = -1,
@@ -601,7 +601,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "lo-LA",
-        .folder = "voice/loLAf/",
+        .folder = "/voice/loLAf/",
         .voice = "Keomany",
         .tempo = 100,
         .tail_idx = -1,
@@ -610,7 +610,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "lo-LA",
-        .folder = "voice/loLAm/",
+        .folder = "/voice/loLAm/",
         .voice = "Chanthavong",
         .tempo = 100,
         .tail_idx = -1,
@@ -619,7 +619,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "tl-PH",
-        .folder = "voice/tlPHf/",
+        .folder = "/voice/tlPHf/",
         .voice = "Gloria",
         .tempo = 100,
         .tail_idx = -1,
@@ -628,7 +628,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "tl-PH",
-        .folder = "voice/tlPHm/",
+        .folder = "/voice/tlPHm/",
         .voice = "Sergio",
         .tempo = 100,
         .tail_idx = -1,
@@ -637,7 +637,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ms-MY",
-        .folder = "voice/msMYf/",
+        .folder = "/voice/msMYf/",
         .voice = "Yasmin",
         .tempo = 100,
         .tail_idx = -1,
@@ -646,7 +646,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ms-MY",
-        .folder = "voice/msMYm/",
+        .folder = "/voice/msMYm/",
         .voice = "Osman",
         .tempo = 100,
         .tail_idx = -1,
@@ -655,7 +655,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "my-MM",
-        .folder = "voice/myMMf/",
+        .folder = "/voice/myMMf/",
         .voice = "Nilar",
         .tempo = 100,
         .tail_idx = -1,
@@ -665,7 +665,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "my-MM",
-        .folder = "voice/myMMm/",
+        .folder = "/voice/myMMm/",
         .voice = "Thiha",
         .tempo = 100,
         .tail_idx = -1,
@@ -676,7 +676,7 @@ static struct VOICE_t const __voices[] =
     /*
     {
         .lcid = "ar-SA",
-        .folder = "voice/arSAf/",
+        .folder = "/voice/arSAf/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
@@ -685,7 +685,7 @@ static struct VOICE_t const __voices[] =
     },
     {
         .lcid = "ar-SA",
-        .folder = "voice/arSAm/",
+        .folder = "/voice/arSAm/",
         .voice = "Unknown",
         .tempo = 100,
         .tail_idx = -1,
