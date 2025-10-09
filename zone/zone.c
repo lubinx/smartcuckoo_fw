@@ -832,7 +832,7 @@ static int SHELL_noise(struct UCSH_env *env)
         char const *theme;
 
         MYNOISE_stat(&senceario, &theme);
-        UCSH_printf(env, "%s.%s", senceario, theme);
+        UCSH_printf(env, "%s.%s: %u\n", senceario, theme, (unsigned)MYNOISE_timestamp());
 
         return 0;
     }
