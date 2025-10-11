@@ -149,8 +149,6 @@ add_custom_command(TARGET zone
 # endif()
 
 # NOTE: required lc3
-option(LC3_PLUS OFF)
-# option(LC3_PLUS_HR OFF)
 add_subdirectory("${ULTRACORE_ROOT}/3party/lc3" "lc3")
 
 print_targets()
