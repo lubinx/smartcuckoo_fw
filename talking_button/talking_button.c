@@ -130,7 +130,6 @@ void PERIPHERAL_init(void)
 
             if (GPIO_peek(PIN_RTC_CAL_IN))
             {
-                LOG_debug("calibration");
                 VOICE_say_setting(VOICE_SETTING_DONE, NULL);
                 mplayer_waitfor_idle();
 
