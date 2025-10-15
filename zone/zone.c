@@ -192,10 +192,6 @@ void PERIPHERAL_init(void)
 /****************************************************************************
  *  @implements: overrides
  ****************************************************************************/
-void PERIPHERAL_on_sleep(void)
-{
-}
-
 void mplayer_idle_callback(void)
 {
     zone.voice_click_stick = clock();

@@ -149,10 +149,6 @@ void PERIPHERAL_init(void)
 /****************************************************************************
  *  @implements: overrides
  ****************************************************************************/
-void PERIPHERAL_on_sleep(void)
-{
-}
-
 void mplayer_idle_callback(void)
 {
     talking_button.voice_click_stick = clock();
