@@ -15,8 +15,18 @@
 /***************************************************************************
  * @def
  ***************************************************************************/
-#define VOICE_EXT                   ".lc3"
-static char const *filefmt = "%s%02X.lc3";
+#define IDX_CUSTOM_REMINDER_START   (10000)
+#define IDX_CUSTOM_REMINDER_END     (19999)
+
+#define IDX_CUSTOM_RINGTONE_START   (20000)
+#define IDX_CUSTOM_RINGTONE_END     (29999)
+
+#define EXT_VOICE                   ".lc3"
+#define EXT_CUSTOM                  ".wav"
+
+static char const *common_folder = "/voice/";
+static char const *custom_reminder_folder = "/download/reminder/";
+static char const *custom_ringtone_folder = "/download/ringtone/";
 
 // VOICE speak weekday before or after date
 enum VOICE_wday_fmt_t
@@ -45,7 +55,6 @@ struct VOICE_t
  ***************************************************************************/
 static struct VOICE_t const *voice_sel;
 static struct LOCALE_t const *locale_ptr;
-static char const *common_folder = "/voice/";
 
 static struct VOICE_t const __voices[] =
 {
@@ -783,6 +792,43 @@ enum VOICE_map
 /***************************************************************************
  * @def: private
  ***************************************************************************/
+static int VOICE_play(int idx)
+{
+    char filename[32];
+
+// CUSTOM reminder
+    if (IDX_CUSTOM_REMINDER_START <= idx && IDX_CUSTOM_REMINDER_END >= idx)
+        sprintf(filename, "%srmd_%02X" EXT_CUSTOM, custom_reminder_folder, idx - IDX_CUSTOM_REMINDER_START);
+// CUSTOM ringtone
+    else if (IDX_CUSTOM_RINGTONE_START <= idx && IDX_CUSTOM_RINGTONE_END >= idx)
+        sprintf(filename, "%salm_%02X" EXT_CUSTOM, custom_ringtone_folder, idx - IDX_CUSTOM_RINGTONE_START);
+// common folder: ringtone
+    else if (IDX_RING_TONE_0 <= idx && IDX_RING_TONE_END >= idx)
+        sprintf(filename, "%s%02X" EXT_VOICE, common_folder, idx);
+// common folder: setting done
+    else if (IDX_SETTING_DONE == idx)
+        sprintf(filename, "%s%02X" EXT_VOICE, common_folder, idx);
+// locale folder
+    else if (0xFF > idx)
+        sprintf(filename, "%s%02X" EXT_VOICE, voice_sel->folder, idx);
+    else
+        return ENOENT;
+
+    return mplayer_play(filename);
+}
+
+static int VOICE_queue(int idx)
+{
+    char filename[32];
+    sprintf(filename, "%s%02X" EXT_VOICE, voice_sel->folder, idx);
+
+    int retval = mplayer_playlist_queue(filename);
+    if (0 == retval)
+        mplayer_playlist_queue_intv(voice_sel->tempo);
+
+    return retval;
+}
+
 static void LOCALE_set(struct VOICE_t const *locale)
 {
     if (NULL != locale && voice_sel != locale)
@@ -835,7 +881,7 @@ int16_t VOICE_select_voice(int16_t voice_id)
         struct VOICE_t const *voice = &__voices[voice_id];
 
         char filename[64];
-        sprintf(filename, filefmt, voice->folder, IDX_SETTING_LANG);
+        sprintf(filename, "%s%02X" EXT_VOICE, voice->folder, IDX_SETTING_LANG);
         int fd = open(filename, O_RDONLY);
 
         if (-1 != fd)
@@ -896,7 +942,7 @@ int16_t VOICE_next_locale(void)
             struct VOICE_t const *voice = &__voices[idx];
 
             char filename[64];
-            sprintf(filename, filefmt, voice->folder, IDX_SETTING_LANG);
+            sprintf(filename, "%s%02X" EXT_VOICE, voice->folder, IDX_SETTING_LANG);
             int fd = open(filename, O_RDONLY);
 
             if (-1 != fd)
@@ -920,29 +966,22 @@ int VOICE_say_date(struct tm const *tm)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    int full_year = tm->tm_year + 1900;
-    full_year = YEAR_ROUND_LO > full_year ? YEAR_ROUND_LO :
-        (YEAR_ROUND_HI < full_year ?        YEAR_ROUND_HI : full_year);
+    int retval = VOICE_queue(IDX_TODAY);
 
-    char filename[64];
-    int retval;
+    int year_vidx;
+    {
+        int full_year = tm->tm_year + 1900;
+        full_year = YEAR_ROUND_LO > full_year ? YEAR_ROUND_LO :
+            (YEAR_ROUND_HI < full_year ?        YEAR_ROUND_HI : full_year);
 
-    sprintf(filename, filefmt, voice_sel->folder, IDX_TODAY);
-    if (0 == (retval = mplayer_playlist_queue(filename)))
-        mplayer_playlist_queue_intv(voice_sel->tempo);
-
-    int year_vidx = full_year - YEAR_ROUND_LO + IDX_YEAR_LO;
+        year_vidx = full_year - YEAR_ROUND_LO + IDX_YEAR_LO;
+    }
     int month_vidx = tm->tm_mon + IDX_JANURAY;
     int day_vidx = tm->tm_mday - 1 + IDX_MDAY_1;
     int wday_vidx = tm->tm_wday + IDX_SUNDAY;
 
     if (0 == retval && WFMT_LEAD == voice_sel->wfmt)
-    {
-        sprintf(filename, filefmt, voice_sel->folder, wday_vidx);
-        retval = mplayer_playlist_queue(filename);
-        if (0 == retval)
-            mplayer_playlist_queue_intv(voice_sel->tempo);
-    }
+        retval = VOICE_queue(wday_vidx);
 
     enum LOCALE_dfmt_t dfmt = locale_ptr->dfmt;
     if (DFMT_DEFAULT == dfmt)
@@ -953,83 +992,37 @@ int VOICE_say_date(struct tm const *tm)
     case DFMT_DEFAULT:
     case DFMT_YYMMDD:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, year_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(year_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, month_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(month_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, day_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(day_vidx);
         break;
 
     case DFMT_DDMMYY:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, day_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(day_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, month_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(month_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, year_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(year_vidx);
         break;
 
     case DFMT_MMDDYY:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, month_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(month_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, day_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(day_vidx);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, year_vidx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(year_vidx);
         break;
     };
 
     if (0 == retval && WFMT_TAIL == voice_sel->wfmt)
-    {
-        sprintf(filename, filefmt, voice_sel->folder, wday_vidx);
-        retval = mplayer_playlist_queue(filename);
-        if (0 == retval)
-            mplayer_playlist_queue_intv(voice_sel->tempo);
-    }
+        retval = VOICE_queue(wday_vidx);
 
     if (0 == retval && -1 != voice_sel->tail_idx)
-    {
-        sprintf(filename, filefmt, voice_sel->folder, voice_sel->tail_idx);
-        retval = mplayer_playlist_queue(filename);
-        if (0 == retval)
-            mplayer_playlist_queue_intv(voice_sel->tempo);
-    }
+        retval = VOICE_queue(voice_sel->tail_idx);
     return retval;
 }
 
@@ -1050,7 +1043,6 @@ int VOICE_say_time(struct tm const *tm)
         tm->tm_hour, tm->tm_min, tm->tm_sec);
 
     int retval = 0;
-    char filename[64];
     int saying_hour;
 
     enum LOCALE_hfmt_t hfmt = locale_ptr->hfmt;
@@ -1061,26 +1053,15 @@ int VOICE_say_time(struct tm const *tm)
     if (0 == tm->tm_min && 0 == tm->tm_hour % 12)
     {
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, IDX_NOW);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(IDX_NOW);
 
         if (0 == retval)
         {
             if (0 == tm->tm_hour)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_MID_NIGHT);
-            }
+                retval = VOICE_queue(IDX_MID_NIGHT);
             else
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_NOON);
-            }
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
+                retval = VOICE_queue(IDX_NOON);
         }
-
         return retval;
     }
     else
@@ -1108,46 +1089,24 @@ int VOICE_say_time(struct tm const *tm)
     {
     fixed_gr12:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, IDX_NOW);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(IDX_NOW);
         if (0 == retval)
         {
             if (0 == saying_hour || 12 == saying_hour)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, 12 + IDX_HOUR_0);
-            }
+                retval = VOICE_queue(12 + IDX_HOUR_0);
             else
-            {
-                sprintf(filename, filefmt, voice_sel->folder, saying_hour % 12 + IDX_HOUR_0);
-            }
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
+                retval = VOICE_queue(saying_hour % 12 + IDX_HOUR_0);
         }
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, tm->tm_min + IDX_MINUTE_0);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
         if (0 == retval)
         {
             if (tm->tm_hour < 12)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_IN_MORNING);
-            }
+                retval = VOICE_queue(IDX_IN_MORNING);
             else if (tm->tm_hour < 18)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_IN_AFTERNOON);
-            }
+                retval = VOICE_queue(IDX_IN_AFTERNOON);
             else
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_IN_EVENING);
-            }
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
+                retval = VOICE_queue(IDX_IN_EVENING);
         }
     }
     else
@@ -1156,48 +1115,23 @@ int VOICE_say_time(struct tm const *tm)
         if (0 == retval)
         {
             if (tm->tm_hour < 12)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_GR_MORNING);
-            }
+                retval = VOICE_queue(IDX_GR_MORNING);
             else if (tm->tm_hour < 18)
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_GR_AFTERNOON);
-            }
+                retval = VOICE_queue(IDX_GR_AFTERNOON);
             else
-            {
-                sprintf(filename, filefmt, voice_sel->folder, IDX_GR_EVENING);
-            }
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
+                retval = VOICE_queue(IDX_GR_EVENING);
         }
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, IDX_NOW);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(IDX_NOW);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, saying_hour + IDX_HOUR_0);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(saying_hour + IDX_HOUR_0);
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, tm->tm_min + IDX_MINUTE_0);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
     }
 
     if (-1 != voice_sel->tail_idx)
-    {
-        sprintf(filename, filefmt, voice_sel->folder, voice_sel->tail_idx);
+        retval = VOICE_queue(voice_sel->tail_idx);
 
-        retval = mplayer_playlist_queue(filename);
-        if (0 == retval)
-            mplayer_playlist_queue_intv(voice_sel->tempo);
-    }
     return retval;
 }
 
@@ -1208,13 +1142,8 @@ int VOICE_say_time_epoch(time_t epoch)
 
 int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
 {
-    char filename[64];
-
     if (setting == VOICE_SETTING_DONE)
-    {
-        sprintf(filename, filefmt, common_folder, IDX_SETTING_DONE);
-        return mplayer_play(filename);
-    }
+        return VOICE_play(IDX_SETTING_DONE);
 
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
@@ -1225,51 +1154,40 @@ int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
         break;
 
     case VOICE_SETTING_LANG:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_LANG);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_LANG);
 
     case VOICE_SETTING_HOUR:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_HOUR);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_HOUR);
 
     case VOICE_SETTING_MINUTE:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_MINUTE);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_MINUTE);
 
     case VOICE_SETTING_YEAR:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_YEAR);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_YEAR);
 
     case VOICE_SETTING_MONTH:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_MONTH);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_MONTH);
 
     case VOICE_SETTING_MDAY:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_MDAY);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_MDAY);
 
     case VOICE_SETTING_ALARM_HOUR:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_ALARM_HOUR);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_ALARM_HOUR);
 
     case VOICE_SETTING_ALARM_MIN:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_ALARM_MIN);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_ALARM_MIN);
 
     case VOICE_SETTING_ALARM_RINGTONE:
         return VOICE_play_ringtone((int)arg);
 
     case VOICE_SETTING_EXT_LOW_BATT:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_EXT_LOW_BATT);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_EXT_LOW_BATT);
 
     case VOICE_SETTING_EXT_ALARM_ON:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_EXT_ALARM_ON);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_EXT_ALARM_ON);
 
     case VOICE_SETTING_EXT_ALARM_OFF:
-        sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_EXT_ALARM_OFF);
-        return mplayer_play(filename);
+        return VOICE_play(IDX_SETTING_EXT_ALARM_OFF);
     };
 
     return EINVAL;
@@ -1281,18 +1199,13 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    char filename[64];
     int retval = 0;
 
     switch (setting)
     {
     case VOICE_SETTING_LANG:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, IDX_SETTING_VOICE);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(IDX_SETTING_VOICE);
         break;
 
     case VOICE_SETTING_HOUR:
@@ -1309,73 +1222,38 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
                 if (HFMT_24 != voice_sel->fixed_gr)
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, 12 + IDX_HOUR_0);
-                    }
+                        retval = VOICE_queue(12 + IDX_HOUR_0);
                     else
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, tm->tm_hour % 12 + IDX_HOUR_0);
-                    }
-                    retval = mplayer_playlist_queue(filename);
-                    if (0 == retval)
-                        mplayer_playlist_queue_intv(voice_sel->tempo);
+                        retval = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
                 }
 
                 if (0 == retval)
                 {
                     if (tm->tm_hour < 12)
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, IDX_IN_MORNING);
-
-                        if (0 == (retval = mplayer_playlist_queue(filename)))
-                            mplayer_playlist_queue_intv(voice_sel->tempo);
-                    }
+                        retval = VOICE_queue(IDX_IN_MORNING);
                     else if (tm->tm_hour < 18)
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, IDX_IN_AFTERNOON);
-                        if (0 == (retval = mplayer_playlist_queue(filename)))
-                            mplayer_playlist_queue_intv(voice_sel->tempo);
-                    }
+                        retval = VOICE_queue(IDX_IN_AFTERNOON);
                     else
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, IDX_IN_EVENING);
-                        if (0 == (retval = mplayer_playlist_queue(filename)))
-                            mplayer_playlist_queue_intv(voice_sel->tempo);
-                    }
+                        retval = VOICE_queue(IDX_IN_EVENING);
                 }
 
                 if (HFMT_24 == voice_sel->fixed_gr)
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, 12 + IDX_HOUR_0);
-                    }
+                        retval = VOICE_queue(12 + IDX_HOUR_0);
                     else
-                    {
-                        sprintf(filename, filefmt, voice_sel->folder, tm->tm_hour % 12 + IDX_HOUR_0);
-                    }
-                    if (0 == (retval = mplayer_playlist_queue(filename)))
-                        mplayer_playlist_queue_intv(voice_sel->tempo);
+                        retval = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
                 }
             }
             else
-            {
-                sprintf(filename, filefmt, voice_sel->folder, tm->tm_hour + IDX_HOUR_0);
-
-                if (0 == (retval = mplayer_playlist_queue(filename)))
-                    mplayer_playlist_queue_intv(voice_sel->tempo);
-            }
+                retval = VOICE_queue(tm->tm_hour + IDX_HOUR_0);
         }
         break;
 
     case VOICE_SETTING_MINUTE:
     case VOICE_SETTING_ALARM_MIN:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, tm->tm_min + IDX_MINUTE_0);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
         break;
 
     case VOICE_SETTING_YEAR:
@@ -1385,19 +1263,13 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
             idx = (YEAR_ROUND_LO > idx ? YEAR_ROUND_LO : (YEAR_ROUND_HI < idx ? YEAR_ROUND_HI : idx)) -
                 YEAR_ROUND_LO + IDX_YEAR_LO;
 
-            sprintf(filename, filefmt, voice_sel->folder, idx);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
+            retval = VOICE_queue(idx);
         }
         break;
 
     case VOICE_SETTING_MDAY:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, tm->tm_mday - 1 + IDX_MDAY_1);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(tm->tm_mday - 1 + IDX_MDAY_1);
         if (0 == retval && voice_sel->default_dfmt != DFMT_YYMMDD)
             goto fallthrough_month;
         break;
@@ -1405,11 +1277,7 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
     fallthrough_month:
     case VOICE_SETTING_MONTH:
         if (0 == retval)
-        {
-            sprintf(filename, filefmt, voice_sel->folder, tm->tm_mon + IDX_JANURAY);
-            if (0 == (retval = mplayer_playlist_queue(filename)))
-                mplayer_playlist_queue_intv(voice_sel->tempo);
-        }
+            retval = VOICE_queue(tm->tm_mon + IDX_JANURAY);
         break;
 
     case VOICE_SETTING_ALARM_RINGTONE:
@@ -1448,15 +1316,11 @@ int VOICE_play_ringtone(int ringtone_id)
 {
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
-    char filename[64];
 
-    if (0 > ringtone_id)
-        ringtone_id = 0;
+    if (0xFF > ringtone_id)
+        return VOICE_play(IDX_RING_TONE_0 + ringtone_id);
     else
-        ringtone_id %= RING_TONE_COUNT;
-
-    sprintf(filename, filefmt, common_folder, IDX_RING_TONE_0 + ringtone_id);
-    return mplayer_play(filename);
+        return VOICE_play(ringtone_id);
 }
 
 int VOICE_play_reminder(int reminder_id)
@@ -1464,8 +1328,8 @@ int VOICE_play_reminder(int reminder_id)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    char filename[64];
-    sprintf(filename, filefmt, voice_sel->folder, IDX_REMINDER_0 + reminder_id);
-
-    return mplayer_playlist_queue(filename);
+    if (0xFF > reminder_id)
+        return VOICE_play(IDX_REMINDER_0 + reminder_id);
+    else
+        return VOICE_play(reminder_id);
 }
