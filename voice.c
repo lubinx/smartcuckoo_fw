@@ -823,9 +823,9 @@ static int VOICE_queue(int idx)
     sprintf(filename, "%s%02X" EXT_VOICE, voice_sel->folder, idx);
 
     int retval = mplayer_playlist_queue(filename);
-    if (0 == retval)
-        mplayer_playlist_queue_intv(voice_sel->tempo);
 
+    // if (0 == retval)
+    //     mplayer_playlist_queue_intv(voice_sel->tempo);
     return retval;
 }
 
