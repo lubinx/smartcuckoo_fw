@@ -134,6 +134,15 @@ int main(void)
     PERIPHERAL_gpio_init();
     CLOCK_init();
 
+    #ifdef I2S_PINS
+        I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
+        I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
+        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 300);
+    #else
+        DAC_init(&dac_attr, true);
+        DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
+    #endif
+
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, [](int volt, int raw, void *arg)-> void
             {
@@ -160,6 +169,8 @@ int main(void)
         ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
         ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
 
+        PERIPHERAL_batt_ad_start();
+        /*
         while (true)
         {
             PERIPHERAL_batt_ad_start();
@@ -175,6 +186,7 @@ int main(void)
             else
                 break;
         }
+        */
     #endif
 
     PMU_power_lock();
@@ -236,15 +248,6 @@ int main(void)
         LC3_register_codec();
         mplayer_init(MPLAYER_QUEUE_SIZE);
     }
-
-    #ifdef I2S_PINS
-        I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
-        I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
-        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 300);
-    #else
-        DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
-    #endif
 
     PERIPHERAL_init();
     UCSH_register_fileio();
