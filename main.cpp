@@ -137,7 +137,7 @@ int main(void)
     #ifdef I2S_PINS
         I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
         I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
-        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 300);
+        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 350);
     #else
         DAC_init(&dac_attr, true);
         DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
@@ -170,23 +170,6 @@ int main(void)
         ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
 
         PERIPHERAL_batt_ad_start();
-        /*
-        while (true)
-        {
-            PERIPHERAL_batt_ad_start();
-
-            msleep(5);
-            WDOG_feed();
-
-            if (BATT_EMPTY_MV > batt_ad.value)
-            {
-                PERIPHERAL_on_sleep();
-                msleep(250);
-            }
-            else
-                break;
-        }
-        */
     #endif
 
     PMU_power_lock();
