@@ -38,7 +38,6 @@ struct zone_runtime_t
     unsigned voice_click_count;
     clock_t voice_click_stick;
 
-    uint32_t noise_off_seconds;
     time_t batt_last_ts;
 };
 
@@ -57,11 +56,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
 
-static void update_power_timeo_led(struct zone_runtime_t *runtime);
 static void setting_timeout_callback(struct zone_runtime_t *runtime);
 static void volume_adj_intv_callback(uint32_t button_pin);
 
-static int SHELL_noise(struct UCSH_env *env);
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -87,7 +85,8 @@ void PERIPHERAL_gpio_init(void)
 
 void PERIPHERAL_shell_init(void)
 {
-    UCSH_REGISTER("noise",  SHELL_noise);
+    MYNOISE_register_shell();
+    MYNOISE_power_off_tickdown_cb(1, MYNOISE_power_off_tickdown_callback);
 }
 
 bool PERIPHERAL_is_enable_usb(void)
@@ -202,6 +201,31 @@ void mplayer_idle_callback(void)
         CLOCK_peek_start_alarms(time(NULL));
 }
 
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain)
+{
+    GPIO_set(LED1);
+    GPIO_set(LED2);
+    GPIO_set(LED3);
+
+    if (0 != power_off_seconds_remain)
+    {
+        GPIO_clear(LED1);
+
+        if (POWER_OFF_STEP_SECONDS < power_off_seconds_remain)
+            GPIO_clear(LED2);
+        if (2U * POWER_OFF_STEP_SECONDS < power_off_seconds_remain)
+            GPIO_clear(LED3);
+    }
+}
+
+// int MYNOISE_store(char const *scenario, char const *theme, uint8_t channel_count, uint8_t *mixing_percents)
+// {
+
+// }
+
+    // int MYNOISE_store_remove(char const *scenario, char const *theme);
+
+
 /****************************************************************************
  *  @private: buttons
  ****************************************************************************/
@@ -231,23 +255,6 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
         mqueue_postv(runtime->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
     if (PIN_VOLUME_DOWN_BUTTON == (PIN_VOLUME_DOWN_BUTTON & pins))
         timeout_start(&runtime->volume_adj_intv, (void *)PIN_VOLUME_DOWN_BUTTON);
-}
-
-static void update_power_timeo_led(struct zone_runtime_t *runtime)
-{
-    GPIO_set(LED1);
-    GPIO_set(LED2);
-    GPIO_set(LED3);
-
-    if (0 != runtime->noise_off_seconds)
-    {
-        GPIO_clear(LED1);
-
-        if (POWER_OFF_STEP_SECONDS < runtime->noise_off_seconds)
-            GPIO_clear(LED2);
-        if (2U * POWER_OFF_STEP_SECONDS < runtime->noise_off_seconds)
-            GPIO_clear(LED3);
-    }
 }
 
 static void setting_timeout_callback(struct zone_runtime_t *runtime)
@@ -328,18 +335,6 @@ static void MSG_alive(struct zone_runtime_t *runtime)
 
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
         MYNOISE_stop();
-
-    if (0 != runtime->noise_off_seconds)
-    {
-        if (MQUEUE_ALIVE_INTV_SECONDS >= runtime->noise_off_seconds)
-        {
-            MYNOISE_stop();
-            runtime->noise_off_seconds = 0;
-        }
-        else
-            runtime->noise_off_seconds -= MQUEUE_ALIVE_INTV_SECONDS;
-    }
-    update_power_timeo_led(runtime);
 }
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
@@ -651,23 +646,20 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 }
 
 
-static void MSG_mynoise_toggle(struct zone_runtime_t *runtime)
+static void MSG_mynoise_toggle(void)
 {
-    if (! MYNOISE_is_idle())
+    if (MYNOISE_is_running())
     {
-        if (0 == runtime->noise_off_seconds)
-            runtime->noise_off_seconds = POWER_OFF_STEP_SECONDS;
-        else if (POWER_OFF_STEP_SECONDS >= runtime->noise_off_seconds)
-            runtime->noise_off_seconds = 2U * POWER_OFF_STEP_SECONDS;
-        else if (2U * POWER_OFF_STEP_SECONDS >= runtime->noise_off_seconds)
-            runtime->noise_off_seconds = 3U * POWER_OFF_STEP_SECONDS;
-        else
-        {
-            MYNOISE_stop();
-            runtime->noise_off_seconds = 0;
-        }
+        uint32_t seconds = MYNOISE_get_power_off_seconds();
 
-        update_power_timeo_led(runtime);
+        if (0 == seconds)
+            MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
+        else if (POWER_OFF_STEP_SECONDS >= seconds)
+            MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
+        else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
+            MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
+        else
+            MYNOISE_stop();
     }
     else
         MYNOISE_start();
@@ -760,7 +752,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             MSG_setting(runtime, PIN_POWER_BUTTON);
                     }
                     else
-                        MSG_mynoise_toggle(runtime);
+                        MSG_mynoise_toggle();
                     break;
 
                 case MSG_PREV_BUTTON:
@@ -818,113 +810,4 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
         else
             MSG_alive(runtime);
     }
-}
-
-static int SHELL_noise(struct UCSH_env *env)
-{
-    if (1 == env->argc)
-    {
-        char const *senceario;
-        char const *theme;
-
-        MYNOISE_stat(&senceario, &theme);
-        UCSH_printf(env, "%s.%s: %u\n", senceario, theme, (unsigned)MYNOISE_timestamp());
-
-        return 0;
-    }
-
-    if (0 == strcasecmp(env->argv[1], "start"))
-    {
-        if (2 == env->argc)
-        {
-            zone.noise_off_seconds = 0;
-            return MYNOISE_start();
-        }
-
-        if (3 == env->argc)
-        {
-            char *end;
-            zone.noise_off_seconds = strtoul(env->argv[2], &end, 10);
-
-            if ('\0' == *end)
-            {
-                zone.noise_off_seconds = MAX(POWER_OFF_STEP_SECONDS, zone.noise_off_seconds);
-
-                int err = MYNOISE_start();
-                if (0 == err)
-                    update_power_timeo_led(&zone);
-                else
-                    zone.noise_off_seconds = 0;
-                return err;
-            }
-            else
-            {
-                char *theme = env->argv[2];
-                char const *senceario = theme;
-
-                while (*theme && '.' != *theme) theme ++;
-
-                if ('.' == *theme)
-                {
-                    *theme = '\0';
-                    theme = theme + 1;
-                }
-                else
-                    theme = NULL;
-
-                int err = MYNOISE_start_senseario(senceario, theme);
-                if (0 == err)
-                    update_power_timeo_led(&zone);
-                else
-                    zone.noise_off_seconds = 0;
-                return err;
-            }
-        }
-
-        if (4 == env->argc)
-        {
-            zone.noise_off_seconds = strtoul(env->argv[2], NULL, 10);
-            zone.noise_off_seconds = MAX(POWER_OFF_STEP_SECONDS, zone.noise_off_seconds);
-
-            char *theme = env->argv[3];
-            char const *senceario = theme;
-
-            while (*theme && '.' != *theme) theme ++;
-
-            if ('.' == *theme)
-            {
-                *theme = '\0';
-                theme = theme + 1;
-            }
-            else
-                theme = NULL;
-
-            int err = MYNOISE_start_senseario(senceario, theme);
-            if (0 == err)
-                update_power_timeo_led(&zone);
-            else
-                zone.noise_off_seconds = 0;
-            return err;
-        }
-        else
-            return EINVAL;
-    }
-
-    if (2 != env->argc)
-        return EINVAL;
-
-    if (0 == strcasecmp(env->argv[1], "stop"))
-        return MYNOISE_stop();
-
-    if (0 == strcasecmp(env->argv[1], "next"))
-        return MYNOISE_next();
-    if (0 == strcasecmp(env->argv[1], "prev"))
-        return MYNOISE_prev();
-
-    if (0 == strcasecmp(env->argv[1], "pause"))
-        return MYNOISE_pause();
-    if (0 == strcasecmp(env->argv[1], "resume"))
-        return MYNOISE_resume();
-
-    return EINVAL;
 }
