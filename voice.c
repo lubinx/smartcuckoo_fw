@@ -1329,7 +1329,7 @@ int VOICE_play_reminder(int reminder_id)
         return EMODU_NOT_CONFIGURED;
 
     if (0xFF > reminder_id)
-        return VOICE_play(IDX_REMINDER_0 + reminder_id);
+        return VOICE_queue(IDX_REMINDER_0 + reminder_id);
     else
-        return VOICE_play(reminder_id);
+        return VOICE_queue(reminder_id);
 }
