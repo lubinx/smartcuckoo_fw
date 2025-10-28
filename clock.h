@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <time.h>
 
-    #define time_to_mtime(ts)           ((int16_t)(((ts) / 3600) * 100 + ((ts) % 3600) / 60))
+    #define time_to_mtime(ts)           ((int16_t)(((ts % 86400) / 3600) * 100 + ((ts) % 3600) / 60))
     #define mtime_to_time(mt)           (time_t)((((mt) / 100) * 3600 + ((mt) % 100) * 60))
 
     struct CLOCK_moment_t
@@ -109,7 +109,7 @@ extern __attribute__((nothrow))
      *      reminders count
     */
 extern __attribute__((nothrow))
-    unsigned CLOCK_peek_start_reminders(time_t ts);
+    void CLOCK_peek_start_reminders(time_t ts);
 
     /**
      *  CLOCK_say_reminders()

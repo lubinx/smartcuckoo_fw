@@ -622,7 +622,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             int16_t mtime;
 
         setting_modify_alarm:
-            ts = mktime(&runtime->setting_dt) % 86400;
+            ts = mktime(&runtime->setting_dt);
             mtime = time_to_mtime(ts);
 
             if (! alarm0->enabled || mtime != alarm0->mtime)

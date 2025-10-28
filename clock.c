@@ -100,6 +100,7 @@ bool CLOCK_get_alarm_is_on(void)
  *  @internal
  ****************************************************************************/
 static struct timeout_t reminder_next_timeo;
+static void reminder_next_timeo_callback(void *arg);
 
 static struct CLOCK_moment_t alarms[NVM_ALARM_COUNT];
 static struct CLOCK_moment_t reminders[NVM_ALARM_COUNT];
@@ -149,7 +150,7 @@ void CLOCK_init()
     }
 
     clock_runtime.alarming_idx = -1;
-    timeout_init(&reminder_next_timeo, REMINDER_INTV, (void *)CLOCK_say_reminders, 0);
+    timeout_init(&reminder_next_timeo, REMINDER_INTV, reminder_next_timeo_callback, 0);
 
     if (0 != NVM_get(NVM_ALARM, &alarms, sizeof(alarms)))
         memset(&alarms, 0, sizeof(alarms));
@@ -233,7 +234,7 @@ int8_t CLOCK_peek_start_alarms(time_t ts)
     struct tm dt;
     localtime_r(&ts, &dt);
 
-    int16_t mtime = time_to_mtime(ts % 86400);
+    int16_t mtime = time_to_mtime(ts);
     struct CLOCK_moment_t *current_alarm = NULL;
 
     if (-1 != clock_runtime.alarming_idx)
@@ -313,36 +314,26 @@ bool CLOCK_stop_current_alarm(void)
         return false;
 }
 
-unsigned CLOCK_peek_start_reminders(time_t ts)
+void CLOCK_peek_start_reminders(time_t ts)
 {
     if (! timeout_is_running(&reminder_next_timeo))
-    {
-        unsigned reminder_count = CLOCK_say_reminders(ts, false);
+        CLOCK_say_reminders(ts, false);
+}
 
-        if (0 != reminder_count &&
-            clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
-        {
-            timeout_start(&reminder_next_timeo, NULL);
-        }
-        else
-            timeout_stop(&reminder_next_timeo);
-
-        return reminder_count;
-    }
-    else
-        return 0;
+static void reminder_next_timeo_callback(void *arg)
+{
+    ARG_UNUSED(arg);
+    CLOCK_say_reminders(0, true);
 }
 
 unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
 {
     unsigned reminder_count = 0;
-    clock_runtime.reminder_ts_end = 0;
-
     struct tm dt;
     localtime_r(&ts, &dt);
 
     time_t ts_base = ts - ts % 86400;
-    int16_t mtime = time_to_mtime(ts % 86400);
+    int16_t mtime = time_to_mtime(ts);
 
     for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
     {
@@ -363,7 +354,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
                 continue;
         }
 
-        if (mtime >= reminder->mtime && end_ts > ts)
+        if (mtime >= reminder->mtime && ts < end_ts)
         {
             if (clock_runtime.reminder_ts_end < end_ts)
                 clock_runtime.reminder_ts_end = end_ts;
@@ -371,11 +362,19 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
             if (ignore_snooze ||
                 clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
             {
-                reminder_count ++;
+                if (clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
+                    reminder_count ++;
+
                 VOICE_play_reminder(reminder->reminder_id);
             }
         }
     }
+
+    if (0 == reminder_count)
+        timeout_stop(&reminder_next_timeo);
+    else
+        timeout_start(&reminder_next_timeo, NULL);
+
     return reminder_count;
 }
 
