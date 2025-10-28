@@ -47,9 +47,9 @@ enum buttion_action_t
  *  @private
  ****************************************************************************/
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct talking_button_runtime_t *runtime);
+static void MSG_alive(struct talking_button_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct talking_button_runtime_t *runtime);
-
 static void setting_timeout_callback(void *arg);
 static void alaramsw_timeout_callback(void *arg);
 
@@ -114,6 +114,8 @@ void PERIPHERAL_init(void)
         pthread_t id;
         pthread_create(&id, &attr, (void *)MSG_dispatch_thread, &talking_button);
         pthread_attr_destroy(&attr);
+
+        MSG_alive(&talking_button);
     }
 
     if (1)
@@ -277,9 +279,6 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
     if (true == CLOCK_stop_current_alarm())
         runtime->voice_click_count = 0;
 
-    // any button will snooze all current reminder
-    CLOCK_snooze_reminders();
-
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
         VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
@@ -296,6 +295,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         case BUTTON_SAY_TIME:
             VOICE_say_time_epoch(ts);
             CLOCK_say_reminders(ts, true);
+            CLOCK_snooze_reminders();
             break;
 
         case BUTTON_SAY_DATE:
