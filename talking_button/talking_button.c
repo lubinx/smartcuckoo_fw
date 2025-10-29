@@ -282,6 +282,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
         VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
+    CLOCK_snooze_reminders();
 
     if (! runtime->setting)
     {
@@ -295,7 +296,6 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         case BUTTON_SAY_TIME:
             VOICE_say_time_epoch(ts);
             CLOCK_say_reminders(ts, true);
-            CLOCK_snooze_reminders();
             break;
 
         case BUTTON_SAY_DATE:

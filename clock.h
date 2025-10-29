@@ -32,7 +32,7 @@
         int8_t alarming_idx;
 
         time_t alarm_snooze_ts_end;
-        time_t reminder_ts_end;
+        // time_t reminder_ts_end;
         time_t reminder_snooze_ts_end;
     };
     extern struct CLOCK_runtime_t clock_runtime;

@@ -317,13 +317,20 @@ bool CLOCK_stop_current_alarm(void)
 void CLOCK_peek_start_reminders(time_t ts)
 {
     if (! timeout_is_running(&reminder_next_timeo))
-        CLOCK_say_reminders(ts, false);
+    {
+        if(0 != CLOCK_say_reminders(ts, false))
+            timeout_start(&reminder_next_timeo, NULL);
+    }
 }
 
 static void reminder_next_timeo_callback(void *arg)
 {
     ARG_UNUSED(arg);
-    CLOCK_say_reminders(0, true);
+
+    if (0 == CLOCK_say_reminders(0, true))
+        timeout_stop(&reminder_next_timeo);
+    else
+        timeout_start(&reminder_next_timeo, NULL);
 }
 
 unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
@@ -342,7 +349,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
         if (! reminder->enabled)
             continue;
 
-        time_t end_ts = ts_base + mtime_to_time(reminder->mtime) + 60 * REMINDER_TIMEOUT_MINUTES;
+        time_t reminder_end_ts = ts_base + mtime_to_time(reminder->mtime) + 60 * REMINDER_TIMEOUT_MINUTES;
 
         // matching week days mask or mdate
         if (0 == ((1 << dt.tm_wday) & reminder->wdays))
@@ -354,34 +361,24 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
                 continue;
         }
 
-        if (mtime >= reminder->mtime && ts < end_ts)
+        if (mtime >= reminder->mtime && ts < reminder_end_ts)
         {
-            if (clock_runtime.reminder_ts_end < end_ts)
-                clock_runtime.reminder_ts_end = end_ts;
-
-            if (ignore_snooze ||
-                clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
+            if (ignore_snooze || reminder_end_ts > clock_runtime.reminder_snooze_ts_end)
             {
-                if (clock_runtime.reminder_ts_end > clock_runtime.reminder_snooze_ts_end)
+                if (reminder_end_ts > clock_runtime.reminder_snooze_ts_end)
                     reminder_count ++;
 
                 VOICE_play_reminder(reminder->reminder_id);
             }
         }
     }
-
-    if (0 == reminder_count)
-        timeout_stop(&reminder_next_timeo);
-    else
-        timeout_start(&reminder_next_timeo, NULL);
-
     return reminder_count;
 }
 
 void CLOCK_snooze_reminders(void)
 {
     timeout_stop(&reminder_next_timeo);
-    clock_runtime.reminder_snooze_ts_end = clock_runtime.reminder_ts_end;
+    clock_runtime.reminder_snooze_ts_end = time(NULL) + 60 * REMINDER_TIMEOUT_MINUTES;
 }
 
 /***************************************************************************
