@@ -172,11 +172,11 @@ void PERIPHERAL_init(void)
             if (GPIO_peek(PIN_RTC_CAL_IN))
             {
                 LOG_debug("calibration");
-                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                VOICE_say_setting(VOICE_SETTING_DONE);
                 mplayer_waitfor_idle();
 
                 if (0 == RTC_calibration_ppb(PIN_RTC_CAL_IN))
-                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                    VOICE_say_setting(VOICE_SETTING_DONE);
                 break;
             }
         }
@@ -261,7 +261,7 @@ static void setting_timeout_callback(struct zone_runtime_t *runtime)
 {
     if (runtime->setting)
     {
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
         runtime->setting = false;
     }
 
@@ -385,7 +385,7 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
-        VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
+        VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
 
     if (! runtime->setting)
     {
@@ -432,7 +432,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         if (BATT_EMPTY_MV > batt)
             return;
         if (BATT_HINT_MV > batt)
-            VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT, NULL);
+            VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
     }
 
     if (PIN_POWER_BUTTON == button)
@@ -449,7 +449,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         else
         {
             runtime->setting = false;
-            VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+            VOICE_say_setting(VOICE_SETTING_DONE);
         }
     }
     else if (PIN_PREV_BUTTON == button || PIN_NEXT_BUTTON == button)
@@ -489,19 +489,8 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         runtime->setting_part = (enum VOICE_setting_part_t)runtime->voice_click_count;
 
-        VOICE_say_setting(runtime->setting_part,
-            (void *)(uintptr_t)alarm0->ringtone_id);
-
-        switch (runtime->setting_part)
-        {
-        default:
-            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, NULL);
-            break;
-
-        case VOICE_SETTING_LANG:
-        case VOICE_SETTING_ALARM_RINGTONE:
-            break;
-        }
+        VOICE_say_setting(runtime->setting_part);
+        VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
     }
     else if (PIN_VOLUME_UP_BUTTON == button || PIN_VOLUME_DOWN_BUTTON == button)
     {
@@ -518,6 +507,18 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         case VOICE_SETTING_LANG:
             old_voice_id = setting.sel_voice_id;
             setting.sel_voice_id = VOICE_next_locale();
+
+            if (old_voice_id != setting.sel_voice_id)
+            {
+                setting.locale.dfmt = DFMT_DEFAULT;
+                setting.locale.hfmt = HFMT_DEFAULT;
+                runtime->setting_is_modified = true;
+            }
+            break;
+
+        case VOICE_SETTING_VOICE:
+            old_voice_id = setting.sel_voice_id;
+            setting.sel_voice_id = VOICE_next_voice();
 
             if (old_voice_id != setting.sel_voice_id)
             {
@@ -636,10 +637,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         }
 
         mplayer_playlist_clear();
-        VOICE_say_setting_part(runtime->setting_part,
-            &runtime->setting_dt,
-            (void *)(uintptr_t)alarm0->ringtone_id
-        );
+        VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
     }
 
     PMU_power_unlock();
@@ -673,9 +671,9 @@ static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
     timeout_start(&zone.setting_timeo, &zone);
 
     if (setting.alarm_is_on)
-        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON, NULL);
+        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON);
     else
-        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF, NULL);
+        VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)

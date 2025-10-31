@@ -11,6 +11,7 @@
     enum VOICE_setting_part_t
     {
         VOICE_SETTING_LANG,
+        VOICE_SETTING_VOICE,
         VOICE_SETTING_HOUR,
         VOICE_SETTING_MINUTE,
         VOICE_SETTING_YEAR,
@@ -39,6 +40,8 @@ extern __attribute__((nothrow))
 
 extern __attribute__((nothrow, const))
     unsigned VOICE_get_count(void);
+extern __attribute__((nothrow, const))
+    unsigned VOICE_get_voice_count(void);
 
 extern __attribute__((nothrow))
     void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg);
@@ -66,6 +69,8 @@ extern __attribute__((nothrow))
     int16_t VOICE_select_lcid(char const *lcid);
 extern __attribute__((nothrow))
     int16_t VOICE_next_locale(void);
+extern __attribute__((nothrow))
+    int16_t VOICE_next_voice(void);
 
     /**
      *  say date using struct tm / unix epoch
@@ -87,9 +92,9 @@ extern __attribute__((nothrow))
      *  say aux voice
     */
 extern __attribute__((nothrow))
-    int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg);
+    int VOICE_say_setting(enum VOICE_setting_part_t setting);
 extern __attribute__((nothrow))
-    int VOICE_say_setting_part(enum VOICE_setting_part_t setting, struct tm const *tm, void *arg);
+    int VOICE_say_setting_part(enum VOICE_setting_part_t setting, struct tm const *tm, int ringtone_id);
 
     /**
      *  get next ring tone index & play ring tone at index

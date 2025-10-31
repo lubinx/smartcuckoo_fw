@@ -10,14 +10,11 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
+    # "ultracore/src/audio/mynoise.c"
+    # "ultracore/src/audio/renderer.c"
+    # "ultracore/src/audio/codec/es8156.c"
     "ultracore/src/usb/*.c"
 )
-
-# remove prebuild ultracore archs
-# file(GLOB glob_list "${CMAKE_BINARY_DIR}/*.elf")
-# foreach(iter ${glob_list})
-#     file(REMOVE ${iter})
-# endforeach()
 
 build_target(talking_button
     DEVICE

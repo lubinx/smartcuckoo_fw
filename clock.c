@@ -473,7 +473,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
         }
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
     else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -538,7 +538,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             NVM_set(NVM_ALARM, &alarms, sizeof(alarms));
         }
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     UCSH_puts(env, "{\n\t\"alarms\": [\n");
@@ -599,7 +599,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
         }
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
     else if (5 < env->argc)     // rmd <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -660,7 +660,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             NVM_set(NVM_REMINDER, &reminders, sizeof(reminders));
         }
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     UCSH_puts(env, "{\n\t\"reminders\": [\n");
@@ -739,7 +739,7 @@ static int SHELL_dst(struct UCSH_env *env)
                 dst->en = 0 == strcasecmp(env->argv[1], "ON");
 
                 if (0 == NVM_set(NVM_DST, dst, sizeof(*dst)))
-                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                    VOICE_say_setting(VOICE_SETTING_DONE);
                 else
                     dst->en = false;
             }
@@ -828,7 +828,7 @@ static int SHELL_dst(struct UCSH_env *env)
             dst->en = 0 != dst->dst_minute_offset && 0 != dst->tbl_count;
 
             if (0 == NVM_set(NVM_DST, dst, sizeof(*dst)))
-                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                VOICE_say_setting(VOICE_SETTING_DONE);
         }
     }
 

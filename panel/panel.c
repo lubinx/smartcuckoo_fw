@@ -583,7 +583,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
             NOISE_stop(true);
             mplayer_stop();
 
-            VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+            VOICE_say_setting(VOICE_SETTING_DONE);
         }
         else
         {
@@ -1358,7 +1358,7 @@ static void setting_done(struct PANEL_runtime_t *runtime)
     }
 
     mplayer_stop();
-    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+    VOICE_say_setting(VOICE_SETTING_DONE);
 
     PANEL_attr_set_blinky(&runtime->panel_attr, 0);
     PANEL_attr_set_disable(&runtime->panel_attr, 0);

@@ -829,10 +829,19 @@ static int VOICE_queue(int idx)
     return retval;
 }
 
-static void LOCALE_set(struct VOICE_t const *locale)
+static bool VOICE_exists(struct VOICE_t const *voice)
 {
-    if (NULL != locale && voice_sel != locale)
-        voice_sel = locale;
+    char filename[32];
+    sprintf(filename, "%s%02X" EXT_VOICE, voice->folder, IDX_SETTING_LANG);
+    int fd = open(filename, O_RDONLY);
+
+    if (-1 != fd)
+    {
+        close(fd);
+        return true;
+    }
+    else
+        return false;
 }
 
 /***************************************************************************
@@ -843,7 +852,7 @@ int16_t VOICE_init(int16_t voice_id, struct LOCALE_t *locale)
     locale_ptr = locale;
 
     int16_t select_idx = VOICE_select_voice(voice_id);
-    LOCALE_set(&__voices[select_idx]);
+    voice_sel= &__voices[select_idx];
 
     return select_idx;
 }
@@ -853,12 +862,45 @@ unsigned VOICE_get_count(void)
     return lengthof(__voices);
 }
 
+unsigned VOICE_get_voice_count(void)
+{
+    static struct VOICE_t const *prev_voice_sel = NULL;
+    static unsigned prev_voice_count = 0;
+
+    if (prev_voice_sel == voice_sel)
+        return prev_voice_count;
+    else
+        prev_voice_sel = voice_sel;
+
+    char const *lcid = voice_sel->lcid;
+    unsigned i;
+
+    for (i = 0; i < lengthof((__voices)); i ++)
+    {
+        if (0 == strncmp(lcid, __voices[i].lcid, 2))
+            break;
+    }
+
+    prev_voice_count = 0;
+    for (; i < lengthof((__voices)); i ++)
+    {
+        if (0 == strncmp(lcid, __voices[i].lcid, 2))
+        {
+            if (VOICE_exists(&__voices[i]))
+                prev_voice_count ++;
+        }
+        else
+            break;
+    }
+    return prev_voice_count;
+}
+
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)
 {
-    for (int idx = 0; idx < (int)lengthof(__voices); idx ++)
+    for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
     {
         struct VOICE_t const *locale = &__voices[idx];
-        callback(idx, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, idx == lengthof(__voices) - 1);
+        callback((int)idx, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, idx == lengthof(__voices) - 1);
     }
 }
 
@@ -874,28 +916,10 @@ enum LOCALE_hfmt_t VOICE_get_default_hfmt()
 
 int16_t VOICE_select_voice(int16_t voice_id)
 {
-    voice_id = (unsigned)voice_id < lengthof(__voices) ? voice_id : (int16_t)(voice_sel - __voices);
-
-    if ((unsigned)voice_id < lengthof(__voices))
-    {
-        struct VOICE_t const *voice = &__voices[voice_id];
-
-        char filename[64];
-        sprintf(filename, "%s%02X" EXT_VOICE, voice->folder, IDX_SETTING_LANG);
-        int fd = open(filename, O_RDONLY);
-
-        if (-1 != fd)
-        {
-            close(fd);
-            voice_sel = &__voices[voice_id];
-        }
-        else
-            voice_id = 0;
-    }
-    else
+    if ((unsigned)voice_id >= lengthof(__voices) || ! VOICE_exists(&__voices[voice_id]))
         voice_id = 0;
 
-    LOCALE_set(&__voices[voice_id]);
+    voice_sel = &__voices[voice_id];
     return voice_id;
 }
 
@@ -904,7 +928,7 @@ int16_t VOICE_select_lcid(char const *lcid)
     struct VOICE_t const *fallback_locale = voice_sel;
     struct VOICE_t const *lang_match = NULL;
 
-    for (int16_t idx = 0; idx < (int)lengthof(__voices); idx ++)
+    for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
     {
         if (! lang_match)
         {
@@ -914,19 +938,19 @@ int16_t VOICE_select_lcid(char const *lcid)
 
         if (0 == strcasecmp(lcid, __voices[idx].lcid))
         {
-            LOCALE_set(&__voices[idx]);
-            return idx;
+            voice_sel = &__voices[idx];
+            return (int16_t)idx;
         }
     }
 
     if (NULL != lang_match)
     {
-        LOCALE_set(lang_match);
+        voice_sel = lang_match;
         return (int16_t)(lang_match - __voices);
     }
     else if (NULL != fallback_locale)
     {
-        LOCALE_set(fallback_locale);
+        voice_sel = fallback_locale;
         return (int16_t)(fallback_locale - __voices);
     }
     else
@@ -935,30 +959,104 @@ int16_t VOICE_select_lcid(char const *lcid)
 
 int16_t VOICE_next_locale(void)
 {
-    if (0 <= voice_sel - __voices)
+    if (NULL != voice_sel)
     {
-        for (int16_t idx = (int16_t)(voice_sel - __voices + 1); idx < (int)lengthof(__voices); idx ++)
+        struct VOICE_t const *voice = NULL;
+
+        for (unsigned idx = (unsigned)(voice_sel - __voices) + 1; idx < lengthof(__voices); idx ++)
         {
-            struct VOICE_t const *voice = &__voices[idx];
-
-            char filename[64];
-            sprintf(filename, "%s%02X" EXT_VOICE, voice->folder, IDX_SETTING_LANG);
-            int fd = open(filename, O_RDONLY);
-
-            if (-1 != fd)
-            {
-                close(fd);
-
-                LOCALE_set(voice);
-                return idx;
-            }
-            else
+            if (0 == strncmp(voice_sel->lcid, __voices[idx].lcid, 2))
                 continue;
-        }
-    }
+            if (! VOICE_exists(&__voices[idx]))
+                continue;
 
-    LOCALE_set(&__voices[0]);
-    return 0;
+            voice = &__voices[idx];
+            break;
+        }
+
+        if (NULL == voice)
+            voice = &__voices[0];
+
+        char old_gender;
+        if (1)
+        {
+            unsigned slen = strlen(voice_sel->folder);
+
+            if ('/' == voice_sel->folder[slen - 1])
+                old_gender = voice_sel->folder[slen - 2];
+            else
+                old_gender = voice_sel->folder[slen - 1];
+        }
+
+        for (unsigned idx = (unsigned)(voice - __voices); idx < lengthof(__voices); idx ++)
+        {
+            if (0 != strncmp(voice->lcid, __voices[idx].lcid, 2))
+                break;
+
+            char gender;
+            if (1)
+            {
+                unsigned slen = strlen(__voices[idx].folder);
+
+                if ('/' == __voices[idx].folder[slen - 1])
+                    gender = __voices[idx].folder[slen - 2];
+                else
+                    gender = __voices[idx].folder[slen - 1];
+            }
+
+            if (gender == old_gender && VOICE_exists(&__voices[idx]))
+            {
+                voice = &__voices[idx];
+                break;
+            }
+        }
+
+        voice_sel = voice;
+    }
+    else
+        voice_sel = &__voices[0];
+
+    return (int16_t)(voice_sel - __voices);
+}
+
+int16_t VOICE_next_voice(void)
+{
+    if (NULL != voice_sel)
+    {
+        char const *lcid = voice_sel->lcid;
+        struct VOICE_t const *voice = NULL;
+
+        for (unsigned idx = (unsigned)(voice_sel - __voices) + 1; idx < lengthof(__voices); idx ++)
+        {
+            if (0 != strncmp(lcid, __voices[idx].lcid, 2))
+                break;
+            if (! VOICE_exists(&__voices[idx]))
+                continue;
+
+            voice = &__voices[idx];
+            break;
+        }
+
+        if (NULL == voice)
+        {
+            for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
+            {
+                if (0 != strncmp(lcid, __voices[idx].lcid, 2))
+                    continue;
+                if (! VOICE_exists(&__voices[idx]))
+                    continue;
+
+                voice_sel = &__voices[idx];
+                break;
+            }
+        }
+        else
+            voice_sel = voice;
+    }
+    else
+        voice_sel = &__voices[0];
+
+    return (int16_t)(voice_sel - __voices);
 }
 
 int VOICE_say_date(struct tm const *tm)
@@ -1140,7 +1238,7 @@ int VOICE_say_time_epoch(time_t epoch)
     return VOICE_say_time(localtime(&epoch));
 }
 
-int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
+int VOICE_say_setting(enum VOICE_setting_part_t setting)
 {
     if (setting == VOICE_SETTING_DONE)
         return VOICE_play(IDX_SETTING_DONE);
@@ -1154,7 +1252,12 @@ int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
         break;
 
     case VOICE_SETTING_LANG:
-        return VOICE_play(IDX_SETTING_LANG);
+    //     return VOICE_play(IDX_SETTING_LANG);
+    case VOICE_SETTING_VOICE:
+    //     return VOICE_play(IDX_SETTING_VOICE);
+    case VOICE_SETTING_ALARM_RINGTONE:
+    //     return VOICE_play_ringtone((int)arg);
+        break;
 
     case VOICE_SETTING_HOUR:
         return VOICE_play(IDX_SETTING_HOUR);
@@ -1177,9 +1280,6 @@ int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
     case VOICE_SETTING_ALARM_MIN:
         return VOICE_play(IDX_SETTING_ALARM_MIN);
 
-    case VOICE_SETTING_ALARM_RINGTONE:
-        return VOICE_play_ringtone((int)arg);
-
     case VOICE_SETTING_EXT_LOW_BATT:
         return VOICE_play(IDX_SETTING_EXT_LOW_BATT);
 
@@ -1193,8 +1293,7 @@ int VOICE_say_setting(enum VOICE_setting_part_t setting, void *arg)
     return EINVAL;
 }
 
-int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
-    struct tm const *tm, void *arg)
+int VOICE_say_setting_part(enum VOICE_setting_part_t setting, struct tm const *tm, int ringtone_id)
 {
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
@@ -1204,8 +1303,11 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
     switch (setting)
     {
     case VOICE_SETTING_LANG:
-        if (0 == retval)
-            retval = VOICE_queue(IDX_SETTING_VOICE);
+        retval = VOICE_play(IDX_SETTING_LANG);
+        break;
+
+    case VOICE_SETTING_VOICE:
+        retval = VOICE_play(IDX_SETTING_VOICE);
         break;
 
     case VOICE_SETTING_HOUR:
@@ -1281,7 +1383,7 @@ int VOICE_say_setting_part(enum VOICE_setting_part_t setting,
         break;
 
     case VOICE_SETTING_ALARM_RINGTONE:
-        retval = VOICE_play_ringtone((int)arg);
+        retval = VOICE_play_ringtone(ringtone_id);
         break;
 
     case VOICE_SETTING_COUNT:

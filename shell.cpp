@@ -108,7 +108,7 @@ static void SHELL_register(void)
 
                 // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
                 if (AUDIO_renderer_is_idle())
-                    VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                    VOICE_say_setting(VOICE_SETTING_DONE);
             }
             UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume_percent());
             return 0;
@@ -326,7 +326,7 @@ static int SHELL_locale(struct UCSH_env *env)
             if (old_voice_id != setting.sel_voice_id)
             {
                 NVM_set(NVM_SETTING, &setting, sizeof(setting));
-                VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+                VOICE_say_setting(VOICE_SETTING_DONE);
             }
         }
         UCSH_printf(env, "voice_id=%d\n", setting.sel_voice_id);
@@ -363,7 +363,7 @@ static int SHELL_hfmt(struct UCSH_env *env)
         if (old_fmt != fmt)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     if (1)
@@ -400,7 +400,7 @@ static int SHELL_dfmt(struct UCSH_env *env)
         if (old_fmt != fmt)
             NVM_set(NVM_SETTING, &setting, sizeof(setting));
 
-        VOICE_say_setting(VOICE_SETTING_DONE, NULL);
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     if (1)
