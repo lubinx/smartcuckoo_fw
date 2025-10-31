@@ -844,25 +844,7 @@ static bool VOICE_exists(struct VOICE_t const *voice)
         return false;
 }
 
-/***************************************************************************
- * @implements
- ***************************************************************************/
-int16_t VOICE_init(int16_t voice_id, struct LOCALE_t *locale)
-{
-    locale_ptr = locale;
-
-    int16_t select_idx = VOICE_select_voice(voice_id);
-    voice_sel= &__voices[select_idx];
-
-    return select_idx;
-}
-
-unsigned VOICE_get_count(void)
-{
-    return lengthof(__voices);
-}
-
-unsigned VOICE_get_voice_count(void)
+static unsigned VOICE_get_voice_count(void)
 {
     static struct VOICE_t const *prev_voice_sel = NULL;
     static unsigned prev_voice_count = 0;
@@ -895,6 +877,19 @@ unsigned VOICE_get_voice_count(void)
     return prev_voice_count;
 }
 
+/***************************************************************************
+ * @implements
+ ***************************************************************************/
+int16_t VOICE_init(int16_t voice_id, struct LOCALE_t *locale)
+{
+    locale_ptr = locale;
+
+    int16_t select_idx = VOICE_select_voice(voice_id);
+    voice_sel= &__voices[select_idx];
+
+    return select_idx;
+}
+
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)
 {
     for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
@@ -912,6 +907,55 @@ enum LOCALE_dfmt_t VOICE_get_default_dfmt()
 enum LOCALE_hfmt_t VOICE_get_default_hfmt()
 {
     return voice_sel->default_hfmt;
+}
+
+enum VOICE_setting_t VOICE_first_setting()
+{
+    if (1 < lengthof(__voices))
+        return VOICE_SETTING_LANG;
+    else
+        return VOICE_SETTING_HOUR;
+}
+
+enum VOICE_setting_t VOICE_prev_setting(enum VOICE_setting_t setting)
+{
+    if (0 != setting)
+    {
+        setting = (setting - 1) % VOICE_SETTING_COUNT;
+
+        if (VOICE_SETTING_VOICE == setting)
+        {
+            if (1 >= VOICE_get_voice_count())
+                setting -= 1;
+        }
+        if (VOICE_SETTING_LANG == setting)
+        {
+            if (1 >= lengthof(__voices))
+                setting = VOICE_SETTING_COUNT - 1;
+        }
+    }
+    else
+        setting = VOICE_SETTING_COUNT - 1;
+
+    return setting;
+}
+
+enum VOICE_setting_t VOICE_next_setting(enum VOICE_setting_t setting)
+{
+    setting = (setting + 1) % VOICE_SETTING_COUNT;
+
+    if (VOICE_SETTING_LANG == setting)
+    {
+        if (1 >= lengthof(__voices))
+            setting += 1;
+    }
+    if (VOICE_SETTING_VOICE == setting)
+    {
+        if (1 >= VOICE_get_voice_count())
+            setting += 1;
+    }
+
+    return setting;
 }
 
 int16_t VOICE_select_voice(int16_t voice_id)
@@ -1238,7 +1282,7 @@ int VOICE_say_time_epoch(time_t epoch)
     return VOICE_say_time(localtime(&epoch));
 }
 
-int VOICE_say_setting(enum VOICE_setting_part_t setting)
+int VOICE_say_setting(enum VOICE_setting_t setting)
 {
     if (setting == VOICE_SETTING_DONE)
         return VOICE_play(IDX_SETTING_DONE);
@@ -1293,7 +1337,7 @@ int VOICE_say_setting(enum VOICE_setting_part_t setting)
     return EINVAL;
 }
 
-int VOICE_say_setting_part(enum VOICE_setting_part_t setting, struct tm const *tm, int ringtone_id)
+int VOICE_say_setting_part(enum VOICE_setting_t setting, struct tm const *tm, int ringtone_id)
 {
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;

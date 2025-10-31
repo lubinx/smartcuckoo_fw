@@ -21,6 +21,7 @@ enum zone_message
 struct zone_runtime_t
 {
     int mqd;
+    clock_t voice_last_tick;
 
     timeout_t setting_timeo;
     timeout_t volume_adj_intv;
@@ -29,14 +30,11 @@ struct zone_runtime_t
     bool setting_is_modified;
     bool setting_alarm_is_modified;
 
-    enum VOICE_setting_part_t setting_part;
+    enum VOICE_setting_t setting_part;
     struct tm setting_dt;
 
-    clock_t power_button_tick;
-    clock_t voice_button_tick;
-
-    unsigned voice_click_count;
-    clock_t voice_click_stick;
+    clock_t power_button_stick;
+    clock_t top_button_stick;
 
     time_t batt_last_ts;
 };
@@ -113,6 +111,9 @@ void PERIPHERAL_init(void)
     timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, (void *)volume_adj_intv_callback, 0);
     timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)setting_timeout_callback, 0);
 
+    zone.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
+    zone.batt_last_ts = time(NULL);
+
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
@@ -184,8 +185,6 @@ void PERIPHERAL_init(void)
         WDOG_feed();
         GPIO_disable(PIN_RTC_CAL_IN);
     }
-
-    zone.batt_last_ts = time(NULL);
 }
 
 /****************************************************************************
@@ -193,8 +192,6 @@ void PERIPHERAL_init(void)
  ****************************************************************************/
 void mplayer_idle_callback(void)
 {
-    zone.voice_click_stick = clock();
-
     if (zone.setting)
         timeout_start(&zone.setting_timeo, &zone);
     else // if (! CLOCK_is_alarming())
@@ -236,13 +233,13 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
 
     if (PIN_TOP_BUTTON == (PIN_TOP_BUTTON & pins))
     {
-        runtime->voice_button_tick = 0;
+        runtime->top_button_stick = 0;
         mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
     }
 
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
     {
-        runtime->power_button_tick = 0;
+        runtime->power_button_stick = 0;
         mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
     }
 
@@ -339,22 +336,19 @@ static void MSG_alive(struct zone_runtime_t *runtime)
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
 {
-    if (0 == (0x1 & zone.voice_click_count))
+    if (SETTING_TIMEOUT < time(NULL) - runtime->batt_last_ts)
     {
-        zone.batt_last_ts = time(NULL);
         PERIPHERAL_batt_ad_sync();
+        runtime->batt_last_ts = time(NULL);
 
         uint16_t mv = PERIPHERAL_batt_volt();
         LOG_info("batt %dmV", mv);
 
         if (BATT_EMPTY_MV > mv)
         {
-            // discard settings
-            zone.voice_click_count = 0;
-            zone.setting = false;
+            runtime->setting = false;
             return;
         }
-        /*  REVIEW: remove volume ctrl
         else
         {
             uint8_t percent = BATT_mv_level(mv);
@@ -366,20 +360,13 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
             else
                 AUDIO_set_volume_percent(setting.media_volume);
         }
-        */
     }
 
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    if (SETTING_TIMEOUT < clock() - zone.voice_click_stick)
-        zone.voice_click_count = 0;
-    runtime->voice_click_stick = clock();
-
     // any button will stop alarming
-    if (true == CLOCK_stop_current_alarm())
-        runtime->voice_click_count = 0;
-
+    CLOCK_stop_current_alarm();
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
 
@@ -391,22 +378,15 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
     {
         time_t ts = time(NULL);
 
-        switch ((enum buttion_action_t)(runtime->voice_click_count % BUTTON_ACTION_COUNT))
+        if (SETTING_TIMEOUT < clock() - runtime->voice_last_tick)
         {
-        case BUTTON_ACTION_COUNT:
-            break;
+            runtime->voice_last_tick = clock();
 
-        case BUTTON_SAY_TIME:
             VOICE_say_time_epoch(ts);
             CLOCK_say_reminders(ts, true);
-            break;
-
-        case BUTTON_SAY_DATE:
-            VOICE_say_date_epoch(ts);
-            break;
         }
-
-        runtime->voice_click_count ++;
+        else
+            VOICE_say_date_epoch(ts);
     }
 
     PMU_power_unlock();
@@ -417,8 +397,6 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     PMU_power_lock();
     mplayer_playlist_clear();
     MYNOISE_stop();
-
-    runtime->voice_click_stick = clock();
 
     // any button will stop alarming
     CLOCK_stop_current_alarm();
@@ -439,7 +417,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     {
         if (! runtime->setting)
         {
-            runtime->voice_click_count = 0;
+            runtime->setting_part = VOICE_first_setting();
             runtime->setting = true;
             runtime->setting_is_modified = false;
             runtime->setting_alarm_is_modified = false;
@@ -455,22 +433,13 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     else if (PIN_PREV_BUTTON == button || PIN_NEXT_BUTTON == button)
     {
         if (PIN_PREV_BUTTON == button)
-            runtime->voice_click_count = (runtime->voice_click_count + VOICE_SETTING_COUNT - 1) % VOICE_SETTING_COUNT;
+            runtime->setting_part = VOICE_prev_setting(runtime->setting_part);
         else
-            runtime->voice_click_count = (runtime->voice_click_count + 1) % VOICE_SETTING_COUNT;
+            runtime->setting_part = VOICE_next_setting(runtime->setting_part);
 
+        struct CLOCK_moment_t *alarm0;
     say_setting_part:
-        runtime->setting_part =
-            (enum VOICE_setting_part_t)(runtime->voice_click_count % VOICE_SETTING_COUNT);
-        struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
-
-        if (VOICE_SETTING_LANG == runtime->setting_part && 1 >= VOICE_get_count())
-        {
-            // skip language setting since is only 1 language
-            runtime->voice_click_count ++;
-        }
-        runtime->setting_part =
-            (enum VOICE_setting_part_t)(runtime->voice_click_count % VOICE_SETTING_COUNT);
+        alarm0 = CLOCK_get_alarm(0);
 
         if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
             VOICE_SETTING_ALARM_MIN == runtime->setting_part)
@@ -483,11 +452,10 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         else
         {
             time_t ts = time(NULL);
+
             localtime_r(&ts, &runtime->setting_dt);
             runtime->setting_dt.tm_sec = 0;
         }
-
-        runtime->setting_part = (enum VOICE_setting_part_t)runtime->voice_click_count;
 
         VOICE_say_setting(runtime->setting_part);
         VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
@@ -643,7 +611,6 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     PMU_power_unlock();
 }
 
-
 static void MSG_mynoise_toggle(void)
 {
     if (MYNOISE_is_running())
@@ -720,10 +687,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_TOP_BUTTON:
                     if (0 == GPIO_peek(PIN_TOP_BUTTON))
                     {
-                        if (0 == runtime->voice_button_tick)
-                            runtime->voice_button_tick = clock();
+                        if (0 == runtime->top_button_stick)
+                            runtime->top_button_stick = clock();
 
-                        if (LONG_PRESS_VOICE > clock() - runtime->voice_button_tick)
+                        if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
@@ -738,10 +705,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_POWER_BUTTON:
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
-                        if (0 == runtime->power_button_tick)
-                            runtime->power_button_tick = clock();
+                        if (0 == runtime->power_button_stick)
+                            runtime->power_button_stick = clock();
 
-                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_tick)
+                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
