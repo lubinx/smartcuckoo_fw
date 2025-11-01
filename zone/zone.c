@@ -386,7 +386,10 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
             CLOCK_say_reminders(ts, true);
         }
         else
+        {
+            runtime->voice_last_tick -= SETTING_TIMEOUT;
             VOICE_say_date_epoch(ts);
+        }
     }
 
     PMU_power_unlock();
