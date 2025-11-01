@@ -63,8 +63,6 @@ extern __attribute__((nothrow))
      *  VOICE_select_lcid()
      *      select language ISO639
      *
-     *  VOICE_next_locale()
-     *      select next language
      *
      *  VOICE_next_voice()
      *      select language next voice
@@ -76,8 +74,21 @@ extern __attribute__((nothrow))
     int16_t VOICE_select_voice(int16_t voice_id);
 extern __attribute__((nothrow))
     int16_t VOICE_select_lcid(char const *lcid);
+
+    /**
+     *  VOICE_prev_locale() / VOICE_next_locale()
+    */
+extern __attribute__((nothrow))
+    int16_t VOICE_prev_locale(void);
 extern __attribute__((nothrow))
     int16_t VOICE_next_locale(void);
+
+
+    /**
+     *  VOICE_prev_voice() / VOICE_next_voice()
+    */
+extern __attribute__((nothrow))
+    int16_t VOICE_prev_voice(void);
 extern __attribute__((nothrow))
     int16_t VOICE_next_voice(void);
 

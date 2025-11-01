@@ -399,7 +399,6 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 {
     PMU_power_lock();
     mplayer_playlist_clear();
-    MYNOISE_stop();
 
     // any button will stop alarming
     CLOCK_stop_current_alarm();
@@ -477,7 +476,10 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         case VOICE_SETTING_LANG:
             old_voice_id = setting.sel_voice_id;
-            setting.sel_voice_id = VOICE_next_locale();
+            if (PIN_VOLUME_UP_BUTTON == button)
+                setting.sel_voice_id = VOICE_next_locale();
+            else
+                setting.sel_voice_id = VOICE_prev_locale();
 
             if (old_voice_id != setting.sel_voice_id)
             {
@@ -489,7 +491,10 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         case VOICE_SETTING_VOICE:
             old_voice_id = setting.sel_voice_id;
-            setting.sel_voice_id = VOICE_next_voice();
+            if (PIN_VOLUME_UP_BUTTON == button)
+                setting.sel_voice_id = VOICE_next_voice();
+            else
+                setting.sel_voice_id = VOICE_prev_voice();
 
             if (old_voice_id != setting.sel_voice_id)
             {
@@ -708,16 +713,19 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_POWER_BUTTON:
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
-                        if (0 == runtime->power_button_stick)
-                            runtime->power_button_stick = clock();
+                        // if (0 == runtime->power_button_stick)
+                        //     runtime->power_button_stick = clock();
 
-                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
+                        // if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
+                        // {
+                        //     thread_yield();
+                        //     mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                        // }
+                        // else
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
-                        }
-                        else
+                            MYNOISE_stop();
                             MSG_setting(runtime, PIN_POWER_BUTTON);
+                        }
                     }
                     else
                         MSG_mynoise_toggle();

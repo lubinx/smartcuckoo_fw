@@ -1001,21 +1001,59 @@ int16_t VOICE_select_lcid(char const *lcid)
         return -1;
 }
 
-int16_t VOICE_next_locale(void)
+static int16_t VOICE_seek_locale(bool prev)
 {
     if (NULL != voice_sel)
     {
         struct VOICE_t const *voice = NULL;
 
-        for (unsigned idx = (unsigned)(voice_sel - __voices) + 1; idx < lengthof(__voices); idx ++)
+        if (prev)
         {
-            if (0 == strncmp(voice_sel->lcid, __voices[idx].lcid, 2))
-                continue;
-            if (! VOICE_exists(&__voices[idx]))
-                continue;
+            if (0 == strncmp(voice_sel->lcid, __voices[0].lcid, 2))
+            {
+                for (int idx = (int)lengthof(__voices) - 1; idx >= 0 ; idx --)
+                {
+                    if (VOICE_exists(&__voices[idx]))
+                    {
+                        voice = &__voices[idx];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (int idx = voice_sel - __voices; idx > 0; idx --)
+                {
+                    if (0 == strncmp(voice_sel->lcid, __voices[idx].lcid, 2))
+                        continue;
+                    if (! VOICE_exists(&__voices[idx]))
+                        continue;
 
-            voice = &__voices[idx];
-            break;
+                    voice = &__voices[idx];
+                    break;
+                }
+            }
+
+            for (int idx = (int)lengthof(__voices) - 1; idx >= 0 ; idx --)
+            {
+                if (0 == strncmp(voice->lcid, __voices[idx].lcid, 2))
+                    voice = &__voices[idx];
+                else
+                    break;
+            }
+        }
+        else
+        {
+            for (unsigned idx = (unsigned)(voice_sel - __voices) + 1; idx < lengthof(__voices); idx ++)
+            {
+                if (0 == strncmp(voice_sel->lcid, __voices[idx].lcid, 2))
+                    continue;
+                if (! VOICE_exists(&__voices[idx]))
+                    continue;
+
+                voice = &__voices[idx];
+                break;
+            }
         }
 
         if (NULL == voice)
@@ -1063,44 +1101,96 @@ int16_t VOICE_next_locale(void)
     return (int16_t)(voice_sel - __voices);
 }
 
-int16_t VOICE_next_voice(void)
+int16_t VOICE_next_locale(void)
+{
+    return VOICE_seek_locale(false);
+}
+
+int16_t VOICE_prev_locale(void)
+{
+    return VOICE_seek_locale(true);
+}
+
+static int16_t VOICE_seek_voice(bool prev)
 {
     if (NULL != voice_sel)
     {
         char const *lcid = voice_sel->lcid;
         struct VOICE_t const *voice = NULL;
 
-        for (unsigned idx = (unsigned)(voice_sel - __voices) + 1; idx < lengthof(__voices); idx ++)
+        if (prev)
         {
-            if (0 != strncmp(lcid, __voices[idx].lcid, 2))
-                break;
-            if (! VOICE_exists(&__voices[idx]))
-                continue;
-
-            voice = &__voices[idx];
-            break;
-        }
-
-        if (NULL == voice)
-        {
-            for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
+            for (int idx = voice_sel - __voices - 1; idx >= 0; idx --)
             {
                 if (0 != strncmp(lcid, __voices[idx].lcid, 2))
-                    continue;
+                    break;
                 if (! VOICE_exists(&__voices[idx]))
                     continue;
 
-                voice_sel = &__voices[idx];
+                voice = &__voices[idx];
                 break;
             }
+
+            if (NULL == voice)
+            {
+                for (int idx = (int)lengthof(__voices) - 1; idx >= 0;  idx --)
+                {
+                    if (0 != strncmp(lcid, __voices[idx].lcid, 2))
+                        continue;
+                    if (! VOICE_exists(&__voices[idx]))
+                        continue;
+
+                    voice_sel = &__voices[idx];
+                    break;
+                }
+            }
+            else
+                voice_sel = voice;
         }
         else
-            voice_sel = voice;
+        {
+            for (int idx = voice_sel - __voices + 1; idx < (int)lengthof(__voices); idx ++)
+            {
+                if (0 != strncmp(lcid, __voices[idx].lcid, 2))
+                    break;
+                if (! VOICE_exists(&__voices[idx]))
+                    continue;
+
+                voice = &__voices[idx];
+                break;
+            }
+
+            if (NULL == voice)
+            {
+                for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
+                {
+                    if (0 != strncmp(lcid, __voices[idx].lcid, 2))
+                        continue;
+                    if (! VOICE_exists(&__voices[idx]))
+                        continue;
+
+                    voice_sel = &__voices[idx];
+                    break;
+                }
+            }
+            else
+                voice_sel = voice;
+        }
     }
     else
         voice_sel = &__voices[0];
 
     return (int16_t)(voice_sel - __voices);
+}
+
+int16_t VOICE_next_voice(void)
+{
+    return VOICE_seek_voice(false);
+}
+
+int16_t VOICE_prev_voice(void)
+{
+    return VOICE_seek_voice(true);
 }
 
 int VOICE_say_date(struct tm const *tm)
