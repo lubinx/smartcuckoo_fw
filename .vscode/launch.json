@@ -16,7 +16,7 @@
       "cwd": "${workspaceFolder}",
       "environment": [],
       "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
@@ -45,7 +45,7 @@
       "cwd": "${workspaceFolder}",
       "environment": [],
       "MIMode": "gdb",
-      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
       "stopAtConnect": true,
       "postRemoteConnectCommands": [
         {
