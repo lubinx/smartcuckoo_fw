@@ -33,14 +33,6 @@ struct talking_button_runtime_t
     time_t batt_last_ts;
 };
 
-enum buttion_action_t
-{
-    BUTTON_SAY_TIME,
-    BUTTON_SAY_DATE,
-
-    BUTTON_ACTION_COUNT,
-};
-
 /****************************************************************************
  *  @private
  ****************************************************************************/

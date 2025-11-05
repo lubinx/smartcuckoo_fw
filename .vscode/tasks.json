@@ -3,11 +3,11 @@
   "tasks": [
     {
       "label": "Debug build",
-      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=Debug -GNinja && ninja -C./build",
+      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=Debug -GNinja && ninja -C./build"
     },
     {
       "label": "Release build",
-      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=MinSizeRel -GNinja && ninja -C./build",
+      "command": "cmake -B./build -DCMAKE_BUILD_TYPE=MinSizeRel -GNinja && ninja -C./build"
     }
   ],
   "group": "build",

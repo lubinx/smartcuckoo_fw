@@ -39,14 +39,6 @@ struct zone_runtime_t
     time_t batt_last_ts;
 };
 
-enum buttion_action_t
-{
-    BUTTON_SAY_TIME,
-    BUTTON_SAY_DATE,
-
-    BUTTON_ACTION_COUNT,
-};
-
 /****************************************************************************
  *  @private
  ****************************************************************************/
@@ -89,6 +81,7 @@ void PERIPHERAL_shell_init(void)
 
 bool PERIPHERAL_is_enable_usb(void)
 {
+    return false;
 #ifdef DEBUG
     return true;
 #else
@@ -297,7 +290,7 @@ static void volume_adj_intv_callback(uint32_t button_pin)
 
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
-    LOG_debug("alive");
+    // LOG_debug("alive");
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
@@ -366,9 +359,9 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
     mplayer_playlist_clear();
 
     // any button will stop alarming
-    CLOCK_stop_current_alarm();
+    // CLOCK_stop_current_alarm();
     // any button will snooze all current reminder
-    CLOCK_snooze_reminders();
+    // CLOCK_snooze_reminders();
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
@@ -693,6 +686,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 switch ((enum zone_message)msg->msgid)
                 {
                 case MSG_TOP_BUTTON:
+                    // REVIEW: stop alarm & snooze
+                    if (true == CLOCK_stop_current_alarm()) mplayer_playlist_clear();
+                    CLOCK_snooze_reminders();
+
                     if (0 == GPIO_peek(PIN_TOP_BUTTON))
                     {
                         if (0 == runtime->top_button_stick)
@@ -713,15 +710,15 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_POWER_BUTTON:
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
-                        // if (0 == runtime->power_button_stick)
-                        //     runtime->power_button_stick = clock();
+                        if (0 == runtime->power_button_stick)
+                            runtime->power_button_stick = clock();
 
-                        // if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
-                        // {
-                        //     thread_yield();
-                        //     mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
-                        // }
-                        // else
+                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
+                        {
+                            thread_yield();
+                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                        }
+                        else
                         {
                             MYNOISE_stop();
                             MSG_setting(runtime, PIN_POWER_BUTTON);
