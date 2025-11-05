@@ -65,7 +65,7 @@ static struct PMU_attr_t pmu_attr;
 #ifdef I2S_PINS
     static struct I2S_attr_t i2s_attr;
 #else
-    static struct DAC_attr_t dac_attr;
+    static struct DAC_audio_sink_attr_t dac_sink;
 #endif
 
 #ifdef PIN_BATT_ADC
@@ -139,8 +139,8 @@ int main(void)
         I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
         I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 350);
     #else
-        DAC_init(&dac_attr, true);
-        DAC_amplifier_pin(&dac_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
+        DAC_init_audio_sink(&dac_sink, true);
+        DAC_amplifier_pin(&dac_sink, AMPIFIER_PIN, AMPIFIER_EN_PULL, 150);
     #endif
 
     #ifdef PIN_BATT_ADC
