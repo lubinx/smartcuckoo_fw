@@ -190,8 +190,10 @@ int main(void)
     NULL);
 
     DISKIO_init(&sdmmc_diskio, 48);
-    SDMMC_attr_init(&sdmmc, 3300, 0, &sdmmc_diskio);
     FAT_attr_init(&fat, &sdmmc_diskio);
+
+    SDMMC_attr_init(&sdmmc, 3300, 0, &sdmmc_diskio);
+    SDMMC_attr_set_diskio_perserve_align(&sdmmc, 16);
 
     if (1)
     {
