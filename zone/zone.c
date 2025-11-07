@@ -81,7 +81,6 @@ void PERIPHERAL_shell_init(void)
 
 bool PERIPHERAL_is_enable_usb(void)
 {
-    return false;
 #ifdef DEBUG
     return true;
 #else
