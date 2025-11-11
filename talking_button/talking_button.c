@@ -229,30 +229,29 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
 
 static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 {
-    if (SETTING_TIMEOUT < time(NULL) - runtime->batt_last_ts)
+    time_t now = time(NULL);
+
+    PERIPHERAL_batt_ad_sync();
+    runtime->batt_last_ts = now;
+
+    uint16_t mv = PERIPHERAL_batt_volt();
+    LOG_info("batt %dmV", mv);
+
+    if (BATT_EMPTY_MV > mv)
     {
-        PERIPHERAL_batt_ad_sync();
-        runtime->batt_last_ts = time(NULL);
-
-        uint16_t mv = PERIPHERAL_batt_volt();
-        LOG_info("batt %dmV", mv);
-
-        if (BATT_EMPTY_MV > mv)
+        runtime->setting = false;
+        return;
+    }
+    else
+    {
+        uint8_t percent = BATT_mv_level(mv);
+        if (50 > percent)
         {
-            runtime->setting = false;
-            return;
+            percent = MIN(setting.media_volume, MAX(25, percent));
+            AUDIO_set_volume_percent(percent);
         }
         else
-        {
-            uint8_t percent = BATT_mv_level(mv);
-            if (50 > percent)
-            {
-                percent = MIN(setting.media_volume, MAX(25, percent));
-                AUDIO_set_volume_percent(percent);
-            }
-            else
-                AUDIO_set_volume_percent(setting.media_volume);
-        }
+            AUDIO_set_volume_percent(setting.media_volume);
     }
 
     PMU_power_lock();
@@ -268,19 +267,17 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 
     if (! runtime->setting)
     {
-        time_t ts = time(NULL);
-
         if (SETTING_TIMEOUT < clock() - runtime->voice_last_tick)
         {
             runtime->voice_last_tick = clock();
 
-            VOICE_say_time_epoch(ts);
-            CLOCK_say_reminders(ts, true);
+            VOICE_say_time_epoch(now);
+            CLOCK_say_reminders(now, true);
         }
         else
         {
             runtime->voice_last_tick -= SETTING_TIMEOUT;
-            VOICE_say_date_epoch(ts);
+            VOICE_say_date_epoch(now);
         }
     }
     else
