@@ -69,6 +69,6 @@
 
 // volume
     #define VOLUME_MAX_PERCENT          (100)
-    #define VOLUME_MIN_PERCENT          (10)
+    #define VOLUME_MIN_PERCENT          (5)
 
 #endif
