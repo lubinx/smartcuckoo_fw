@@ -1,4 +1,5 @@
 #include <ultracore/log.h>
+#include <ultracore/nvm.h>
 #include <ultracore/timeo.h>
 
 #include <stdlib.h>
@@ -6,7 +7,6 @@
 
 #include <sh/ucsh.h>
 #include <sys/errno.h>
-#include <flash.h>
 #include <rtc.h>
 
 #include "datetime_utils.h"
@@ -43,8 +43,8 @@
 #define NVM_TIME_ZONE                   NVM_DEFINE_KEY('T', 'I', 'Z', 'E')
 #define NVM_DST                         NVM_DEFINE_KEY('D', 'S', 'T', 'B')
 
-#define NVM_ALARM_COUNT                 (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
-#define NVM_REMINDER_COUNT              (FLASH_NVM_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+#define NVM_ALARM_COUNT                 (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+#define NVM_REMINDER_COUNT              (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 
 struct DST_t
 {
@@ -689,15 +689,15 @@ static int SHELL_reminder(struct UCSH_env *env)
 
 static int SHELL_timezone(struct UCSH_env *env)
 {
-    char *tz = malloc(FLASH_NVM_OBJECT_SIZE);
+    char *tz = malloc(NVM_MAX_OBJECT_SIZE);
 
     if (2 == env->argc)
     {
-        strncpy(tz, env->argv[1], FLASH_NVM_OBJECT_SIZE);
-        NVM_set(NVM_TIME_ZONE, tz, FLASH_NVM_OBJECT_SIZE);
+        strncpy(tz, env->argv[1], NVM_MAX_OBJECT_SIZE);
+        NVM_set(NVM_TIME_ZONE, tz, NVM_MAX_OBJECT_SIZE);
     }
 
-    if (0 == NVM_get(NVM_TIME_ZONE, tz, FLASH_NVM_OBJECT_SIZE))
+    if (0 == NVM_get(NVM_TIME_ZONE, tz, NVM_MAX_OBJECT_SIZE))
         UCSH_printf(env, "%s\n", tz);
     else
         UCSH_puts(env, "0");
