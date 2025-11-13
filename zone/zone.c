@@ -157,11 +157,6 @@ void PERIPHERAL_init(void)
 
         while (1)
         {
-            if (600 < clock() - ts)
-                break;
-            else
-                pthread_yield();
-
             if (GPIO_peek(PIN_RTC_CAL_IN))
             {
                 LOG_debug("calibration");
@@ -172,9 +167,16 @@ void PERIPHERAL_init(void)
                     VOICE_say_setting(VOICE_SETTING_DONE);
                 break;
             }
+
+            if (600 > clock() - ts)
+            {
+                pthread_yield();
+                WDOG_feed();
+            }
+            else
+                break;
         }
 
-        WDOG_feed();
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 }
@@ -206,14 +208,6 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
             GPIO_clear(LED3);
     }
 }
-
-// int MYNOISE_store(char const *scenario, char const *theme, uint8_t channel_count, uint8_t *mixing_percents)
-// {
-
-// }
-
-    // int MYNOISE_store_remove(char const *scenario, char const *theme);
-
 
 /****************************************************************************
  *  @private: buttons
@@ -262,6 +256,8 @@ static void setting_timeout_callback(struct zone_runtime_t *runtime)
 
 static void volume_adj_intv_callback(uint32_t button_pin)
 {
+    timeout_stop(&zone.setting_timeo);
+
     if (PIN_VOLUME_UP_BUTTON == button_pin)
     {
         if (0 == GPIO_peek(PIN_VOLUME_UP_BUTTON))
@@ -328,39 +324,37 @@ static void MSG_alive(struct zone_runtime_t *runtime)
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
 {
-    if (SETTING_TIMEOUT < time(NULL) - runtime->batt_last_ts)
+    /*
+    PERIPHERAL_batt_ad_sync();
+    runtime->batt_last_ts = time(NULL);
+
+    uint16_t mv = PERIPHERAL_batt_volt();
+    LOG_info("batt %dmV", mv);
+
+    if (BATT_EMPTY_MV > mv)
     {
-        PERIPHERAL_batt_ad_sync();
-        runtime->batt_last_ts = time(NULL);
-
-        uint16_t mv = PERIPHERAL_batt_volt();
-        LOG_info("batt %dmV", mv);
-
-        if (BATT_EMPTY_MV > mv)
+        runtime->setting = false;
+        return;
+    }
+    else
+    {
+        uint8_t percent = BATT_mv_level(mv);
+        if (50 > percent)
         {
-            runtime->setting = false;
-            return;
+            percent = MIN(setting.media_volume, MAX(25, percent));
+            AUDIO_set_volume_percent(percent);
         }
         else
-        {
-            uint8_t percent = BATT_mv_level(mv);
-            if (50 > percent)
-            {
-                percent = MIN(setting.media_volume, MAX(25, percent));
-                AUDIO_set_volume_percent(percent);
-            }
-            else
-                AUDIO_set_volume_percent(setting.media_volume);
-        }
+            AUDIO_set_volume_percent(setting.media_volume);
     }
+    */
 
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    // any button will stop alarming
-    // CLOCK_stop_current_alarm();
-    // any button will snooze all current reminder
-    // CLOCK_snooze_reminders();
+    // any button will stop alarming & snooze reminders
+    CLOCK_stop_current_alarm();
+    CLOCK_snooze_reminders();
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
@@ -703,7 +697,16 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             MSG_voice_button(runtime);
                     }
                     else
-                        MYNOISE_toggle();
+                    {
+                        if (! CLOCK_is_alarming())
+                        {
+                            PMU_power_lock();
+                            MYNOISE_toggle();
+                            PMU_power_unlock();
+                        }
+                        else
+                            CLOCK_stop_current_alarm();
+                    }
                     break;
 
                 case MSG_POWER_BUTTON:
@@ -724,7 +727,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                     }
                     else
+                    {
+                        CLOCK_stop_current_alarm();
+
+                        PMU_power_lock();
                         MSG_mynoise_toggle();
+                        PMU_power_unlock();
+                    }
                     break;
 
                 case MSG_PREV_BUTTON:
