@@ -65,7 +65,7 @@
 
     #define LONG_PRESS_VOICE            (1000)
     #define LONG_PRESS_SETTING          (3000)
-    #define VOLUME_ADJ_HOLD_INTV        (250)
+    #define VOLUME_ADJ_HOLD_INTV        (60)
 
 // volume
     #define VOLUME_MAX_PERCENT          (100)
