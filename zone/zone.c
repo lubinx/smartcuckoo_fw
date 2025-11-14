@@ -76,7 +76,7 @@ void PERIPHERAL_gpio_init(void)
 void PERIPHERAL_shell_init(void)
 {
     MYNOISE_register_shell();
-    MYNOISE_power_off_tickdown_cb(1, MYNOISE_power_off_tickdown_callback);
+    MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 }
 
 bool PERIPHERAL_is_enable_usb(void)
