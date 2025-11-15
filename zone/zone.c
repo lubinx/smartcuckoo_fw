@@ -285,7 +285,7 @@ static void volume_adj_intv_callback(uint32_t button_pin)
 
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
-    // LOG_debug("alive");
+    LOG_debug("alive");
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
@@ -680,32 +680,34 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 {
                 case MSG_TOP_BUTTON:
                     // REVIEW: stop alarm & snooze
-                    if (true == CLOCK_stop_current_alarm()) mplayer_playlist_clear();
-                    CLOCK_snooze_reminders();
-
-                    if (0 == GPIO_peek(PIN_TOP_BUTTON))
+                    if (false == CLOCK_stop_current_alarm())
                     {
-                        if (0 == runtime->top_button_stick)
-                            runtime->top_button_stick = clock();
-
-                        if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
+                        if (0 == GPIO_peek(PIN_TOP_BUTTON))
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
+                            if (0 == runtime->top_button_stick)
+                                runtime->top_button_stick = clock();
+
+                            if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
+                            {
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
+                            }
+                            else
+                                MSG_voice_button(runtime);
                         }
                         else
-                            MSG_voice_button(runtime);
-                    }
-                    else
-                    {
-                        if (! CLOCK_is_alarming())
                         {
-                            PMU_power_lock();
-                            MYNOISE_toggle();
-                            PMU_power_unlock();
+                            // MSG_voice_button(runtime);
+
+                            if (! CLOCK_is_alarming())
+                            {
+                                PMU_power_lock();
+                                MYNOISE_toggle();
+                                PMU_power_unlock();
+                            }
+                            else
+                                CLOCK_stop_current_alarm();
                         }
-                        else
-                            CLOCK_stop_current_alarm();
                     }
                     break;
 
