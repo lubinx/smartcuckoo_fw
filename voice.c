@@ -814,7 +814,12 @@ static int VOICE_play(int idx)
     else
         return ENOENT;
 
-    return mplayer_play(filename);
+    int err = mplayer_play(filename);
+
+    if (0 != err)
+        LOG_warning("VOICE file %s: %s", filename, strerror(err));
+
+    return err;
 }
 
 static int VOICE_queue(int idx)
@@ -822,11 +827,14 @@ static int VOICE_queue(int idx)
     char filename[32];
     sprintf(filename, "%s%02X" EXT_VOICE, voice_sel->folder, idx);
 
-    int retval = mplayer_playlist_queue(filename);
+    int err = mplayer_playlist_queue(filename);
 
-    // if (0 == retval)
+    // if (0 == err)
     //     mplayer_playlist_queue_intv(voice_sel->tempo);
-    return retval;
+    if (0 != err)
+        LOG_warning("VOICE file %s: %s", filename, strerror(err));
+
+    return err;
 }
 
 static bool VOICE_exists(struct VOICE_t const *voice)
@@ -1198,7 +1206,7 @@ int VOICE_say_date(struct tm const *tm)
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    int retval = VOICE_queue(IDX_TODAY);
+    int err = VOICE_queue(IDX_TODAY);
 
     int year_vidx;
     {
@@ -1212,8 +1220,8 @@ int VOICE_say_date(struct tm const *tm)
     int day_vidx = tm->tm_mday - 1 + IDX_MDAY_1;
     int wday_vidx = tm->tm_wday + IDX_SUNDAY;
 
-    if (0 == retval && WFMT_LEAD == voice_sel->wfmt)
-        retval = VOICE_queue(wday_vidx);
+    if (0 == err && WFMT_LEAD == voice_sel->wfmt)
+        err = VOICE_queue(wday_vidx);
 
     enum LOCALE_dfmt_t dfmt = locale_ptr->dfmt;
     if (DFMT_DEFAULT == dfmt)
@@ -1223,39 +1231,40 @@ int VOICE_say_date(struct tm const *tm)
     {
     case DFMT_DEFAULT:
     case DFMT_YYMMDD:
-        if (0 == retval)
-            retval = VOICE_queue(year_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(month_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(day_vidx);
+        if (0 == err)
+            err = VOICE_queue(year_vidx);
+        if (0 == err)
+            err = VOICE_queue(month_vidx);
+        if (0 == err)
+            err = VOICE_queue(day_vidx);
         break;
 
     case DFMT_DDMMYY:
-        if (0 == retval)
-            retval = VOICE_queue(day_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(month_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(year_vidx);
+        if (0 == err)
+            err = VOICE_queue(day_vidx);
+        if (0 == err)
+            err = VOICE_queue(month_vidx);
+        if (0 == err)
+            err = VOICE_queue(year_vidx);
         break;
 
     case DFMT_MMDDYY:
-        if (0 == retval)
-            retval = VOICE_queue(month_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(day_vidx);
-        if (0 == retval)
-            retval = VOICE_queue(year_vidx);
+        if (0 == err)
+            err = VOICE_queue(month_vidx);
+        if (0 == err)
+            err = VOICE_queue(day_vidx);
+        if (0 == err)
+            err = VOICE_queue(year_vidx);
         break;
     };
 
-    if (0 == retval && WFMT_TAIL == voice_sel->wfmt)
-        retval = VOICE_queue(wday_vidx);
+    if (0 == err && WFMT_TAIL == voice_sel->wfmt)
+        err = VOICE_queue(wday_vidx);
 
-    if (0 == retval && -1 != voice_sel->tail_idx)
-        retval = VOICE_queue(voice_sel->tail_idx);
-    return retval;
+    if (0 == err && -1 != voice_sel->tail_idx)
+        err = VOICE_queue(voice_sel->tail_idx);
+
+    return err;
 }
 
 int VOICE_say_date_epoch(time_t epoch)
@@ -1274,7 +1283,7 @@ int VOICE_say_time(struct tm const *tm)
         tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
         tm->tm_hour, tm->tm_min, tm->tm_sec);
 
-    int retval = 0;
+    int err = 0;
     int saying_hour;
 
     enum LOCALE_hfmt_t hfmt = locale_ptr->hfmt;
@@ -1284,17 +1293,17 @@ int VOICE_say_time(struct tm const *tm)
     // 0/12 点整
     if (0 == tm->tm_min && 0 == tm->tm_hour % 12)
     {
-        if (0 == retval)
-            retval = VOICE_queue(IDX_NOW);
+        if (0 == err)
+            err = VOICE_queue(IDX_NOW);
 
-        if (0 == retval)
+        if (0 == err)
         {
             if (0 == tm->tm_hour)
-                retval = VOICE_queue(IDX_MID_NIGHT);
+                err = VOICE_queue(IDX_MID_NIGHT);
             else
-                retval = VOICE_queue(IDX_NOON);
+                err = VOICE_queue(IDX_NOON);
         }
-        return retval;
+        return err;
     }
     else
         saying_hour = tm->tm_hour;
@@ -1320,51 +1329,51 @@ int VOICE_say_time(struct tm const *tm)
     if (HFMT_12 == hfmt)
     {
     fixed_gr12:
-        if (0 == retval)
-            retval = VOICE_queue(IDX_NOW);
-        if (0 == retval)
+        if (0 == err)
+            err = VOICE_queue(IDX_NOW);
+        if (0 == err)
         {
             if (0 == saying_hour || 12 == saying_hour)
-                retval = VOICE_queue(12 + IDX_HOUR_0);
+                err = VOICE_queue(12 + IDX_HOUR_0);
             else
-                retval = VOICE_queue(saying_hour % 12 + IDX_HOUR_0);
+                err = VOICE_queue(saying_hour % 12 + IDX_HOUR_0);
         }
-        if (0 == retval)
-            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
-        if (0 == retval)
+        if (0 == err)
+            err = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
+        if (0 == err)
         {
             if (tm->tm_hour < 12)
-                retval = VOICE_queue(IDX_IN_MORNING);
+                err = VOICE_queue(IDX_IN_MORNING);
             else if (tm->tm_hour < 18)
-                retval = VOICE_queue(IDX_IN_AFTERNOON);
+                err = VOICE_queue(IDX_IN_AFTERNOON);
             else
-                retval = VOICE_queue(IDX_IN_EVENING);
+                err = VOICE_queue(IDX_IN_EVENING);
         }
     }
     else
     {
     fixed_gr24:
-        if (0 == retval)
+        if (0 == err)
         {
             if (tm->tm_hour < 12)
-                retval = VOICE_queue(IDX_GR_MORNING);
+                err = VOICE_queue(IDX_GR_MORNING);
             else if (tm->tm_hour < 18)
-                retval = VOICE_queue(IDX_GR_AFTERNOON);
+                err = VOICE_queue(IDX_GR_AFTERNOON);
             else
-                retval = VOICE_queue(IDX_GR_EVENING);
+                err = VOICE_queue(IDX_GR_EVENING);
         }
-        if (0 == retval)
-            retval = VOICE_queue(IDX_NOW);
-        if (0 == retval)
-            retval = VOICE_queue(saying_hour + IDX_HOUR_0);
-        if (0 == retval)
-            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
+        if (0 == err)
+            err = VOICE_queue(IDX_NOW);
+        if (0 == err)
+            err = VOICE_queue(saying_hour + IDX_HOUR_0);
+        if (0 == err)
+            err = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
     }
 
     if (-1 != voice_sel->tail_idx)
-        retval = VOICE_queue(voice_sel->tail_idx);
+        err = VOICE_queue(voice_sel->tail_idx);
 
-    return retval;
+    return err;
 }
 
 int VOICE_say_time_epoch(time_t epoch)
@@ -1432,21 +1441,21 @@ int VOICE_say_setting_part(enum VOICE_setting_t setting, struct tm const *tm, in
     if (NULL == voice_sel)
         return EMODU_NOT_CONFIGURED;
 
-    int retval = 0;
+    int err = 0;
 
     switch (setting)
     {
     case VOICE_SETTING_LANG:
-        retval = VOICE_play(IDX_SETTING_LANG);
+        err = VOICE_play(IDX_SETTING_LANG);
         break;
 
     case VOICE_SETTING_VOICE:
-        retval = VOICE_play(IDX_SETTING_VOICE);
+        err = VOICE_play(IDX_SETTING_VOICE);
         break;
 
     case VOICE_SETTING_HOUR:
     case VOICE_SETTING_ALARM_HOUR:
-        if (0 == retval)
+        if (0 == err)
         {
             enum LOCALE_hfmt_t hfmt = locale_ptr->hfmt;
             if (HFMT_DEFAULT == hfmt)
@@ -1458,70 +1467,70 @@ int VOICE_say_setting_part(enum VOICE_setting_t setting, struct tm const *tm, in
                 if (HFMT_24 != voice_sel->fixed_gr)
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
-                        retval = VOICE_queue(12 + IDX_HOUR_0);
+                        err = VOICE_queue(12 + IDX_HOUR_0);
                     else
-                        retval = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
+                        err = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
                 }
 
-                if (0 == retval)
+                if (0 == err)
                 {
                     if (tm->tm_hour < 12)
-                        retval = VOICE_queue(IDX_IN_MORNING);
+                        err = VOICE_queue(IDX_IN_MORNING);
                     else if (tm->tm_hour < 18)
-                        retval = VOICE_queue(IDX_IN_AFTERNOON);
+                        err = VOICE_queue(IDX_IN_AFTERNOON);
                     else
-                        retval = VOICE_queue(IDX_IN_EVENING);
+                        err = VOICE_queue(IDX_IN_EVENING);
                 }
 
                 if (HFMT_24 == voice_sel->fixed_gr)
                 {
                     if (0 == tm->tm_hour || 12 == tm->tm_hour)
-                        retval = VOICE_queue(12 + IDX_HOUR_0);
+                        err = VOICE_queue(12 + IDX_HOUR_0);
                     else
-                        retval = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
+                        err = VOICE_queue(tm->tm_hour % 12 + IDX_HOUR_0);
                 }
             }
             else
-                retval = VOICE_queue(tm->tm_hour + IDX_HOUR_0);
+                err = VOICE_queue(tm->tm_hour + IDX_HOUR_0);
         }
         break;
 
     case VOICE_SETTING_MINUTE:
     case VOICE_SETTING_ALARM_MIN:
-        if (0 == retval)
-            retval = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
+        if (0 == err)
+            err = VOICE_queue(tm->tm_min + IDX_MINUTE_0);
         break;
 
     case VOICE_SETTING_YEAR:
-        if (0 == retval)
+        if (0 == err)
         {
             int idx = tm->tm_year + 1900;
             idx = (YEAR_ROUND_LO > idx ? YEAR_ROUND_LO : (YEAR_ROUND_HI < idx ? YEAR_ROUND_HI : idx)) -
                 YEAR_ROUND_LO + IDX_YEAR_LO;
 
-            retval = VOICE_queue(idx);
+            err = VOICE_queue(idx);
         }
         break;
 
     case VOICE_SETTING_MDAY:
-        if (0 == retval)
-            retval = VOICE_queue(tm->tm_mday - 1 + IDX_MDAY_1);
-        if (0 == retval && voice_sel->default_dfmt != DFMT_YYMMDD)
+        if (0 == err)
+            err = VOICE_queue(tm->tm_mday - 1 + IDX_MDAY_1);
+        if (0 == err && voice_sel->default_dfmt != DFMT_YYMMDD)
             goto fallthrough_month;
         break;
 
     fallthrough_month:
     case VOICE_SETTING_MONTH:
-        if (0 == retval)
-            retval = VOICE_queue(tm->tm_mon + IDX_JANURAY);
+        if (0 == err)
+            err = VOICE_queue(tm->tm_mon + IDX_JANURAY);
         break;
 
     case VOICE_SETTING_ALARM_RINGTONE:
-        retval = VOICE_play_ringtone(ringtone_id);
+        err = VOICE_play_ringtone(ringtone_id);
         break;
 
     case VOICE_SETTING_COUNT:
-        retval = EINVAL;
+        err = EINVAL;
         break;
 
     case VOICE_SETTING_EXT_LOW_BATT:
@@ -1530,7 +1539,7 @@ int VOICE_say_setting_part(enum VOICE_setting_t setting, struct tm const *tm, in
         break;
     };
 
-    return retval;
+    return err;
 }
 
 int VOICE_select_ringtone(int ringtone_id)
