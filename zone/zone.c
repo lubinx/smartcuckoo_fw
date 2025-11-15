@@ -3,7 +3,7 @@
 /****************************************************************************
  *  @def
  ****************************************************************************/
-#define MQUEUE_PAYLOAD_SIZE             (8)
+#define MQUEUE_PAYLOAD_SIZE             (4)
 #define MQUEUE_LENGTH                   (8)
 
 #define MQUEUE_ALIVE_INTV_SECONDS       (5)
@@ -285,7 +285,7 @@ static void volume_adj_intv_callback(uint32_t button_pin)
 
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
-    LOG_debug("alive");
+    // LOG_debug("alive");
     static time_t last_time = 0;
 
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
@@ -605,7 +605,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     PMU_power_unlock();
 }
 
-static void MSG_mynoise_toggle(void)
+static int MSG_mynoise_toggle(void)
 {
     if (MYNOISE_is_running())
     {
@@ -619,9 +619,11 @@ static void MSG_mynoise_toggle(void)
             MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
         else
             MYNOISE_stop();
+
+        return 0;
     }
     else
-        MYNOISE_start();
+        return MYNOISE_start();
 }
 
 static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
@@ -702,7 +704,11 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             if (! CLOCK_is_alarming())
                             {
                                 PMU_power_lock();
-                                MYNOISE_toggle();
+
+                                int err = MYNOISE_toggle();
+                                if (0 != err)
+                                    LOG_error("%s", strerror(err));
+
                                 PMU_power_unlock();
                             }
                             else
@@ -712,6 +718,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_POWER_BUTTON:
+                    CLOCK_stop_current_alarm();
+
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
                         if (0 == runtime->power_button_stick)
@@ -730,15 +738,19 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     }
                     else
                     {
-                        CLOCK_stop_current_alarm();
-
                         PMU_power_lock();
-                        MSG_mynoise_toggle();
+
+                        int err = MSG_mynoise_toggle();
+                        if (0 != err)
+                            LOG_error("%s", strerror(err));
+
                         PMU_power_unlock();
                     }
                     break;
 
                 case MSG_PREV_BUTTON:
+                    CLOCK_stop_current_alarm();
+
                     if (0 == GPIO_peek(PIN_PREV_BUTTON))
                     {
                         if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
@@ -754,6 +766,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_NEXT_BUTTON:
+                    CLOCK_stop_current_alarm();
+
                     if (0 == GPIO_peek(PIN_NEXT_BUTTON))
                     {
                         if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
