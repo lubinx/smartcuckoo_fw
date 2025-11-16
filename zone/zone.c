@@ -703,13 +703,17 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                             if (! CLOCK_is_alarming())
                             {
-                                PMU_power_lock();
-
                                 int err = MYNOISE_toggle();
-                                if (0 != err)
-                                    LOG_error("%s", strerror(err));
 
-                                PMU_power_unlock();
+                                if (0 == err)
+                                {
+                                #ifndef NDEBUG
+                                    if (! MYNOISE_is_running())
+                                        LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
+                                #endif
+                                }
+                                else
+                                    LOG_error("%s", strerror(err));
                             }
                             else
                                 CLOCK_stop_current_alarm();
@@ -738,13 +742,9 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     }
                     else
                     {
-                        PMU_power_lock();
-
                         int err = MSG_mynoise_toggle();
                         if (0 != err)
                             LOG_error("%s", strerror(err));
-
-                        PMU_power_unlock();
                     }
                     break;
 

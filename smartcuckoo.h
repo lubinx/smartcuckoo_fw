@@ -8,6 +8,7 @@
 #include <ultracore/timeo.h>
 #include <ultracore/nvm.h>
 #include <ultracore/thread.h>
+#include <ultracore/syscon.h>
 #include <sh/ucsh.h>
 
 #include <audio/renderer.h>
