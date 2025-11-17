@@ -10,11 +10,19 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    # "ultracore/src/audio/mynoise.c"
-    # "ultracore/src/audio/renderer.c"
-    # "ultracore/src/audio/codec/es8156.c"
     "ultracore/src/usb/*.c"
 )
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND COMMON_SRCS
+        # "ultracore/src/core/retarget.c"
+        # "ultracore/src/fs/fat.c"
+        # "ultracore/src/audio/wavefile.c"
+        "ultracore/src/audio/mplayer.c"
+        "ultracore/src/audio/mynoise.c"
+        "ultracore/src/audio/renderer.c"
+    )
+endif()
 
 build_target(talking_button
     DEVICE
