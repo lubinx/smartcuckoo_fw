@@ -53,7 +53,7 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 
 // var
 static struct zone_runtime_t zone = {0};
-__THREAD_STACK static uint32_t zone_stack[1024 / sizeof(uint32_t)];
+__THREAD_STACK static uint32_t zone_stack[1280 / sizeof(uint32_t)];
 
 /****************************************************************************
  *  @implements
