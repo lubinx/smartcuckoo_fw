@@ -105,13 +105,16 @@
 
 -----------------------------------------------------------------------------
 # nois 播放白噪音
-    nois                            列表白噪音主题
-    nois [on/off]                   开关白噪音
-    nois [next/prev]                上一首/下一首白噪音
-    nois id                         播放指定主题
+    noise list                      列表白噪音
+    noise                           当前托业放白燥音
+    noise [prev/next]               上一首/下一首
 
-## 白噪音主题格式
+    noise start [timeout] scenario.theme
+    noise start [timeout] scenario
+    noise start [timeout] scenario [percents,...]
 
-    {"colors": [
-        {"id": 0, “theme": 主题}
-    ]}
+    noise start [timeout] favx
+
+    noise update [percents,...]
+    noise fav 0~9                   保存
+    noise fav 0~9 del               删除
