@@ -151,7 +151,7 @@ int main(void)
 
             #ifdef DEBUG
                 ARG_UNUSED(volt, raw);
-                ad->value = 3300;
+                ad->value = BATT_FULL_MV;
                 ADC_stop_convert(&ad->attr);
             #else
                 ARG_UNUSED(raw);
