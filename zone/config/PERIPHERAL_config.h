@@ -21,13 +21,13 @@
     #define BATT_AD_NUMERATOR           (390U + 750U)
     #define BATT_AD_DENOMINATOR         (390U)
 
-    #define BATT_FULL_MV                (3150)
-    #define BATT_HINT_MV                (2300)
-    #define BATT_LOW_MV                 (2150)
-    #define BATT_EMPTY_MV               (1950)
+    #define BATT_FULL_MV                (4150)
+    #define BATT_HINT_MV                (3500)
+    #define BATT_LOW_MV                 (3350)
+    #define BATT_EMPTY_MV               (3200)
 
     // batt adc interval
-    #define BATT_AD_INTV_SECONDS        (3600)
+    #define BATT_AD_INTV_SECONDS        (600)
 
 // USB
     #define USB_PINS                    PA12, PA11
@@ -64,7 +64,7 @@
     #define PIN_VOLUME_DOWN_BUTTON      PD00
 
     #define LONG_PRESS_VOICE            (1000)
-    #define LONG_PRESS_SETTING          (3000)
+    #define LONG_PRESS_POWER_DOWN       (3000)
     #define VOLUME_ADJ_HOLD_INTV        (60)
 
 // volume
