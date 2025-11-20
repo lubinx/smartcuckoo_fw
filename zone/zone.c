@@ -33,8 +33,9 @@ struct zone_runtime_t
     enum VOICE_setting_t setting_part;
     struct tm setting_dt;
 
-    clock_t power_button_stick;
     clock_t top_button_stick;
+    clock_t power_button_stick;
+    clock_t prev_next_button_stick;
 
     time_t batt_last_ts;
 };
@@ -179,6 +180,9 @@ void PERIPHERAL_init(void)
 
         GPIO_disable(PIN_RTC_CAL_IN);
     }
+
+    if (! PERIPHERAL_is_enable_usb())
+        MYNOISE_start();
 }
 
 /****************************************************************************
@@ -230,9 +234,15 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     }
 
     if (PIN_PREV_BUTTON == (PIN_PREV_BUTTON & pins))
+    {
+        runtime->prev_next_button_stick = 0;
         mqueue_postv(runtime->mqd, MSG_PREV_BUTTON, 0, 0);
+    }
     if (PIN_NEXT_BUTTON == (PIN_NEXT_BUTTON & pins))
+    {
+        runtime->prev_next_button_stick = 0;
         mqueue_postv(runtime->mqd, MSG_NEXT_BUTTON, 0, 0);
+    }
 
     if (PIN_VOLUME_UP_BUTTON == (PIN_VOLUME_UP_BUTTON & pins))
         mqueue_postv(runtime->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
@@ -288,11 +298,19 @@ static void MSG_alive(struct zone_runtime_t *runtime)
     // LOG_debug("alive");
     static time_t last_time = 0;
 
-    if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
+    if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {
-        // trigger ad batery everytime, no other actions
         runtime->batt_last_ts = time(NULL);
-        PERIPHERAL_batt_ad_start();
+        PERIPHERAL_batt_ad_sync();
+
+        if (BATT_HINT_MV > PERIPHERAL_batt_volt())
+        {
+            if (MYNOISE_is_running())
+            {
+                MYNOISE_stop();
+                VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
+            }
+        }
     }
     else
     {
@@ -317,9 +335,6 @@ static void MSG_alive(struct zone_runtime_t *runtime)
             }
         }
     }
-
-    if (BATT_HINT_MV > PERIPHERAL_batt_volt())
-        MYNOISE_stop();
 }
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
@@ -605,25 +620,57 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     PMU_power_unlock();
 }
 
-static int MSG_mynoise_toggle(void)
+static void MSG_mynoise_toggle(bool step)
 {
-    if (MYNOISE_is_running())
+    int startting = false;
+
+    if (step)
     {
-        uint32_t seconds = MYNOISE_get_power_off_seconds();
+        if (MYNOISE_is_running())
+        {
+            uint32_t seconds = MYNOISE_get_power_off_seconds();
 
-        if (0 == seconds)
-            MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
-        else if (POWER_OFF_STEP_SECONDS >= seconds)
-            MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
-        else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
-            MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
+            if (0 == seconds)
+                MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
+            else if (POWER_OFF_STEP_SECONDS >= seconds)
+                MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
+            else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
+                MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
+            else
+                MYNOISE_stop();
+
+            startting = true;
+        }
         else
-            MYNOISE_stop();
-
-        return 0;
+            startting = true;
     }
     else
-        return MYNOISE_start();
+    {
+        if (MYNOISE_is_running())
+            MYNOISE_stop();
+        else
+            startting = true;
+    }
+
+    if (startting)
+    {
+        int err = 0;
+
+        if (BATT_HINT_MV > PERIPHERAL_batt_ad_sync())
+            VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
+        else
+            err = MYNOISE_start();
+
+        if (0 != err)
+            LOG_error("%s", strerror(err));
+    }
+    else
+    {
+        #ifndef NDEBUG
+            if (! MYNOISE_is_running())
+                LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
+        #endif
+    }
 }
 
 static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
@@ -637,6 +684,20 @@ static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON);
     else
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
+}
+
+static void MSG_power_down(void)
+{
+    MYNOISE_stop();
+
+    // GPIO_intr_disable(PIN_POWER_BUTTON);
+    GPIO_intr_disable(PIN_TOP_BUTTON);
+    GPIO_intr_disable(PIN_PREV_BUTTON);
+    GPIO_intr_disable(PIN_NEXT_BUTTON);
+    GPIO_intr_disable(PIN_VOLUME_UP_BUTTON);
+    GPIO_intr_disable(PIN_VOLUME_DOWN_BUTTON);
+
+    PMU_power_down();
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)
@@ -699,22 +760,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                         else
                         {
-                            // MSG_voice_button(runtime);
-
                             if (! CLOCK_is_alarming())
-                            {
-                                int err = MYNOISE_toggle();
-
-                                if (0 == err)
-                                {
-                                #ifndef NDEBUG
-                                    if (! MYNOISE_is_running())
-                                        LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
-                                #endif
-                                }
-                                else
-                                    LOG_error("%s", strerror(err));
-                            }
+                                MSG_mynoise_toggle(false);
                             else
                                 CLOCK_stop_current_alarm();
                         }
@@ -729,23 +776,16 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         if (0 == runtime->power_button_stick)
                             runtime->power_button_stick = clock();
 
-                        if (LONG_PRESS_SETTING > clock() - runtime->power_button_stick)
+                        if (LONG_PRESS_POWER_DOWN > clock() - runtime->power_button_stick)
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
                         }
                         else
-                        {
-                            MYNOISE_stop();
-                            MSG_setting(runtime, PIN_POWER_BUTTON);
-                        }
+                            MSG_power_down();
                     }
                     else
-                    {
-                        int err = MSG_mynoise_toggle();
-                        if (0 != err)
-                            LOG_error("%s", strerror(err));
-                    }
+                        MSG_mynoise_toggle(true);
                     break;
 
                 case MSG_PREV_BUTTON:
@@ -753,13 +793,26 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                     if (0 == GPIO_peek(PIN_PREV_BUTTON))
                     {
-                        if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                        if (0 == runtime->prev_next_button_stick)
+                            runtime->prev_next_button_stick = clock();
+
+                        if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_NEXT_BUTTON))
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
                         }
                         else
-                            MSG_alarm_toggle(runtime);
+                        {
+                            MYNOISE_stop();
+
+                            if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                            {
+                                mqueue_flush(runtime->mqd);
+                                MSG_alarm_toggle(runtime);
+                            }
+                            else
+                                MSG_setting(runtime, PIN_POWER_BUTTON);
+                        }
                     }
                     else
                         MYNOISE_prev();
@@ -770,13 +823,26 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                     if (0 == GPIO_peek(PIN_NEXT_BUTTON))
                     {
-                        if (0 != GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                        if (0 == runtime->prev_next_button_stick)
+                            runtime->prev_next_button_stick = clock();
+
+                        if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_PREV_BUTTON))
                         {
                             thread_yield();
                             mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
                         }
                         else
-                            MSG_alarm_toggle(runtime);
+                        {
+                            MYNOISE_stop();
+
+                            if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                            {
+                                mqueue_flush(runtime->mqd);
+                                MSG_alarm_toggle(runtime);
+                            }
+                            else
+                                MSG_setting(runtime, PIN_POWER_BUTTON);
+                        }
                     }
                     else
                         MYNOISE_next();
