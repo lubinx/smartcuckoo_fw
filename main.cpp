@@ -19,6 +19,13 @@
     #include <rcc.h>
 #endif
 
+#ifndef BATT_FULL_MV
+    #pragma GCC error "not defined BATT_FULL_MV");
+#endif
+#ifndef BATT_HINT_MV
+    #pragma GCC error "not defined BATT_HINT_MV for hint low battery");
+#endif
+
 /****************************************************************************
  *  @def
  ****************************************************************************/
@@ -324,6 +331,10 @@ uint16_t PERIPHERAL_batt_volt(void)
 
 uint8_t BATT_mv_level(uint32_t mV)
 {
+#if ! defined(BATT_LOW_MV) || ! defined(BATT_EMPTY_MV)
+    #pragma GCC error "no defined BATT_LOW_MV / BATT_EMPTY_MV for 10%");
+    return (uint8_t)mV;
+#else
     if (mV < BATT_LOW_MV)
     {
         if (BATT_EMPTY_MV > mV) // 0%
@@ -338,4 +349,5 @@ uint8_t BATT_mv_level(uint32_t mV)
         else                    // 100%
             return 100;
     }
+#endif
 }

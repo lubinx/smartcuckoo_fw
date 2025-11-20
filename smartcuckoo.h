@@ -54,16 +54,6 @@
     #define RTC_CALIBRATION_SECONDS     (3)
 #endif
 
-#ifndef BATT_FULL_MV
-    #define BATT_FULL_MV                (4100)
-#endif
-#ifndef BATT_LOW_MV
-    #define BATT_LOW_MV                 (3300)
-#endif
-#ifndef BATT_EMPTY_MV
-    #define BATT_EMPTY_MV               (3000)
-#endif
-
 /***************************************************************************
  *  @def: common PIN mux
  ***************************************************************************/

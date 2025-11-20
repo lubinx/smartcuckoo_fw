@@ -111,15 +111,14 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
+
+        setting.alarm_is_on = true;
         setting.media_volume = 30;
     }
 
-    // REVIEW: reset set alarm on
-    setting.alarm_is_on = true;
-
     setting.media_volume = MIN(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
-    AUDIO_renderer_supress_master_value(75);
+    AUDIO_renderer_supress_master_value(70);
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
 
@@ -405,16 +404,6 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     CLOCK_stop_current_alarm();
     // any button will snooze all current reminder
     CLOCK_snooze_reminders();
-
-    // say low battery only
-    if (1)
-    {
-        uint16_t batt = PERIPHERAL_batt_volt();
-        if (BATT_EMPTY_MV > batt)
-            return;
-        if (BATT_HINT_MV > batt)
-            VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
-    }
 
     if (PIN_POWER_BUTTON == button)
     {
