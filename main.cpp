@@ -176,16 +176,10 @@ int main(void)
     PMU_power_lock();
     PMU_deepsleep_subscribe(&pmu_attr, [](enum PMU_event_t event, enum PMU_mode_t, void *) -> void
         {
-            switch (event)
+            if (PMU_EVENT_SLEEP == event)
             {
-            case PMU_EVENT_POWER_DOWN:
-            case PMU_EVENT_SLEEP:
                 SDMMC_card_remove(&sdmmc);
                 DISKIO_flush_cache(&sdmmc_diskio);
-                break;
-
-            case PMU_EVENT_WAKEUP:
-                break;
             }
         },
     NULL);
