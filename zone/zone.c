@@ -26,9 +26,10 @@ struct zone_runtime_t
     timeout_t setting_timeo;
     timeout_t volume_adj_intv;
 
-    bool setting;
-    bool setting_is_modified;
-    bool setting_alarm_is_modified;
+    bytebool_t power_is_down;
+    bytebool_t setting;
+    bytebool_t setting_is_modified;
+    bytebool_t setting_alarm_is_modified;
 
     enum VOICE_setting_t setting_part;
     struct tm setting_dt;
@@ -235,7 +236,7 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
     {
         runtime->power_button_stick = 0;
-        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 1, 0);
     }
 
     if (PIN_PREV_BUTTON == (PIN_PREV_BUTTON & pins))
@@ -629,7 +630,7 @@ static void MSG_mynoise_toggle(bool step)
                 MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
             else if (POWER_OFF_STEP_SECONDS >= seconds)
                 MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
-            else if (2U * POWER_OFF_STEP_SECONDS > seconds)
+            else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
                 MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
             else
                 MYNOISE_stop();
@@ -679,17 +680,13 @@ static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
 }
 
-static void MSG_power_button(bool power_down)
+static void MSG_power_button(struct zone_runtime_t *runtime, bool power_down)
 {
-    static bytebool_t power_is_down = false;
-
     extern void bluetooth_go_sleep(void);
     extern void bluetooth_wakeup(void);
 
     if (power_down)
     {
-        MYNOISE_stop();
-
         // GPIO_intr_disable(PIN_POWER_BUTTON);
         GPIO_intr_disable(PIN_TOP_BUTTON);
         GPIO_intr_disable(PIN_PREV_BUTTON);
@@ -697,8 +694,10 @@ static void MSG_power_button(bool power_down)
         GPIO_intr_disable(PIN_VOLUME_UP_BUTTON);
         GPIO_intr_disable(PIN_VOLUME_DOWN_BUTTON);
 
-        power_is_down = true;
+        runtime->power_is_down = true;
         bluetooth_go_sleep();
+
+        MYNOISE_stop();
 
         while (0 == GPIO_peek(PIN_POWER_BUTTON))
         {
@@ -709,12 +708,12 @@ static void MSG_power_button(bool power_down)
         }
         GPIO_set(LED_POWER);
     }
-    else if (power_is_down)
+    else if (runtime->power_is_down)
     {
         PERIPHERAL_gpio_intr_enable();
         bluetooth_wakeup();
 
-        power_is_down = false;
+        runtime->power_is_down = false;
     }
 }
 
@@ -787,8 +786,11 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_POWER_BUTTON:
-                    MSG_power_button(false);
+                    MSG_power_button(runtime, false);
                     CLOCK_stop_current_alarm();
+
+                    if (false == msg->payload.as_u32[0])
+                        MSG_mynoise_toggle(true);
 
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
@@ -798,13 +800,11 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         if (LONG_PRESS_POWER_DOWN > clock() - runtime->power_button_stick)
                         {
                             thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 1, true);
                         }
                         else
-                            MSG_power_button(true);
+                            MSG_power_button(runtime, true);
                     }
-                    else
-                        MSG_mynoise_toggle(true);
                     break;
 
                 case MSG_PREV_BUTTON:
@@ -890,6 +890,9 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
             mqueue_release_pool(runtime->mqd, msg);
         }
         else
-            MSG_alive(runtime);
+        {
+            if (! runtime->power_is_down)
+                MSG_alive(runtime);
+        }
     }
 }
