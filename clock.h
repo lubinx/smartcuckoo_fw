@@ -27,15 +27,7 @@
         int32_t mdate;  // yyyy/mm/dd
     };
 
-    struct CLOCK_runtime_t
-    {
-        int8_t alarming_idx;
 
-        time_t alarm_snooze_ts_end;
-        // time_t reminder_ts_end;
-        time_t reminder_snooze_ts_end;
-    };
-    extern struct CLOCK_runtime_t clock_runtime;
 
 __BEGIN_DECLS
 
@@ -46,29 +38,32 @@ extern __attribute__((nothrow))
     void CLOCK_init(void);
 
     /**
-     *  CLOCK_get_alarm_is_on()
+     *  CLOCK_alarm_switch_is_on()
      *
-     *  NOTE: overridable
+     *  NOTE: override to return hardward switcher of alarm
+     *      default is alrays on
     */
 extern __attribute__((nothrow, pure))
-    bool CLOCK_get_alarm_is_on(void);
-
-    /**
-     *  CLOCK_update_alarms()
-    */
-extern __attribute__((nothrow))
-    void CLOCK_update_alarms(void);
+    bool CLOCK_alarm_switch_is_on(void);
 
     /**
      *  CLOCK_alarm_count()
-     *      get maxinum alarms supported
+     *      get maxinum alarms count was supported
     */
 extern __attribute__((nothrow, const))
     unsigned CLOCK_alarm_count(void);
 
-    // return if now is alarming
+    /**
+     *  CLOCK_get_alarming_idx()
+    */
 extern __attribute__((nothrow, pure))
-    bool CLOCK_is_alarming(void);
+    int8_t CLOCK_get_alarming_idx(void);
+
+    /**
+     *  CLOCK_get_ringtone_id()
+    */
+extern __attribute__((nothrow))
+    int CLOCK_get_ringtone_id(void);
 
     /**
      *  CLOCK_get_alarm()
@@ -77,53 +72,36 @@ extern __attribute__((nothrow, pure))
     struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx);
 
     /**
-     *  CLOCK_get_next_alarm_ringtone_id()
+     *  CLOCK_update_alarms()
     */
 extern __attribute__((nothrow))
-    int CLOCK_get_next_alarm_ringtone_id(void);
+    void CLOCK_update_alarms(void);
 
     /**
-     *  CLOCK_peek_start_reminders()
-     *      iterator alarms start if nessary
-     *
-     *  @returns
-     *      -1 none alarm is started
-     *      index of alarm is started
+     *  CLOCK_schedule()
     */
 extern __attribute__((nothrow))
-    int8_t CLOCK_peek_start_alarms(time_t ts);
+    void CLOCK_schedule(time_t ts);
 
     /**
-     *  CLOCK_stop_current_alarm()
+     *  CLOCK_snooze() / CLOCK_dismiss()
      *  @returns
-     *      true if current alarm is ringing and stopped
+     *      false if no alarming is ringing
+     *      true if current alarm is ringing and snoozed / stopped
     */
 extern __attribute__((nothrow))
-    bool CLOCK_stop_current_alarm(void);
-
-    /**
-     *  CLOCK_peek_start_reminders()
-     *      iterator reminders start if nessary
-     *
-     *  @returns
-     *      reminders count
-    */
+    bool CLOCK_snooze(void);
 extern __attribute__((nothrow))
-    void CLOCK_peek_start_reminders(time_t ts);
+    bool CLOCK_dismiss(void);
 
     /**
      *  CLOCK_say_reminders()
+     *
      *  @returns
      *      reminders count
     */
 extern __attribute__((nothrow))
     unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze);
-
-    /**
-     * CLOCK_snooze_reminders()
-    */
-extern __attribute__((nothrow))
-    void CLOCK_snooze_reminders(void);
 
 /***************************************************************************
  * utils

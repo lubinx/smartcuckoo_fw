@@ -37,7 +37,7 @@
  ****************************************************************************/
 struct SMARTCUCKOO_setting_t setting;
 
-bool CLOCK_get_alarm_is_on(void)
+bool CLOCK_alarm_switch_is_on(void)
 {
     return setting.alarm_is_on;
 }

@@ -186,9 +186,6 @@ void PERIPHERAL_init(void)
 
         GPIO_disable(PIN_RTC_CAL_IN);
     }
-
-    // if (! PERIPHERAL_is_enable_usb())
-    //     MYNOISE_start();
 }
 
 /****************************************************************************
@@ -198,8 +195,8 @@ void mplayer_idle_callback(void)
 {
     if (zone.setting)
         timeout_start(&zone.setting_timeo, &zone);
-    else // if (! CLOCK_is_alarming())
-        CLOCK_peek_start_alarms(time(NULL));
+    else
+        CLOCK_schedule(time(NULL));
 }
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain)
@@ -302,8 +299,6 @@ static void volume_adj_intv_callback(uint32_t button_pin)
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
     // LOG_debug("alive");
-    static time_t last_time = 0;
-
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {
         runtime->batt_last_ts = time(NULL);
@@ -328,18 +323,8 @@ static void MSG_alive(struct zone_runtime_t *runtime)
             PERIPHERAL_batt_ad_start();
         }
 
-        if (now != last_time)
-        {
-            last_time = now;
-
-            if (! runtime->setting)
-            {
-                CLOCK_peek_start_reminders(now);
-
-                if (! CLOCK_is_alarming())
-                    CLOCK_peek_start_alarms(now);
-            }
-        }
+        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
+            CLOCK_schedule(now);
     }
 }
 
@@ -372,10 +357,7 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
 
     PMU_power_lock();
     mplayer_playlist_clear();
-
-    // any button will stop alarming & snooze reminders
-    CLOCK_stop_current_alarm();
-    CLOCK_snooze_reminders();
+    CLOCK_dismiss();
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
@@ -407,10 +389,8 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    // any button will stop alarming
-    CLOCK_stop_current_alarm();
-    // any button will snooze all current reminder
-    CLOCK_snooze_reminders();
+    // any button will stop alarming & snooze reminders
+    CLOCK_dismiss();
 
     if (PIN_POWER_BUTTON == button)
     {
@@ -759,35 +739,32 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 switch ((enum zone_message)msg->msgid)
                 {
                 case MSG_TOP_BUTTON:
-                    // REVIEW: stop alarm & snooze
-                    if (false == CLOCK_stop_current_alarm())
+                    if (0 == GPIO_peek(PIN_TOP_BUTTON))
                     {
-                        if (0 == GPIO_peek(PIN_TOP_BUTTON))
-                        {
-                            if (0 == runtime->top_button_stick)
-                                runtime->top_button_stick = clock();
+                        if (0 == runtime->top_button_stick)
+                            runtime->top_button_stick = clock();
 
-                            if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
-                            {
-                                thread_yield();
-                                mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
-                            }
-                            else
-                                MSG_voice_button(runtime);
+                        if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
+                        {
+                            thread_yield();
+                            mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
                         }
                         else
                         {
-                            if (! CLOCK_is_alarming())
-                                MSG_mynoise_toggle(false);
-                            else
-                                CLOCK_stop_current_alarm();
+                            if (! CLOCK_dismiss())
+                                MSG_voice_button(runtime);
                         }
+                    }
+                    else
+                    {
+                        if (! CLOCK_snooze())
+                            MSG_mynoise_toggle(false);
                     }
                     break;
 
                 case MSG_POWER_BUTTON:
                     MSG_power_button(runtime, false);
-                    CLOCK_stop_current_alarm();
+                    CLOCK_dismiss();
 
                     if (false == msg->payload.as_u32[0])
                         MSG_mynoise_toggle(true);
@@ -808,7 +785,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_PREV_BUTTON:
-                    CLOCK_stop_current_alarm();
+                    CLOCK_dismiss();
 
                     if (0 == GPIO_peek(PIN_PREV_BUTTON))
                     {
@@ -838,7 +815,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_NEXT_BUTTON:
-                    CLOCK_stop_current_alarm();
+                    CLOCK_dismiss();
 
                     if (0 == GPIO_peek(PIN_NEXT_BUTTON))
                     {
@@ -869,7 +846,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                 case MSG_VOLUME_UP_BUTTON:
                     if (AUDIO_renderer_is_idle())
-                        VOICE_play_ringtone(CLOCK_get_next_alarm_ringtone_id());
+                        VOICE_play_ringtone(CLOCK_get_ringtone_id());
 
                     AUDIO_inc_volume(VOLUME_MAX_PERCENT);
                     LOG_info("volume: %d", AUDIO_get_volume_percent());
@@ -878,7 +855,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                 case MSG_VOLUME_DOWN_BUTTON:
                     if (AUDIO_renderer_is_idle())
-                        VOICE_play_ringtone(CLOCK_get_next_alarm_ringtone_id());
+                        VOICE_play_ringtone(CLOCK_get_ringtone_id());
 
                     AUDIO_dec_volume(VOLUME_MIN_PERCENT);
                     LOG_info("volume: %d", AUDIO_get_volume_percent());

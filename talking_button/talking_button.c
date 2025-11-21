@@ -146,8 +146,8 @@ void mplayer_idle_callback(void)
 {
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
-    else // if (! CLOCK_is_alarming())
-        CLOCK_peek_start_alarms(time(NULL));
+    else
+        CLOCK_schedule(time(NULL));
 }
 
 /****************************************************************************
@@ -193,9 +193,7 @@ static void alaramsw_timeout_callback(void *arg)
 
 static void MSG_alive(struct talking_button_runtime_t *runtime)
 {
-    LOG_debug("alive");
-    static time_t last_time = 0;
-
+    // LOG_debug("alive");
     if (BATT_EMPTY_MV > PERIPHERAL_batt_volt())
     {
         // trigger ad batery everytime, no other actions
@@ -212,18 +210,8 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
             PERIPHERAL_batt_ad_start();
         }
 
-        if (now != last_time)
-        {
-            last_time = now;
-
-            if (! runtime->setting)
-            {
-                CLOCK_peek_start_reminders(now);
-
-                if (! CLOCK_is_alarming())
-                    CLOCK_peek_start_alarms(now);
-            }
-        }
+        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
+            CLOCK_schedule(now);
     }
 }
 
@@ -258,8 +246,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
     mplayer_playlist_clear();
 
     // any button will stop alarming & snooze reminders
-    CLOCK_stop_current_alarm();
-    CLOCK_snooze_reminders();
+    CLOCK_dismiss();
 
     // insert say low battery
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
@@ -411,8 +398,7 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
     mplayer_playlist_clear();
 
     // any button will stop alarming & snooze reminders
-    CLOCK_stop_current_alarm();
-    CLOCK_snooze_reminders();
+    CLOCK_dismiss();
 
     // say low battery only
     if (1)
