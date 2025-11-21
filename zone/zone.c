@@ -61,7 +61,7 @@ __THREAD_STACK static uint32_t zone_stack[1280 / sizeof(uint32_t)];
  ****************************************************************************/
 void PERIPHERAL_gpio_init(void)
 {
-    GPIO_setdir_output(PUSH_PULL_DOWN, LED_POWER);
+    GPIO_setdir_output(PUSH_PULL_UP, LED_POWER);
     GPIO_setdir_output(PUSH_PULL_UP, LED1);
     GPIO_setdir_output(PUSH_PULL_UP, LED2);
     GPIO_setdir_output(PUSH_PULL_UP, LED3);
@@ -74,6 +74,22 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_input_pp(PULL_UP, PIN_VOLUME_DOWN_BUTTON, true);
 }
 
+void PERIPHERAL_gpio_intr_enable(void)
+{
+    GPIO_intr_enable(PIN_TOP_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_POWER_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_PREV_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_NEXT_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_VOLUME_UP_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+    GPIO_intr_enable(PIN_VOLUME_DOWN_BUTTON, TRIG_BY_FALLING_EDGE,
+        (void *)GPIO_button_callback, &zone);
+}
+
 void PERIPHERAL_shell_init(void)
 {
     MYNOISE_register_shell();
@@ -83,7 +99,8 @@ void PERIPHERAL_shell_init(void)
 bool PERIPHERAL_is_enable_usb(void)
 {
 #ifdef DEBUG
-    return true;
+    // return true;
+    return false;
 #else
     return 0 == GPIO_peek(PIN_POWER_BUTTON);
 #endif
@@ -122,20 +139,9 @@ void PERIPHERAL_init(void)
 
     setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
 
-    GPIO_intr_enable(PIN_TOP_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-    GPIO_intr_enable(PIN_POWER_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-    GPIO_intr_enable(PIN_PREV_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-    GPIO_intr_enable(PIN_NEXT_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-    GPIO_intr_enable(PIN_VOLUME_UP_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-    GPIO_intr_enable(PIN_VOLUME_DOWN_BUTTON, TRIG_BY_FALLING_EDGE,
-        (void *)GPIO_button_callback, &zone);
-
     MQUEUE_INIT(&zone.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
+    PERIPHERAL_gpio_intr_enable();
+
     if (true)
     {
         uint32_t timeout = 1000 * MQUEUE_ALIVE_INTV_SECONDS;
@@ -180,8 +186,8 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
-    if (! PERIPHERAL_is_enable_usb())
-        MYNOISE_start();
+    // if (! PERIPHERAL_is_enable_usb())
+    //     MYNOISE_start();
 }
 
 /****************************************************************************
@@ -623,12 +629,10 @@ static void MSG_mynoise_toggle(bool step)
                 MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
             else if (POWER_OFF_STEP_SECONDS >= seconds)
                 MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
-            else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
+            else if (2U * POWER_OFF_STEP_SECONDS > seconds)
                 MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
             else
                 MYNOISE_stop();
-
-            startting = true;
         }
         else
             startting = true;
@@ -675,18 +679,43 @@ static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
 }
 
-static void MSG_power_down(void)
+static void MSG_power_button(bool power_down)
 {
-    MYNOISE_stop();
+    static bytebool_t power_is_down = false;
 
-    // GPIO_intr_disable(PIN_POWER_BUTTON);
-    GPIO_intr_disable(PIN_TOP_BUTTON);
-    GPIO_intr_disable(PIN_PREV_BUTTON);
-    GPIO_intr_disable(PIN_NEXT_BUTTON);
-    GPIO_intr_disable(PIN_VOLUME_UP_BUTTON);
-    GPIO_intr_disable(PIN_VOLUME_DOWN_BUTTON);
+    extern void bluetooth_go_sleep(void);
+    extern void bluetooth_wakeup(void);
 
-    PMU_power_down();
+    if (power_down)
+    {
+        MYNOISE_stop();
+
+        // GPIO_intr_disable(PIN_POWER_BUTTON);
+        GPIO_intr_disable(PIN_TOP_BUTTON);
+        GPIO_intr_disable(PIN_PREV_BUTTON);
+        GPIO_intr_disable(PIN_NEXT_BUTTON);
+        GPIO_intr_disable(PIN_VOLUME_UP_BUTTON);
+        GPIO_intr_disable(PIN_VOLUME_DOWN_BUTTON);
+
+        power_is_down = true;
+        bluetooth_go_sleep();
+
+        while (0 == GPIO_peek(PIN_POWER_BUTTON))
+        {
+            GPIO_clear(LED_POWER);
+            msleep(100);
+            GPIO_set(LED_POWER);
+            msleep(100);
+        }
+        GPIO_set(LED_POWER);
+    }
+    else if (power_is_down)
+    {
+        PERIPHERAL_gpio_intr_enable();
+        bluetooth_wakeup();
+
+        power_is_down = false;
+    }
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)
@@ -758,6 +787,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_POWER_BUTTON:
+                    MSG_power_button(false);
                     CLOCK_stop_current_alarm();
 
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
@@ -771,7 +801,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
                         }
                         else
-                            MSG_power_down();
+                            MSG_power_button(true);
                     }
                     else
                         MSG_mynoise_toggle(true);
