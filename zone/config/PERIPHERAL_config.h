@@ -48,7 +48,7 @@
     #define AMPIFIER_EN_PULL            PUSH_PULL_DOWN
 
 // LEDs
-    #define LED_POWER                   PD08
+    #define LED_POWER                   PA06
     #define LED1                        PA07
     #define LED2                        PC04
     #define LED3                        PC05
