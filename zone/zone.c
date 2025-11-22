@@ -811,7 +811,18 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                     }
                     else
-                        MYNOISE_prev();
+                    {
+                        unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
+                        MYNOISE_power_off_tickdown_cb(NULL);
+
+                        int err = MYNOISE_prev();
+                        MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+
+                        if (0 == err)
+                            MYNOISE_power_off_seconds(power_off_seconds);
+                        else
+                            MYNOISE_power_off_seconds(0);
+                    }
                     break;
 
                 case MSG_NEXT_BUTTON:
@@ -841,7 +852,18 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                     }
                     else
-                        MYNOISE_next();
+                    {
+                        unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
+                        MYNOISE_power_off_tickdown_cb(NULL);
+
+                        int err = MYNOISE_next();
+                        MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+
+                        if (0 == err)
+                            MYNOISE_power_off_seconds(power_off_seconds);
+                        else
+                            MYNOISE_power_off_seconds(0);
+                    }
                     break;
 
                 case MSG_VOLUME_UP_BUTTON:
