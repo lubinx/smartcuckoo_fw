@@ -70,6 +70,9 @@ extern __attribute__((nothrow, pure))
 
     /**
      *  CLOCK_update_alarms()
+     *      store external modified alarms parameters into nvm
+     *
+     *  NOTE: external may direct modify "moment" obtain from CLOCK_get_alarm()
     */
 extern __attribute__((nothrow))
     void CLOCK_update_alarms(void);

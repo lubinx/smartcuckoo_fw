@@ -16,7 +16,6 @@ set(COMMON_SRCS
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND COMMON_SRCS
         # "ultracore/src/core/retarget.c"
-        # "ultracore/src/fs/fat.c"
         # "ultracore/src/audio/wavefile.c"
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"

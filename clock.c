@@ -16,17 +16,11 @@
 
 #include "PERIPHERAL_config.h"
 
-#ifndef ALARM_TIMEOUT_MINUTES
-    #define ALARM_TIMEOUT_MINUTES       (3)
-#endif
+#define CLOCK_DEF_RING_SECONDS          (180)
+#define CLOCK_DEF_SNOOZE_SECONDS        (600)
 
-#ifndef REMINDER_INTV
-    #define REMINDER_INTV               (60000)
-#endif
-
-#ifndef REMINDER_TIMEOUT_MINUTES
-    #define REMINDER_TIMEOUT_MINUTES    (15)
-#endif
+#define CLOCK_DEF_REMINDER_SECONDS      (1200)
+#define CLOCK_DEF_REMINDER_INTV_SECONDS (60)
 
 /****************************************************************************
  *  @def
@@ -37,7 +31,6 @@
     (__DATE__[9] - '0') *   10 +    \
     (__DATE__[10] - '0')   \
 )
-#define SUPPORTED_YEAR                  (2037)
 
 #define CLOCK_NVM_ID                    NVM_DEFINE_KEY('C', 'S', 'E', 'T')
 #define CLOCK_ALARM_NVM_ID              NVM_DEFINE_KEY('C', 'A', 'L', 'M')
@@ -49,7 +42,7 @@
 struct DST_t
 {
     bytebool_t en;
-    int8_t dst_minute_offset;
+    int8_t minute_offset;
 
     uint8_t tbl_count;
     struct
@@ -61,12 +54,20 @@ struct DST_t
 
 struct CLOCK_nvm_t
 {
-    int timezone;
+    uint16_t ring_seconds;
+    uint16_t ring_snooze_seconds;    // TODO: snooze
+
+    uint16_t reminder_seconds;
+    uint16_t reminder_intv_seconds;
+
+    int16_t timezone_offset;
     struct DST_t dst;
 
     uint32_t say_zero_hour_mask     : 24;
     uint32_t say_zero_hour_wdays    : 8;
 };
+static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
+
 
 struct CLOCK_runtime_t
 {
@@ -74,14 +75,13 @@ struct CLOCK_runtime_t
     time_t reminder_slient_end_ts;
 
     int8_t alarming_idx;
-    int8_t alarm_dismissed_idx;
 };
 
 /****************************************************************************
  *  @internal
  ****************************************************************************/
 static struct timeout_t next_timeo;
-static void CLOCK_schedule_callback(void *arg);
+static void next_timeo_callback(void *arg);
 
 static struct CLOCK_runtime_t clock_runtime = {0};
 static struct CLOCK_nvm_t const *nvm_ptr;
@@ -90,11 +90,9 @@ static struct CLOCK_moment_t alarms[ALARM_COUNT];
 static struct CLOCK_moment_t reminders[ALARM_COUNT];
 
 // shell commands
-static int SHELL_timezone(struct UCSH_env *env);
-static int SHELL_dst(struct UCSH_env *env);
+static int SHELL_clock(struct UCSH_env *env);       // REVIEW: misc clock settings
 static int SHELL_alarm(struct UCSH_env *env);
 static int SHELL_reminder(struct UCSH_env *env);
-static int SHELL_zero_hour(struct UCSH_env *env);
 
 /****************************************************************************
  *  @implements: override time.c
@@ -104,7 +102,7 @@ int get_timezone_offset(void)
     if (NULL == nvm_ptr)
         return 0;
     else
-        return nvm_ptr->timezone;
+        return nvm_ptr->timezone_offset;
 }
 
 int get_dst_offset(struct tm *tm)
@@ -112,19 +110,14 @@ int get_dst_offset(struct tm *tm)
     if (NULL == nvm_ptr)
         return 0;
 
-    if (nvm_ptr->dst.en && 0 < nvm_ptr->dst.tbl_count)
+    if (nvm_ptr->dst.en && 0 != nvm_ptr->dst.minute_offset && 0 < nvm_ptr->dst.tbl_count)
     {
         int dt = (tm->tm_year + 1900) * (1000000) + (tm->tm_mon + 1) * 10000 + tm->tm_mday * 100 + tm->tm_hour;
 
         for (unsigned i = 0; i < nvm_ptr->dst.tbl_count; i ++)
         {
             if (dt >= nvm_ptr->dst.tbl[i].start && dt < nvm_ptr->dst.tbl[i].end)
-            {
-                if (dt == nvm_ptr->dst.tbl[i].start && 0 == tm->tm_sec)
-                    return 0;
-                else
-                    return 60 * nvm_ptr->dst.dst_minute_offset;
-            }
+                return 60 * nvm_ptr->dst.minute_offset;
         }
     }
     return 0;
@@ -135,7 +128,6 @@ int get_dst_offset(struct tm *tm)
  ****************************************************************************/
 void CLOCK_init()
 {
-    // CMU->CLKEN0_SET = CMU_CLKEN0_BURAM;
     if (1)
     {
         time_t now = time(NULL);
@@ -150,13 +142,6 @@ void CLOCK_init()
         dt.tm_isdst = 0;
         time_t ts_min = mktime(&dt);
 
-        dt.tm_year = SUPPORTED_YEAR + 1 - 1900;
-        dt.tm_mon = 0;
-        dt.tm_mday = 1;
-        dt.tm_hour = 0;
-        dt.tm_min = 0;
-        dt.tm_sec = 0;
-
         if (now < ts_min)
             RTC_set_epoch_time(ts_min);
 
@@ -169,7 +154,7 @@ void CLOCK_init()
     }
 
     clock_runtime.alarming_idx = -1;
-    timeout_init(&next_timeo, REMINDER_INTV, CLOCK_schedule_callback, 0);
+    timeout_init(&next_timeo, 1000 * nvm_ptr->reminder_intv_seconds, next_timeo_callback, 0);
 
     if (0 != NVM_get(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms))
         memset(&alarms, 0, sizeof(alarms));
@@ -184,19 +169,22 @@ void CLOCK_init()
         if (NULL != nvm)
         {
             memset(nvm, 0, sizeof(*nvm));
+
+            nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
+            nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
+            nvm->reminder_seconds = CLOCK_DEF_REMINDER_SECONDS;
+            nvm->reminder_intv_seconds = CLOCK_DEF_REMINDER_INTV_SECONDS;
+
             NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
             free(nvm);
         }
         nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
 
-    UCSH_REGISTER("dst",        SHELL_dst);
-    UCSH_REGISTER("tz",         SHELL_timezone);
+    UCSH_REGISTER("clock",      SHELL_clock);
 
     UCSH_REGISTER("alm",        SHELL_alarm);
     UCSH_REGISTER("rmd",        SHELL_reminder);
-
-    UCSH_REGISTER("zhour",      SHELL_zero_hour);
 }
 
 static int8_t CLOCK_peek_start_alarms(time_t ts)
@@ -215,13 +203,12 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
     if (-1 != clock_runtime.alarming_idx)
     {
         current_alarm = &alarms[clock_runtime.alarming_idx];
-        time_t ts_end = (mtime_to_time(current_alarm->mtime) + 60 * ALARM_TIMEOUT_MINUTES) % 86400;
+        time_t ts_end = (mtime_to_time(current_alarm->mtime) + nvm_ptr->ring_seconds) % 86400;
 
         if (ts_end < time(NULL) % 86400)
         {
             current_alarm = NULL;
             clock_runtime.alarming_idx = -1;
-            clock_runtime.alarm_dismissed_idx = -1;
         }
     }
 
@@ -229,8 +216,6 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
     {
         struct CLOCK_moment_t *alarm = &alarms[idx];
 
-        if (idx == clock_runtime.alarm_dismissed_idx)
-            continue;
         if (! alarm->enabled || alarm == current_alarm)
             continue;
 
@@ -260,7 +245,7 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
         return -1;
 }
 
-void CLOCK_schedule_callback(void *arg)
+void next_timeo_callback(void *arg)
 {
     if (NULL == arg)
     {
@@ -301,7 +286,7 @@ void CLOCK_schedule(time_t ts)
                     goto set_next_intv;
             }
 
-            if (0 <= next_zero_intv && REMINDER_INTV > next_zero_intv)
+            if (0 <= next_zero_intv && 1000 * nvm_ptr->reminder_intv_seconds > next_zero_intv)
             {
                 timeout_update(&next_timeo, (unsigned)next_zero_intv);
                 timeout_start(&next_timeo, NULL);
@@ -313,7 +298,7 @@ void CLOCK_schedule(time_t ts)
     {
         if(0 != CLOCK_say_reminders(ts, false))
         {
-            timeout_update(&next_timeo, REMINDER_INTV);
+            timeout_update(&next_timeo, 1000 * nvm_ptr->reminder_intv_seconds);
             timeout_start(&next_timeo, reminders);
         }
     }
@@ -323,6 +308,32 @@ __attribute__((weak))
 bool CLOCK_alarm_switch_is_on(void)
 {
     return true;
+}
+
+uint16_t CLOCK_get_ring_snooze_seconds(void)
+{
+    if (NULL != nvm_ptr)
+        return nvm_ptr->ring_snooze_seconds;
+    else
+        return 0;
+}
+
+int CLOCK_set_ring_snooze_seconds(uint16_t seconds)
+{
+    if (nvm_ptr->ring_snooze_seconds != seconds)
+    {
+        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+        if (NULL == nvm)
+            return ENOMEM;
+
+        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        nvm->ring_snooze_seconds = seconds;
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        free(nvm);
+
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    }
+    return 0;
 }
 
 unsigned CLOCK_alarm_count(void)
@@ -420,7 +431,7 @@ static bool CLOCK_canceling(bool snooze)
         if (timeout_is_running(&next_timeo))
         {
             timeout_stop(&next_timeo);
-            clock_runtime.reminder_slient_end_ts = time(NULL) + 60 * REMINDER_TIMEOUT_MINUTES;
+            clock_runtime.reminder_slient_end_ts = time(NULL) + nvm_ptr->reminder_seconds;
         }
 
         return false;
@@ -453,7 +464,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
         if (! reminder->enabled)
             continue;
 
-        time_t reminder_end_ts = ts_base + mtime_to_time(reminder->mtime) + 60 * REMINDER_TIMEOUT_MINUTES;
+        time_t reminder_end_ts = ts_base + mtime_to_time(reminder->mtime) + nvm_ptr->reminder_seconds;
 
         // matching week days mask or mdate
         if (0 == ((1 << dt.tm_wday) & reminder->wdays))
@@ -538,88 +549,180 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
 /****************************************************************************
  *  @internal: shell commands
  ****************************************************************************/
-static int SHELL_timezone(struct UCSH_env *env)
-{
-    if (2 != env->argc)
-        return EINVAL;
-    if (NULL == nvm_ptr)
-        return EHAL_NOT_CONFIGURED;
-
-    int tz = strtol(env->argv[1], NULL, 10);
-    if (nvm_ptr->timezone != tz)
-    {
-        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-        if (NULL == nvm)
-            return ENOMEM;
-
-        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        nvm->timezone = tz;
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        free(nvm);
-
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-    }
-    return 0;
-}
-
-static int SHELL_dst(struct UCSH_env *env)
+static int SHELL_clock(struct UCSH_env *env)
 {
     if (NULL == nvm_ptr)
         return EHAL_NOT_CONFIGURED;
-
-    struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-    int err = 0;
 
     if (1 == env->argc)
     {
-        if (0 == NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm))
-        {
-            UCSH_printf(env, "dst=%s\n", nvm->dst.en ? "ON" : "OFF");
-            UCSH_printf(env, "\t%d minute\n", nvm->dst.dst_minute_offset);
+        char *buf = env->buf + 32;
+        int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
+        int pos = 0;
 
-            for (unsigned i = 0; i < nvm->dst.tbl_count; i ++)
-                UCSH_printf(env, "\t%d~%d\n", nvm->dst.tbl[i].start, nvm->dst.tbl[i].end);
-        }
-        else
+        pos += sprintf(&buf[pos], "{");
+        if (1)  // ring & reminder
         {
-            nvm->dst.en = false;
-            UCSH_printf(env, "dst=%s\n", nvm->dst.en ? "ON" : "OFF");
+            pos += sprintf(&buf[pos], "\n\t\"ring\": %d", nvm_ptr->ring_seconds);
+            pos += sprintf(&buf[pos], ",\n\t\"snooze\": %d", nvm_ptr->ring_snooze_seconds);
+            pos += sprintf(&buf[pos], ",\n\t\"reminder\": %d", nvm_ptr->reminder_seconds);
+            pos += sprintf(&buf[pos], ",\n\t\"reminder_intv\": %d", nvm_ptr->reminder_intv_seconds);
+
+            if (flush_bytes < pos)
+            {
+                writebuf(env->fd, buf, (unsigned)pos);
+                pos = 0;
+            }
         }
-    }
-    else if (2 == env->argc)
+        if (1)  // timezone & dst
+        {
+            pos += sprintf(&buf[pos], ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
+
+            pos += sprintf(&buf[pos], ",\n\t\"zero_hour_voice\":\n\t{");
+            pos += sprintf(&buf[pos], "\n\t\t\"mask\": %d", nvm_ptr->say_zero_hour_mask);
+            pos += sprintf(&buf[pos], ",\n\t\t\"wdays\": %d", nvm_ptr->say_zero_hour_wdays);
+
+            pos += sprintf(&buf[pos], "\n\t}");
+            if (flush_bytes < pos)
+            {
+                writebuf(env->fd, buf, (unsigned)pos);
+                pos = 0;
+            }
+        }
+        if (1)
+        {
+            pos += sprintf(&buf[pos], ",\n\t\"dst\":\n\t{");
+            pos += sprintf(&buf[pos], "\n\t\t\"en\": %s", nvm_ptr->dst.en ? "true" : "false");
+            pos += sprintf(&buf[pos], ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
+
+            if (flush_bytes < pos)
+            {
+                writebuf(env->fd, buf, (unsigned)pos);
+                pos = 0;
+            }
+
+            pos += sprintf(&buf[pos], ",\n\t\t\"ranges\": [");
+            for (unsigned i = 0; i < nvm_ptr->dst.tbl_count; i ++)
+            {
+                if (0 == i)
+                    pos += sprintf(&buf[pos], "\n\t\t\t");
+                else
+                    pos += sprintf(&buf[pos], ",\n\t\t\t");
+
+                pos += sprintf(&buf[pos], "{\"start\": %d, \"end\": %d}", nvm_ptr->dst.tbl[i].start, nvm_ptr->dst.tbl[i].end);
+
+                if (flush_bytes < pos)
+                {
+                    writebuf(env->fd, buf, (unsigned)pos);
+                    pos = 0;
+                }
+            }
+
+            pos += sprintf(&buf[pos], "\n\t\t]\n\t}");
+        }
+
+        pos += sprintf(&buf[pos], "\n}\n");
+        writebuf(env->fd, buf, (unsigned)pos);
+        return 0;
+    };
+
+    int err = 0;
+    struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+    if (NULL == nvm)
+        return ENOMEM;
+    else
+        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+
+// REVIEW: clock ring & snooze seconds
+    if (0 == strcmp("ring", env->argv[1]))
     {
-        if (0 != strcasecmp(env->argv[1], "ON") && 0 != strcasecmp(env->argv[1], "OFF"))
+        if (3 != env->argc)
+            err = EINVAL;
+
+        int seconds = strtol(env->argv[2], NULL, 10);
+        if (0 > seconds || 3600 < seconds)
             err = EINVAL;
 
         if (0 == err)
-        {
-            if (0 == NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm))
-            {
-                nvm->dst.en = 0 == strcasecmp(env->argv[1], "ON");
-
-                if (0 == NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm))
-                    VOICE_say_setting(VOICE_SETTING_DONE);
-                else
-                    nvm->dst.en = false;
-            }
-            else
-                err = EIO;
-        }
+            nvm->ring_seconds = (uint16_t)seconds;
     }
-    else
+    else if (0 == strcmp("snooze", env->argv[1]))
     {
-        if (1)
+        if (3 != env->argc)
+            err = EINVAL;
+
+        int seconds = strtol(env->argv[2], NULL, 10);
+        if (0 > seconds || 3600 < seconds)
+            err = EINVAL;
+
+        if (0 == err)
+            nvm->ring_snooze_seconds = (uint16_t)seconds;
+    }
+// REVIEW: clock reminder & intv
+    else if (0 == strcmp("reminder", env->argv[1]))
+    {
+        if (3 != env->argc || 4 != env->argc)
+            err = EINVAL;
+
+        int seconds = strtol(env->argv[2], NULL, 10);
+        if (0 > seconds || 3600 < seconds)
+            err = EINVAL;
+
+        int intv_seconds = CLOCK_DEF_REMINDER_INTV_SECONDS;
+        if (4 == env->argc)
         {
-            int offset = strtol(env->argv[1], NULL, 10);
-            if (60 < abs(offset))
-                err = ERANGE;
-            else
-                nvm->dst.dst_minute_offset = (int8_t)offset;
+            intv_seconds = strtol(env->argv[2], NULL, 10);
+            if (0 > intv_seconds || 600 < intv_seconds)
+                err = EINVAL;
         }
 
         if (0 == err)
         {
-            for (int i = 2; i < env->argc; i ++)
+            nvm->reminder_seconds = (uint16_t)seconds;
+            nvm->reminder_intv_seconds = (uint16_t)seconds;
+        }
+    }
+// REVIEW: clock timezone & dst
+    else if (0 == strcmp("tz", env->argv[1]))
+    {
+        if (3 != env->argc)
+            err = EINVAL;
+
+        int tz = strtol(env->argv[2], NULL, 10);
+        if (-7200 > tz || 7200 < tz)
+            err = EINVAL;
+
+        if (0 == err)
+            nvm->timezone_offset = (int16_t)tz;
+    }
+    else if (0 == strcmp("dst", env->argv[1]))
+    {
+        if (3 == env->argc)
+        {
+            if (0 != strcasecmp(env->argv[1], "on") && 0 != strcasecmp(env->argv[2], "off"))
+                err = EINVAL;
+
+            nvm->dst.en = 0 == strcasecmp(env->argv[1], "on");
+        }
+        else
+        {
+            if (1)
+            {
+                int offset = strtol(env->argv[2], NULL, 10);
+                if (120 < abs(offset))
+                {
+                    nvm->dst.en = true;
+                    nvm->dst.minute_offset = (int8_t)offset;
+                }
+                else
+                {
+                    nvm->dst.en = false;
+                    nvm->dst.minute_offset = 0;
+                }
+            }
+
+            // parse YYYYMMDDHH~YYYYMMDDHH ...
+            for (int i = 3; i < env->argc; i ++)
             {
                 char *p = env->argv[i];
                 while (*p && '~' != *p) p ++;
@@ -677,17 +780,56 @@ static int SHELL_dst(struct UCSH_env *env)
                     nvm->dst.tbl[nvm->dst.tbl_count].end = tmp;
                 }
 
-                nvm->dst.tbl_count ++;
+                if (++ nvm->dst.tbl_count == lengthof(nvm->dst.tbl))
+                    break;
+            }
+        }
+    }
+// REVIEW: zero hour voice
+    if (0 == strcmp("zhour", env->argv[1]))
+    {
+        if (3 != env->argc && 4 != env->argc)
+            err = EINVAL;
+
+        unsigned zhour_mask;
+        if (1)
+        {
+            char *end;
+            zhour_mask = strtoul(env->argv[2], &end, 10);
+            if ('\0' != *end)
+                zhour_mask = strtoul(env->argv[2], &end, 16);
+
+            if (0xFFFFFF < zhour_mask)
+                err = EINVAL;
+        }
+
+        int wdays = 0x7F;
+        if (true)
+        {
+            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+            if (wday_str)
+            {
+                wdays = strtol(wday_str, NULL, 10);
+                if (0 == wdays)
+                    wdays = strtol(wday_str, NULL, 16);
+                if (0 == wdays || 0x7F < wdays)
+                    err = EINVAL;
             }
         }
 
         if (0 == err)
         {
-            nvm->dst.en = 0 != nvm->dst.dst_minute_offset && 0 != nvm->dst.tbl_count;
-
-            if (0 == NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm))
-                VOICE_say_setting(VOICE_SETTING_DONE);
+            nvm->say_zero_hour_mask = 0xFFFFFF & zhour_mask;
+            nvm->say_zero_hour_wdays = 0x7F & wdays;
         }
+    }
+    else
+        err = EINVAL;
+
+    if (0 == err)
+    {
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
 
     free(nvm);
@@ -938,64 +1080,5 @@ static int SHELL_reminder(struct UCSH_env *env)
     UCSH_puts(env, "\t],\n");
     UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
 
-    return 0;
-}
-
-static int SHELL_zero_hour(struct UCSH_env *env)
-{
-    if (1 == env->argc)
-    {
-        UCSH_printf(env, "{\"hour_mask\": %d, \"wdays\": %d}\n",
-            nvm_ptr->say_zero_hour_mask, nvm_ptr->say_zero_hour_wdays
-        );
-        return 0;
-    }
-    if (NULL == nvm_ptr)
-        return EHAL_NOT_CONFIGURED;
-    if (2 != env->argc && 3 != env->argc)
-        return EINVAL;
-
-    unsigned zhour_mask;
-    if (1)
-    {
-        char *end;
-        zhour_mask = strtoul(env->argv[1], &end, 10);
-        if ('\0' != *end)
-            zhour_mask = strtoul(env->argv[1], &end, 16);
-
-        if (0xFFFFFF < zhour_mask)
-            return EINVAL;
-    }
-
-    int wdays = 0x7F;
-    if (true)
-    {
-        char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
-        if (wday_str)
-        {
-            wdays = strtol(wday_str, NULL, 10);
-            if (0 == wdays)
-                wdays = strtol(wday_str, NULL, 16);
-            if (0 == wdays || 0x7F < wdays)
-                return EINVAL;
-        }
-    }
-
-    if (nvm_ptr->say_zero_hour_mask != zhour_mask || nvm_ptr->say_zero_hour_wdays != wdays)
-    {
-        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-        if (NULL == nvm)
-            return ENOMEM;
-
-        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-
-        nvm->say_zero_hour_mask = 0xFFFFFF & zhour_mask;
-        nvm->say_zero_hour_wdays = 0x7F & wdays;
-
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        free(nvm);
-
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-    }
     return 0;
 }
