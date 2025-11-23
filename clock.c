@@ -64,7 +64,8 @@ struct CLOCK_nvm_t
     int timezone;
     struct DST_t dst;
 
-    uint32_t say_zero_hour_mask;
+    uint32_t say_zero_hour_mask     : 24;
+    uint32_t say_zero_hour_wdays    : 8;
 };
 
 struct CLOCK_runtime_t
@@ -73,13 +74,14 @@ struct CLOCK_runtime_t
     time_t reminder_slient_end_ts;
 
     int8_t alarming_idx;
+    int8_t alarm_dismissed_idx;
 };
 
 /****************************************************************************
  *  @internal
  ****************************************************************************/
 static struct timeout_t next_timeo;
-static void next_timeo_callback(void *arg);
+static void CLOCK_schedule_callback(void *arg);
 
 static struct CLOCK_runtime_t clock_runtime = {0};
 static struct CLOCK_nvm_t const *nvm_ptr;
@@ -167,7 +169,7 @@ void CLOCK_init()
     }
 
     clock_runtime.alarming_idx = -1;
-    timeout_init(&next_timeo, REMINDER_INTV, next_timeo_callback, 0);
+    timeout_init(&next_timeo, REMINDER_INTV, CLOCK_schedule_callback, 0);
 
     if (0 != NVM_get(CLOCK_ALARM_NVM_ID, &alarms, sizeof(alarms)))
         memset(&alarms, 0, sizeof(alarms));
@@ -219,13 +221,16 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
         {
             current_alarm = NULL;
             clock_runtime.alarming_idx = -1;
+            clock_runtime.alarm_dismissed_idx = -1;
         }
     }
 
-    for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+    for (int8_t idx = 0; idx < (int8_t)lengthof(alarms); idx ++)
     {
         struct CLOCK_moment_t *alarm = &alarms[idx];
 
+        if (idx == clock_runtime.alarm_dismissed_idx)
+            continue;
         if (! alarm->enabled || alarm == current_alarm)
             continue;
 
@@ -255,7 +260,7 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
         return -1;
 }
 
-static void next_timeo_callback(void *arg)
+void CLOCK_schedule_callback(void *arg)
 {
     if (NULL == arg)
     {
@@ -277,15 +282,30 @@ void CLOCK_schedule(time_t ts)
         return;
     }
 
-    unsigned next_zero_hour = (unsigned)((ts % 86400) / 3600 + 1) % 24;
-    if ((1U << next_zero_hour) & nvm_ptr->say_zero_hour_mask)
+    if (0 != nvm_ptr->say_zero_hour_mask)
     {
-        uint32_t next_intv = 1000U * (3600U - (unsigned)(ts % 3600));
+        unsigned next_zero_hour = (unsigned)((ts % 86400) / 3600 + 1) % 24;
+        int next_zero_intv = -1;
 
-        if (REMINDER_INTV > next_intv)
+        if ((1U << next_zero_hour) & nvm_ptr->say_zero_hour_mask)
         {
-            timeout_update(&next_timeo, next_intv);
-            timeout_start(&next_timeo, NULL);
+            if (0 == nvm_ptr->say_zero_hour_wdays || 0x7F == nvm_ptr->say_zero_hour_wdays)
+            {
+            set_next_intv:
+                next_zero_intv = 1000 * (3600 - (int)(ts % 3600));
+            }
+            else
+            {
+                struct tm const *tm = localtime(&ts);
+                if ((1U << tm->tm_wday) & nvm_ptr->say_zero_hour_wdays)
+                    goto set_next_intv;
+            }
+
+            if (0 <= next_zero_intv && REMINDER_INTV > next_zero_intv)
+            {
+                timeout_update(&next_timeo, (unsigned)next_zero_intv);
+                timeout_start(&next_timeo, NULL);
+            }
         }
     }
 
@@ -740,7 +760,7 @@ static int SHELL_alarm(struct UCSH_env *env)
                 wdays = strtol(wday_str, NULL, 10);
                 if (0 == wdays)
                     wdays = strtol(wday_str, NULL, 16);
-                if (0 == wdays)
+                if (0 == wdays || 0x7F < wdays)
                     return EINVAL;
             }
         }
@@ -863,7 +883,7 @@ static int SHELL_reminder(struct UCSH_env *env)
                 wdays = strtol(wday_str, NULL, 10);
                 if (0 == wdays)
                     wdays = strtol(wday_str, NULL, 16);
-                if (0 == wdays)
+                if (0 == wdays || 0x7F < wdays)
                     return EINVAL;
             }
         }
@@ -925,32 +945,53 @@ static int SHELL_zero_hour(struct UCSH_env *env)
 {
     if (1 == env->argc)
     {
-        UCSH_printf(env, "0x%06X", nvm_ptr->say_zero_hour_mask);
+        UCSH_printf(env, "{\"hour_mask\": %d, \"wdays\": %d}\n",
+            nvm_ptr->say_zero_hour_mask, nvm_ptr->say_zero_hour_wdays
+        );
         return 0;
     }
-
-    if (2 != env->argc)
-        return EINVAL;
     if (NULL == nvm_ptr)
         return EHAL_NOT_CONFIGURED;
+    if (2 != env->argc && 3 != env->argc)
+        return EINVAL;
 
     unsigned zhour_mask;
-
     if (1)
     {
         char *end;
         zhour_mask = strtoul(env->argv[1], &end, 10);
         if ('\0' != *end)
             zhour_mask = strtoul(env->argv[1], &end, 16);
+
+        if (0xFFFFFF < zhour_mask)
+            return EINVAL;
     }
-    if (nvm_ptr->say_zero_hour_mask != zhour_mask)
+
+    int wdays = 0x7F;
+    if (true)
+    {
+        char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+        if (wday_str)
+        {
+            wdays = strtol(wday_str, NULL, 10);
+            if (0 == wdays)
+                wdays = strtol(wday_str, NULL, 16);
+            if (0 == wdays || 0x7F < wdays)
+                return EINVAL;
+        }
+    }
+
+    if (nvm_ptr->say_zero_hour_mask != zhour_mask || nvm_ptr->say_zero_hour_wdays != wdays)
     {
         struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
         if (NULL == nvm)
             return ENOMEM;
 
         NVM_get(CLOCK_NVM_ID, nvm, sizeof(*nvm));
-        nvm->say_zero_hour_mask = zhour_mask;
+
+        nvm->say_zero_hour_mask = 0xFFFFFF & zhour_mask;
+        nvm->say_zero_hour_wdays = 0x7F & wdays;
+
         NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm));
         free(nvm);
 

@@ -15,7 +15,6 @@
     {
         bytebool_t enabled;
         int8_t wdays;
-        // bytebool_t snooze_once;
 
         union
         {
@@ -26,8 +25,6 @@
         int16_t mtime;  // 1700
         int32_t mdate;  // yyyy/mm/dd
     };
-
-
 
 __BEGIN_DECLS
 
