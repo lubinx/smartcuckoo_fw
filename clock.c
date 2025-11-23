@@ -574,10 +574,8 @@ static int SHELL_clock(struct UCSH_env *env)
                 pos = 0;
             }
         }
-        if (1)  // timezone & dst
+        if (1)  // zero hour voide
         {
-            pos += sprintf(&buf[pos], ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
-
             pos += sprintf(&buf[pos], ",\n\t\"zero_hour_voice\":\n\t{");
             pos += sprintf(&buf[pos], "\n\t\t\"mask\": %d", nvm_ptr->say_zero_hour_mask);
             pos += sprintf(&buf[pos], ",\n\t\t\"wdays\": %d", nvm_ptr->say_zero_hour_wdays);
@@ -589,8 +587,10 @@ static int SHELL_clock(struct UCSH_env *env)
                 pos = 0;
             }
         }
-        if (1)
+        if (1)  // timezone & dst
         {
+            pos += sprintf(&buf[pos], ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
+
             pos += sprintf(&buf[pos], ",\n\t\"dst\":\n\t{");
             pos += sprintf(&buf[pos], "\n\t\t\"en\": %s", nvm_ptr->dst.en ? "true" : "false");
             pos += sprintf(&buf[pos], ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
@@ -661,7 +661,7 @@ static int SHELL_clock(struct UCSH_env *env)
 // REVIEW: clock reminder & intv
     else if (0 == strcmp("reminder", env->argv[1]))
     {
-        if (3 != env->argc || 4 != env->argc)
+        if (3 != env->argc && 4 != env->argc)
             err = EINVAL;
 
         int seconds = strtol(env->argv[2], NULL, 10);
@@ -671,15 +671,15 @@ static int SHELL_clock(struct UCSH_env *env)
         int intv_seconds = CLOCK_DEF_REMINDER_INTV_SECONDS;
         if (4 == env->argc)
         {
-            intv_seconds = strtol(env->argv[2], NULL, 10);
-            if (0 > intv_seconds || 600 < intv_seconds)
+            intv_seconds = strtol(env->argv[3], NULL, 10);
+            if (15 > intv_seconds || 600 < intv_seconds)
                 err = EINVAL;
         }
 
         if (0 == err)
         {
             nvm->reminder_seconds = (uint16_t)seconds;
-            nvm->reminder_intv_seconds = (uint16_t)seconds;
+            nvm->reminder_intv_seconds = (uint16_t)intv_seconds;
         }
     }
 // REVIEW: clock timezone & dst
@@ -786,7 +786,7 @@ static int SHELL_clock(struct UCSH_env *env)
         }
     }
 // REVIEW: zero hour voice
-    if (0 == strcmp("zhour", env->argv[1]))
+    else if (0 == strcmp("zhour", env->argv[1]))
     {
         if (3 != env->argc && 4 != env->argc)
             err = EINVAL;
@@ -830,6 +830,8 @@ static int SHELL_clock(struct UCSH_env *env)
     {
         NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
         nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+
+        VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     free(nvm);
