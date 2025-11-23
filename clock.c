@@ -171,23 +171,23 @@ void CLOCK_init()
     clock_runtime.alarming_idx = -1;
     timeout_init(&next_timeo, REMINDER_INTV, CLOCK_schedule_callback, 0);
 
-    if (0 != NVM_get(CLOCK_ALARM_NVM_ID, &alarms, sizeof(alarms)))
+    if (0 != NVM_get(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms))
         memset(&alarms, 0, sizeof(alarms));
 
-    if (0 != NVM_get(CLOCK_REMINDER_NVM_ID, &reminders, sizeof(reminders)))
+    if (0 != NVM_get(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders))
         memset(&reminders, 0, sizeof(reminders));
 
-    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID)))
+    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr))))
     {
         struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
 
         if (NULL != nvm)
         {
             memset(nvm, 0, sizeof(*nvm));
-            NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm));
+            NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
             free(nvm);
         }
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID);
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
 
     UCSH_REGISTER("dst",        SHELL_dst);
@@ -332,7 +332,7 @@ unsigned CLOCK_alarm_count(void)
 
 void CLOCK_update_alarms(void)
 {
-    NVM_set(CLOCK_ALARM_NVM_ID, &alarms, sizeof(alarms));
+    NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
 }
 
 int8_t CLOCK_get_alarming_idx(void)
@@ -552,12 +552,12 @@ static int SHELL_timezone(struct UCSH_env *env)
         if (NULL == nvm)
             return ENOMEM;
 
-        NVM_get(CLOCK_NVM_ID, nvm, sizeof(*nvm));
+        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
         nvm->timezone = tz;
-        NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm));
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
         free(nvm);
 
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID);
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
     return 0;
 }
@@ -572,7 +572,7 @@ static int SHELL_dst(struct UCSH_env *env)
 
     if (1 == env->argc)
     {
-        if (0 == NVM_get(CLOCK_NVM_ID, nvm, sizeof(*nvm)))
+        if (0 == NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm))
         {
             UCSH_printf(env, "dst=%s\n", nvm->dst.en ? "ON" : "OFF");
             UCSH_printf(env, "\t%d minute\n", nvm->dst.dst_minute_offset);
@@ -593,11 +593,11 @@ static int SHELL_dst(struct UCSH_env *env)
 
         if (0 == err)
         {
-            if (0 == NVM_get(CLOCK_NVM_ID, nvm, sizeof(*nvm)))
+            if (0 == NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm))
             {
                 nvm->dst.en = 0 == strcasecmp(env->argv[1], "ON");
 
-                if (0 == NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm)))
+                if (0 == NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm))
                     VOICE_say_setting(VOICE_SETTING_DONE);
                 else
                     nvm->dst.en = false;
@@ -685,7 +685,7 @@ static int SHELL_dst(struct UCSH_env *env)
         {
             nvm->dst.en = 0 != nvm->dst.dst_minute_offset && 0 != nvm->dst.tbl_count;
 
-            if (0 == NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm)))
+            if (0 == NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm))
                 VOICE_say_setting(VOICE_SETTING_DONE);
         }
     }
@@ -724,7 +724,7 @@ static int SHELL_alarm(struct UCSH_env *env)
                 alarm->mdate = 0;
                 alarm->wdays = 0;
             }
-            NVM_set(CLOCK_ALARM_NVM_ID, &alarms, sizeof(alarms));
+            NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
@@ -789,7 +789,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             alarm->ringtone_id = (uint8_t)ringtone;
             alarm->mdate = mdate;
             alarm->wdays = (int8_t)wdays;
-            NVM_set(CLOCK_ALARM_NVM_ID, &alarms, sizeof(alarms));
+            NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
@@ -850,7 +850,7 @@ static int SHELL_reminder(struct UCSH_env *env)
                 reminder->mdate = 0;
                 reminder->wdays = 0;
             }
-            NVM_set(CLOCK_REMINDER_NVM_ID, &reminders, sizeof(reminders));
+            NVM_set(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders);
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
@@ -911,7 +911,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             reminder->reminder_id = (uint8_t)reminder_id;
             reminder->mdate = mdate;
             reminder->wdays = (int8_t)wdays;
-            NVM_set(CLOCK_REMINDER_NVM_ID, &reminders, sizeof(reminders));
+            NVM_set(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders);
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
@@ -987,15 +987,15 @@ static int SHELL_zero_hour(struct UCSH_env *env)
         if (NULL == nvm)
             return ENOMEM;
 
-        NVM_get(CLOCK_NVM_ID, nvm, sizeof(*nvm));
+        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
 
         nvm->say_zero_hour_mask = 0xFFFFFF & zhour_mask;
         nvm->say_zero_hour_wdays = 0x7F & wdays;
 
-        NVM_set(CLOCK_NVM_ID, nvm, sizeof(*nvm));
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
         free(nvm);
 
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID);
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
     return 0;
 }

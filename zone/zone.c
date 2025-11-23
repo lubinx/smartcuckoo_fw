@@ -126,7 +126,7 @@ void PERIPHERAL_init(void)
     zone.batt_last_ts = time(NULL);
 
     // load settings
-    if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
+    if (0 != NVM_get(NVM_SETTING, sizeof(setting), &setting))
     {
         memset(&setting, 0, sizeof(setting));
 
@@ -264,7 +264,7 @@ static void setting_timeout_callback(struct zone_runtime_t *runtime)
     if (runtime->setting_alarm_is_modified)
         CLOCK_update_alarms();
     if (runtime->setting_is_modified)
-        NVM_set(NVM_SETTING, &setting, sizeof(setting));
+        NVM_set(NVM_SETTING, sizeof(setting), &setting);
 }
 
 static void volume_adj_intv_callback(uint32_t button_pin)

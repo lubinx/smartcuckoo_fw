@@ -73,7 +73,7 @@ void PERIPHERAL_init(void)
     talking_button.batt_last_ts = time(NULL);
 
     // load settings
-    if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
+    if (0 != NVM_get(NVM_SETTING, sizeof(setting), &setting))
     {
         memset(&setting, 0, sizeof(setting));
         setting.media_volume = 75;
@@ -454,7 +454,7 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
         if (runtime->setting_alarm_is_modified)
             CLOCK_update_alarms();
         if (runtime->setting_is_modified)
-            NVM_set(NVM_SETTING, &setting, sizeof(setting));
+            NVM_set(NVM_SETTING, sizeof(setting), &setting);
 
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
