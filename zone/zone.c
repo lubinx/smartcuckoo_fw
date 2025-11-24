@@ -47,11 +47,10 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
 
 static void setting_timeout_callback(struct zone_runtime_t *runtime);
 static void volume_adj_intv_callback(uint32_t button_pin);
-
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -181,8 +180,8 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
+    MYNOISE_init();
     MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
-    MYNOISE_register_shell();
 }
 
 /****************************************************************************
