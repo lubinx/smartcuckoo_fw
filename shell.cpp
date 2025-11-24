@@ -293,21 +293,21 @@ void UCSH_prompt_handle(struct UCSH_env *env)
 static void voice_avail_locales_callback(int id, char const *lcid,
     enum LOCALE_dfmt_t dfmt, enum LOCALE_hfmt_t hfmt,  char const *voice, void *arg, bool final)
 {
-    char *buf = ((struct UCSH_env *)arg)->buf + 16;
+    struct UCSH_env *env = (struct UCSH_env *)arg;
     int pos = 0;
 
-    pos += sprintf(&buf[pos], "\t{\"id\":%d, ", id);
-    pos += sprintf(&buf[pos], "\"lcid\":\"%s\", ", lcid);
-    pos += sprintf(&buf[pos], "\"dfmt\":\"%d\", ", dfmt);
-    pos += sprintf(&buf[pos], "\"hfmt\":\"%d\", ", hfmt);
-    pos += sprintf(&buf[pos],  "\"voice\":\"%s\"}", voice);
+    pos += sprintf(env->buf + pos, "\t{\"id\":%d, ", id);
+    pos += sprintf(env->buf + pos, "\"lcid\":\"%s\", ", lcid);
+    pos += sprintf(env->buf + pos, "\"dfmt\":\"%d\", ", dfmt);
+    pos += sprintf(env->buf + pos, "\"hfmt\":\"%d\", ", hfmt);
+    pos += sprintf(env->buf + pos,  "\"voice\":\"%s\"}", voice);
 
     if (final)
-        pos += sprintf(&buf[pos],  "\n");
+        pos += sprintf(env->buf + pos,  "\n");
     else
-        pos += sprintf(&buf[pos],  ",\n");
+        pos += sprintf(env->buf + pos,  ",\n");
 
-    writebuf(((struct UCSH_env *)arg)->fd, buf, (unsigned)pos);
+    writebuf(((struct UCSH_env *)arg)->fd, env->buf, (unsigned)pos);
 }
 
 static int SHELL_locale(struct UCSH_env *env)
