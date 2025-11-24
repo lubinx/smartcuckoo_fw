@@ -331,10 +331,15 @@
     #define DCDC_EM23_CTRL              (771)
 //          </h>
 //      </h>
-//      <h> PMU
-//          <q> OS tickless goes EM2
+//
+//  <h> Power mangement
+//      <o> OS tickless goes EM2
+//          <2=> Depends on build type
+//          <1=> Enable
+//          <0=> Disable
     #define PMU_EM2_EN                  (1)
 //      </h>
+//
 //      <h> Radio
 //          <h> Blueooth
 //              <o0> Minimum advertising interval
@@ -347,5 +352,15 @@
 //--------------------------------------------------------------------------
 //<<< end of configuration section >>>
 //**************************************************************************
+
+#if 2 == PMU_EM2_EN
+    #undef PMU_EM2_EN
+
+    #ifdef NDEBUG
+        #define PMU_EM2_EN              (1)
+    #else
+        #define PMU_EM2_EN              (0)
+    #endif
+#endif
 
 #endif

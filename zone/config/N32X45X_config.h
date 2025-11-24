@@ -42,9 +42,12 @@
 //  </h>
 //
 //  <h> Power mangement
-//      <q> OS tickless goes EM2
-    #define PMU_EM2_EN                  (1)
-//  </h>
+//      <o> OS tickless goes EM2
+//          <2=> Depends on build type
+//          <1=> Enable
+//          <0=> Disable
+    #define PMU_EM2_EN                  (2)
+//      </h>
 //
 //  <h> Bluetooth
 //      <o0> Minimum advertising interval
@@ -55,5 +58,15 @@
 //--------------------------------------------------------------------------
 //<<< end of configuration section >>>
 //**************************************************************************
+
+#if 2 == PMU_EM2_EN
+    #undef PMU_EM2_EN
+
+    #ifdef NDEBUG
+        #define PMU_EM2_EN              (1)
+    #else
+        #define PMU_EM2_EN              (0)
+    #endif
+#endif
 
 #endif
