@@ -20,10 +20,10 @@
 #endif
 
 #ifndef BATT_FULL_MV
-    #pragma GCC error "not defined BATT_FULL_MV");
+    #pragma GCC error "not defined BATT_FULL_MV";
 #endif
 #ifndef BATT_HINT_MV
-    #pragma GCC error "not defined BATT_HINT_MV for hint low battery");
+    #pragma GCC error "not defined BATT_HINT_MV for hint low battery";
 #endif
 
 /****************************************************************************
