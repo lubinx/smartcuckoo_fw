@@ -840,7 +840,52 @@ static int SHELL_clock(struct UCSH_env *env)
 
 static int SHELL_alarm(struct UCSH_env *env)
 {
-    if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
+    if (1 == env->argc)
+    {
+        char *buf = env->buf + 32;
+        int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
+        int pos = 0;
+        int cnt = 0;
+
+        pos += sprintf(&buf[pos], "{\n\t\"alarms\": [");
+        for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+        {
+            struct CLOCK_moment_t *alarm = &alarms[idx];
+
+            // deleted condition
+            if (! alarm->enabled && 0 == alarm->wdays && 0 == alarm->mdate)
+                continue;
+
+            if (0 == cnt ++)
+                pos += sprintf(&buf[pos], "\n");
+            else
+                pos += sprintf(&buf[pos], ",\n");
+
+            pos += sprintf(&buf[pos], "\t\t{\"id\":%d, ", idx + 1);
+            pos += sprintf(&buf[pos], "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
+            pos += sprintf(&buf[pos], "\"mtime\":%d, ",  alarm->mtime);
+            pos += sprintf(&buf[pos], "\"ringtone_id\":%d, ", alarm->ringtone_id);
+            pos += sprintf(&buf[pos], "\"mdate\":%lu, ",  alarm->mdate);
+            pos += sprintf(&buf[pos], "\"wdays\":%d}", alarm->wdays);
+
+            if (flush_bytes < pos)
+            {
+                writebuf(env->fd, buf, (unsigned)pos);
+                pos = 0;
+            }
+        }
+        if (0 != cnt)
+            pos += sprintf(&buf[pos], "\n\t],\n");
+        else
+            pos += sprintf(&buf[pos], "],\n");
+
+        pos += sprintf(&buf[pos], "\t\"alarm_count\":%d,\n", lengthof(alarms));
+        pos += sprintf(&buf[pos], "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
+
+        writebuf(env->fd, buf, (unsigned)pos);
+        return 0;
+    }
+    else if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
     {
         int idx = strtol(env->argv[1], NULL, 10);
         if (0 == idx || (unsigned)idx > lengthof(alarms))
@@ -872,6 +917,7 @@ static int SHELL_alarm(struct UCSH_env *env)
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
+        return 0;
     }
     else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -937,36 +983,58 @@ static int SHELL_alarm(struct UCSH_env *env)
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
+        return 0;
     }
-
-    UCSH_puts(env, "{\n\t\"alarms\": [\n");
-    for (unsigned idx = 0, count = 0; idx < lengthof(alarms); idx ++)
-    {
-        struct CLOCK_moment_t *alarm = &alarms[idx];
-
-        // deleted condition
-        if (! alarm->enabled && 0 == alarm->wdays && 0 == alarm->mdate)
-            continue;
-        else if (0 != count ++)
-            UCSH_puts(env, ",\n");
-
-        UCSH_printf(env, "\t\t{\"id\":%d, ", idx + 1);
-        UCSH_printf(env, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
-        UCSH_printf(env, "\"mtime\":%d, ",  alarm->mtime);
-        UCSH_printf(env, "\"ringtone_id\":%d, ", alarm->ringtone_id);
-        UCSH_printf(env, "\"mdate\":%lu, ",  alarm->mdate);
-        UCSH_printf(env, "\"wdays\":%d}", alarm->wdays);
-    }
-    UCSH_puts(env, "\t],\n");
-
-    UCSH_printf(env, "\t\"alarm_count\":%d,\n", lengthof(alarms));
-    UCSH_printf(env, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
-    return 0;
+    else
+        return EINVAL;
 }
 
 static int SHELL_reminder(struct UCSH_env *env)
 {
-    if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>
+    if (1 == env->argc)
+    {
+        char *buf = env->buf + 32;
+        int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
+        int pos = 0;
+        int cnt = 0;
+
+        pos += sprintf(&buf[pos], "{\n\t\"reminders\": [");
+        for (unsigned idx = 0; idx < lengthof(reminders); idx ++)
+        {
+            struct CLOCK_moment_t *reminder = &reminders[idx];
+
+            // deleted condition
+            if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
+                continue;
+            if (0 == cnt ++)
+                pos += sprintf(&buf[pos], "\n");
+            else
+                pos += sprintf(&buf[pos], ",\n");
+
+            pos += sprintf(&buf[pos], "\t{\"id\":%d, ", idx + 1);
+            pos += sprintf(&buf[pos], "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
+            pos += sprintf(&buf[pos], "\"mtime\":%d, ",  reminder->mtime);
+            pos += sprintf(&buf[pos], "\"reminder_id\":%d, ", reminder->reminder_id);
+            pos += sprintf(&buf[pos], "\"mdate\":%lu, ",  reminder->mdate);
+            pos += sprintf(&buf[pos], "\"wdays\":%d}", reminder->wdays);
+
+            if (flush_bytes < pos)
+            {
+                writebuf(env->fd, buf, (unsigned)pos);
+                pos = 0;
+            }
+        }
+        if (0 != cnt)
+            pos += sprintf(&buf[pos], "\n\t],\n");
+        else
+            pos += sprintf(&buf[pos], "],\n");
+
+        pos += sprintf(&buf[pos], "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
+
+        writebuf(env->fd, buf, (unsigned)pos);
+        return 0;
+    }
+    else if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>
     {
         int idx = strtol(env->argv[1], NULL, 10);
         if (0 == idx || (unsigned)idx > lengthof(reminders))
@@ -998,6 +1066,7 @@ static int SHELL_reminder(struct UCSH_env *env)
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
+        return 0;
     }
     else if (5 < env->argc)     // rmd <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
     {
@@ -1059,28 +1128,8 @@ static int SHELL_reminder(struct UCSH_env *env)
         }
 
         VOICE_say_setting(VOICE_SETTING_DONE);
+        return 0;
     }
-
-    UCSH_puts(env, "{\n\t\"reminders\": [\n");
-    for (unsigned idx = 0, count = 0; idx < lengthof(reminders); idx ++)
-    {
-        struct CLOCK_moment_t *reminder = &reminders[idx];
-
-        // deleted condition
-        if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
-            continue;
-        else if (0 != count ++)
-            UCSH_puts(env, ",\n");
-
-        UCSH_printf(env, "\t{\"id\":%d, ", idx + 1);
-        UCSH_printf(env, "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
-        UCSH_printf(env, "\"mtime\":%d, ",  reminder->mtime);
-        UCSH_printf(env, "\"reminder_id\":%d, ", reminder->reminder_id);
-        UCSH_printf(env, "\"mdate\":%lu, ",  reminder->mdate);
-        UCSH_printf(env, "\"wdays\":%d}", reminder->wdays);
-    }
-    UCSH_puts(env, "\t],\n");
-    UCSH_printf(env, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
-
-    return 0;
+    else
+        return EINVAL;
 }
