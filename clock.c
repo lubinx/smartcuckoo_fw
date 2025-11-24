@@ -16,12 +16,6 @@
 
 #include "PERIPHERAL_config.h"
 
-#define CLOCK_DEF_RING_SECONDS          (180)
-#define CLOCK_DEF_SNOOZE_SECONDS        (600)
-
-#define CLOCK_DEF_REMINDER_SECONDS      (1200)
-#define CLOCK_DEF_REMINDER_INTV_SECONDS (60)
-
 /****************************************************************************
  *  @def
  ****************************************************************************/
@@ -65,6 +59,8 @@ struct CLOCK_nvm_t
 
     uint32_t say_zero_hour_mask     : 24;
     uint32_t say_zero_hour_wdays    : 8;
+
+    struct CLOCK_moment_t app_specify_moment;
 };
 static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
 
@@ -75,6 +71,8 @@ struct CLOCK_runtime_t
     time_t reminder_slient_end_ts;
 
     int8_t alarming_idx;
+
+    void (* app_specify_moment_callback)(void);
 };
 
 /****************************************************************************
@@ -126,7 +124,7 @@ int get_dst_offset(struct tm *tm)
 /****************************************************************************
  *  @implements
  ****************************************************************************/
-void CLOCK_init()
+void CLOCK_init(void)
 {
     if (1)
     {
@@ -165,26 +163,54 @@ void CLOCK_init()
     if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr))))
     {
         struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-
-        if (NULL != nvm)
+        if (NULL == nvm)
         {
-            memset(nvm, 0, sizeof(*nvm));
-
-            nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
-            nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
-            nvm->reminder_seconds = CLOCK_DEF_REMINDER_SECONDS;
-            nvm->reminder_intv_seconds = CLOCK_DEF_REMINDER_INTV_SECONDS;
-
-            NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-            free(nvm);
+            __BREAK_IFDBG();
+            NVIC_SystemReset();
         }
+
+        memset(nvm, 0, sizeof(*nvm));
+
+        nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
+        nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
+        nvm->reminder_seconds = CLOCK_DEF_RMD_SECONDS;
+        nvm->reminder_intv_seconds = CLOCK_DEF_RMD_INTV_SECONDS;
+
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        free(nvm);
+
         nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     }
 
     UCSH_REGISTER("clock",      SHELL_clock);
-
     UCSH_REGISTER("alm",        SHELL_alarm);
     UCSH_REGISTER("rmd",        SHELL_reminder);
+}
+
+void CLOCK_app_specify_callback(void (*callback)(void))
+{
+    clock_runtime.app_specify_moment_callback = callback;
+}
+
+struct CLOCK_moment_t const * CLOCK_get_app_specify_moment(void)
+{
+    return &nvm_ptr->app_specify_moment;
+}
+
+int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment)
+{
+    struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+    if (NULL == nvm)
+        return ENOMEM;
+
+    NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+    nvm->app_specify_moment = *moment;
+
+    NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+    free(nvm);
+
+    nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    return 0;
 }
 
 static int8_t CLOCK_peek_start_alarms(time_t ts)
@@ -197,13 +223,13 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
     struct tm dt;
     localtime_r(&ts, &dt);
 
-    int16_t mtime = time_to_mtime(ts);
-    struct CLOCK_moment_t *current_alarm = NULL;
+    int16_t mtime = time2mtime(ts);
+    struct CLOCK_moment_t const *current_alarm = NULL;
 
     if (-1 != clock_runtime.alarming_idx)
     {
         current_alarm = &alarms[clock_runtime.alarming_idx];
-        time_t ts_end = (mtime_to_time(current_alarm->mtime) + nvm_ptr->ring_seconds) % 86400;
+        time_t ts_end = (mtime2time(current_alarm->mtime) + nvm_ptr->ring_seconds) % 86400;
 
         if (ts_end < time(NULL) % 86400)
         {
@@ -214,7 +240,7 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
 
     for (int8_t idx = 0; idx < (int8_t)lengthof(alarms); idx ++)
     {
-        struct CLOCK_moment_t *alarm = &alarms[idx];
+        struct CLOCK_moment_t const *alarm = &alarms[idx];
 
         if (! alarm->enabled || alarm == current_alarm)
             continue;
@@ -261,6 +287,30 @@ void next_timeo_callback(void *arg)
 
 void CLOCK_schedule(time_t ts)
 {
+    if (NULL != clock_runtime.app_specify_moment_callback && nvm_ptr->app_specify_moment.enabled)
+    {
+        int16_t mtime = time2mtime(ts);
+
+        struct tm dt;
+        localtime_r(&ts, &dt);
+        struct CLOCK_moment_t const *moment = &nvm_ptr->app_specify_moment;
+
+        // matching week days mask or mdate
+        if (0 == ((1 << dt.tm_wday) & moment->wdays))
+        {
+            int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+
+            if (mdate == moment->mdate)
+                goto app_moment_callback;
+        }
+
+        if (mtime == moment->mtime)
+        {
+        app_moment_callback:
+            clock_runtime.app_specify_moment_callback();
+        }
+    }
+
     if (-1 != CLOCK_peek_start_alarms(ts))
     {
         timeout_stop(&next_timeo);
@@ -308,32 +358,6 @@ __attribute__((weak))
 bool CLOCK_alarm_switch_is_on(void)
 {
     return true;
-}
-
-uint16_t CLOCK_get_ring_snooze_seconds(void)
-{
-    if (NULL != nvm_ptr)
-        return nvm_ptr->ring_snooze_seconds;
-    else
-        return 0;
-}
-
-int CLOCK_set_ring_snooze_seconds(uint16_t seconds)
-{
-    if (nvm_ptr->ring_snooze_seconds != seconds)
-    {
-        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-        if (NULL == nvm)
-            return ENOMEM;
-
-        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        nvm->ring_snooze_seconds = seconds;
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        free(nvm);
-
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-    }
-    return 0;
 }
 
 unsigned CLOCK_alarm_count(void)
@@ -455,7 +479,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
     localtime_r(&ts, &dt);
 
     time_t ts_base = ts - ts % 86400;
-    int16_t mtime = time_to_mtime(ts);
+    int16_t mtime = time2mtime(ts);
 
     for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
     {
@@ -464,7 +488,7 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
         if (! reminder->enabled)
             continue;
 
-        time_t reminder_end_ts = ts_base + mtime_to_time(reminder->mtime) + nvm_ptr->reminder_seconds;
+        time_t reminder_end_ts = ts_base + mtime2time(reminder->mtime) + nvm_ptr->reminder_seconds;
 
         // matching week days mask or mdate
         if (0 == ((1 << dt.tm_wday) & reminder->wdays))
@@ -556,73 +580,72 @@ static int SHELL_clock(struct UCSH_env *env)
 
     if (1 == env->argc)
     {
-        char *buf = env->buf + 32;
         int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
         int pos = 0;
 
-        pos += sprintf(&buf[pos], "{");
+        pos += sprintf(env->buf + pos, "{");
         if (1)  // ring & reminder
         {
-            pos += sprintf(&buf[pos], "\n\t\"ring\": %d", nvm_ptr->ring_seconds);
-            pos += sprintf(&buf[pos], ",\n\t\"snooze\": %d", nvm_ptr->ring_snooze_seconds);
-            pos += sprintf(&buf[pos], ",\n\t\"reminder\": %d", nvm_ptr->reminder_seconds);
-            pos += sprintf(&buf[pos], ",\n\t\"reminder_intv\": %d", nvm_ptr->reminder_intv_seconds);
+            pos += sprintf(env->buf + pos, "\n\t\"ring\": %d", nvm_ptr->ring_seconds);
+            pos += sprintf(env->buf + pos, ",\n\t\"snooze\": %d", nvm_ptr->ring_snooze_seconds);
+            pos += sprintf(env->buf + pos, ",\n\t\"reminder\": %d", nvm_ptr->reminder_seconds);
+            pos += sprintf(env->buf + pos, ",\n\t\"reminder_intv\": %d", nvm_ptr->reminder_intv_seconds);
 
             if (flush_bytes < pos)
             {
-                writebuf(env->fd, buf, (unsigned)pos);
+                writebuf(env->fd, env->buf, (unsigned)pos);
                 pos = 0;
             }
         }
         if (1)  // zero hour voide
         {
-            pos += sprintf(&buf[pos], ",\n\t\"zero_hour_voice\":\n\t{");
-            pos += sprintf(&buf[pos], "\n\t\t\"mask\": %d", nvm_ptr->say_zero_hour_mask);
-            pos += sprintf(&buf[pos], ",\n\t\t\"wdays\": %d", nvm_ptr->say_zero_hour_wdays);
+            pos += sprintf(env->buf + pos, ",\n\t\"zero_hour_voice\":\n\t{");
+            pos += sprintf(env->buf + pos, "\n\t\t\"mask\": %d", nvm_ptr->say_zero_hour_mask);
+            pos += sprintf(env->buf + pos, ",\n\t\t\"wdays\": %d", nvm_ptr->say_zero_hour_wdays);
 
-            pos += sprintf(&buf[pos], "\n\t}");
+            pos += sprintf(env->buf + pos, "\n\t}");
             if (flush_bytes < pos)
             {
-                writebuf(env->fd, buf, (unsigned)pos);
+                writebuf(env->fd, env->buf, (unsigned)pos);
                 pos = 0;
             }
         }
         if (1)  // timezone & dst
         {
-            pos += sprintf(&buf[pos], ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
+            pos += sprintf(env->buf + pos, ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
 
-            pos += sprintf(&buf[pos], ",\n\t\"dst\":\n\t{");
-            pos += sprintf(&buf[pos], "\n\t\t\"en\": %s", nvm_ptr->dst.en ? "true" : "false");
-            pos += sprintf(&buf[pos], ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
+            pos += sprintf(env->buf + pos, ",\n\t\"dst\":\n\t{");
+            pos += sprintf(env->buf + pos, "\n\t\t\"en\": %s", nvm_ptr->dst.en ? "true" : "false");
+            pos += sprintf(env->buf + pos, ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
 
             if (flush_bytes < pos)
             {
-                writebuf(env->fd, buf, (unsigned)pos);
+                writebuf(env->fd, env->buf, (unsigned)pos);
                 pos = 0;
             }
 
-            pos += sprintf(&buf[pos], ",\n\t\t\"ranges\": [");
+            pos += sprintf(env->buf + pos, ",\n\t\t\"ranges\": [");
             for (unsigned i = 0; i < nvm_ptr->dst.tbl_count; i ++)
             {
                 if (0 == i)
-                    pos += sprintf(&buf[pos], "\n\t\t\t");
+                    pos += sprintf(env->buf + pos, "\n\t\t\t");
                 else
-                    pos += sprintf(&buf[pos], ",\n\t\t\t");
+                    pos += sprintf(env->buf + pos, ",\n\t\t\t");
 
-                pos += sprintf(&buf[pos], "{\"start\": %d, \"end\": %d}", nvm_ptr->dst.tbl[i].start, nvm_ptr->dst.tbl[i].end);
+                pos += sprintf(env->buf + pos, "{\"start\": %d, \"end\": %d}", nvm_ptr->dst.tbl[i].start, nvm_ptr->dst.tbl[i].end);
 
                 if (flush_bytes < pos)
                 {
-                    writebuf(env->fd, buf, (unsigned)pos);
+                    writebuf(env->fd, env->buf, (unsigned)pos);
                     pos = 0;
                 }
             }
 
-            pos += sprintf(&buf[pos], "\n\t\t]\n\t}");
+            pos += sprintf(env->buf + pos, "\n\t\t]\n\t}");
         }
 
-        pos += sprintf(&buf[pos], "\n}\n");
-        writebuf(env->fd, buf, (unsigned)pos);
+        pos += sprintf(env->buf + pos, "\n}\n");
+        writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     };
 
@@ -668,7 +691,7 @@ static int SHELL_clock(struct UCSH_env *env)
         if (0 > seconds || 3600 < seconds)
             err = EINVAL;
 
-        int intv_seconds = CLOCK_DEF_REMINDER_INTV_SECONDS;
+        int intv_seconds = CLOCK_DEF_RMD_INTV_SECONDS;
         if (4 == env->argc)
         {
             intv_seconds = strtol(env->argv[3], NULL, 10);
@@ -842,12 +865,11 @@ static int SHELL_alarm(struct UCSH_env *env)
 {
     if (1 == env->argc)
     {
-        char *buf = env->buf + 32;
         int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
         int pos = 0;
         int cnt = 0;
 
-        pos += sprintf(&buf[pos], "{\n\t\"alarms\": [");
+        pos += sprintf(env->buf + pos, "{\n\t\"alarms\": [");
         for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
         {
             struct CLOCK_moment_t *alarm = &alarms[idx];
@@ -857,32 +879,32 @@ static int SHELL_alarm(struct UCSH_env *env)
                 continue;
 
             if (0 == cnt ++)
-                pos += sprintf(&buf[pos], "\n");
+                pos += sprintf(env->buf + pos, "\n");
             else
-                pos += sprintf(&buf[pos], ",\n");
+                pos += sprintf(env->buf + pos, ",\n");
 
-            pos += sprintf(&buf[pos], "\t\t{\"id\":%d, ", idx + 1);
-            pos += sprintf(&buf[pos], "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
-            pos += sprintf(&buf[pos], "\"mtime\":%d, ",  alarm->mtime);
-            pos += sprintf(&buf[pos], "\"ringtone_id\":%d, ", alarm->ringtone_id);
-            pos += sprintf(&buf[pos], "\"mdate\":%lu, ",  alarm->mdate);
-            pos += sprintf(&buf[pos], "\"wdays\":%d}", alarm->wdays);
+            pos += sprintf(env->buf + pos, "\t\t{\"id\":%d, ", idx + 1);
+            pos += sprintf(env->buf + pos, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
+            pos += sprintf(env->buf + pos, "\"mtime\":%d, ",  alarm->mtime);
+            pos += sprintf(env->buf + pos, "\"ringtone_id\":%d, ", alarm->ringtone_id);
+            pos += sprintf(env->buf + pos, "\"mdate\":%lu, ",  alarm->mdate);
+            pos += sprintf(env->buf + pos, "\"wdays\":%d}", alarm->wdays);
 
             if (flush_bytes < pos)
             {
-                writebuf(env->fd, buf, (unsigned)pos);
+                writebuf(env->fd, env->buf, (unsigned)pos);
                 pos = 0;
             }
         }
         if (0 != cnt)
-            pos += sprintf(&buf[pos], "\n\t],\n");
+            pos += sprintf(env->buf + pos, "\n\t],\n");
         else
-            pos += sprintf(&buf[pos], "],\n");
+            pos += sprintf(env->buf + pos, "],\n");
 
-        pos += sprintf(&buf[pos], "\t\"alarm_count\":%d,\n", lengthof(alarms));
-        pos += sprintf(&buf[pos], "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
+        pos += sprintf(env->buf + pos, "\t\"alarm_count\":%d,\n", lengthof(alarms));
+        pos += sprintf(env->buf + pos, "\t\"alarm_ctrl\":\"%s\"\n}\n", CLOCK_alarm_switch_is_on() ? "on" : "off");
 
-        writebuf(env->fd, buf, (unsigned)pos);
+        writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     }
     else if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
@@ -993,12 +1015,11 @@ static int SHELL_reminder(struct UCSH_env *env)
 {
     if (1 == env->argc)
     {
-        char *buf = env->buf + 32;
         int flush_bytes = MIN(200, (env->bufsize - 32) / 2);
         int pos = 0;
         int cnt = 0;
 
-        pos += sprintf(&buf[pos], "{\n\t\"reminders\": [");
+        pos += sprintf(env->buf + pos, "{\n\t\"reminders\": [");
         for (unsigned idx = 0; idx < lengthof(reminders); idx ++)
         {
             struct CLOCK_moment_t *reminder = &reminders[idx];
@@ -1007,31 +1028,31 @@ static int SHELL_reminder(struct UCSH_env *env)
             if (! reminder->enabled && 0 == reminder->wdays && 0 == reminder->mdate)
                 continue;
             if (0 == cnt ++)
-                pos += sprintf(&buf[pos], "\n");
+                pos += sprintf(env->buf + pos, "\n");
             else
-                pos += sprintf(&buf[pos], ",\n");
+                pos += sprintf(env->buf + pos, ",\n");
 
-            pos += sprintf(&buf[pos], "\t{\"id\":%d, ", idx + 1);
-            pos += sprintf(&buf[pos], "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
-            pos += sprintf(&buf[pos], "\"mtime\":%d, ",  reminder->mtime);
-            pos += sprintf(&buf[pos], "\"reminder_id\":%d, ", reminder->reminder_id);
-            pos += sprintf(&buf[pos], "\"mdate\":%lu, ",  reminder->mdate);
-            pos += sprintf(&buf[pos], "\"wdays\":%d}", reminder->wdays);
+            pos += sprintf(env->buf + pos, "\t{\"id\":%d, ", idx + 1);
+            pos += sprintf(env->buf + pos, "\"enabled\":%s, ", reminder->enabled ? "true" : "false");
+            pos += sprintf(env->buf + pos, "\"mtime\":%d, ",  reminder->mtime);
+            pos += sprintf(env->buf + pos, "\"reminder_id\":%d, ", reminder->reminder_id);
+            pos += sprintf(env->buf + pos, "\"mdate\":%lu, ",  reminder->mdate);
+            pos += sprintf(env->buf + pos, "\"wdays\":%d}", reminder->wdays);
 
             if (flush_bytes < pos)
             {
-                writebuf(env->fd, buf, (unsigned)pos);
+                writebuf(env->fd, env->buf, (unsigned)pos);
                 pos = 0;
             }
         }
         if (0 != cnt)
-            pos += sprintf(&buf[pos], "\n\t],\n");
+            pos += sprintf(env->buf + pos, "\n\t],\n");
         else
-            pos += sprintf(&buf[pos], "],\n");
+            pos += sprintf(env->buf + pos, "],\n");
 
-        pos += sprintf(&buf[pos], "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
+        pos += sprintf(env->buf + pos, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
 
-        writebuf(env->fd, buf, (unsigned)pos);
+        writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     }
     else if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>

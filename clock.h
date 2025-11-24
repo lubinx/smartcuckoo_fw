@@ -8,8 +8,24 @@
 #include <stdint.h>
 #include <time.h>
 
-    #define time_to_mtime(ts)           ((int16_t)(((ts % 86400) / 3600) * 100 + ((ts) % 3600) / 60))
-    #define mtime_to_time(mt)           (time_t)((((mt) / 100) * 3600 + ((mt) % 100) * 60))
+#ifndef CLOCK_DEF_RING_SECONDS
+    #define CLOCK_DEF_RING_SECONDS      (180)
+#endif
+
+#ifndef CLOCK_DEF_SNOOZE_SECONDS
+    #define CLOCK_DEF_SNOOZE_SECONDS    (600)
+#endif
+
+#ifndef CLOCK_DEF_RMD_SECONDS
+    #define CLOCK_DEF_RMD_SECONDS       (1200)
+#endif
+
+#ifndef CLOCK_DEF_RMD_INTV_SECONDS
+    #define CLOCK_DEF_RMD_INTV_SECONDS  (60)
+#endif
+
+    #define time2mtime(ts)              ((int16_t)(((ts % 86400) / 3600) * 100 + ((ts) % 3600) / 60))
+    #define mtime2time(mt)              (time_t)((((mt) / 100) * 3600 + ((mt) % 100) * 60))
 
     struct CLOCK_moment_t
     {
@@ -27,12 +43,25 @@
     };
 
 __BEGIN_DECLS
-
     /**
      *  CLOCK_init()
      */
 extern __attribute__((nothrow))
     void CLOCK_init(void);
+
+    /**
+     *  CLOCK_app_specify_callback()
+    */
+extern __attribute__((nothrow, nonnull))
+    void CLOCK_app_specify_callback(void (*callback)(void));
+
+    /**
+     *  CLOCK_get_app_specify_moment() / CLOCK_store_app_specify_moment()
+    */
+extern __attribute__((nothrow, pure))
+    struct CLOCK_moment_t const * CLOCK_get_app_specify_moment(void);
+extern __attribute__((nothrow, nonnull))
+    int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment);
 
     /**
      *  CLOCK_alarm_switch_is_on()
