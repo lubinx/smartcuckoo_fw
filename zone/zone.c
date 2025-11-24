@@ -47,10 +47,12 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
+static void SETTING_volume_adj_intv(uint32_t button_pin);
+static void SETTING_timeout_save(struct zone_runtime_t *runtime);
 
-static void setting_timeout_callback(struct zone_runtime_t *runtime);
-static void volume_adj_intv_callback(uint32_t button_pin);
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
+static void PWR_callback(void);
+static int PWR_shell_command(struct UCSH_env *env);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -112,8 +114,8 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, (void *)volume_adj_intv_callback, 0);
-    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)setting_timeout_callback, 0);
+    timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, (void *)SETTING_volume_adj_intv, 0);
+    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_save, 0);
 
     zone.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
     zone.batt_last_ts = time(NULL);
@@ -131,7 +133,7 @@ void PERIPHERAL_init(void)
     AUDIO_set_volume_percent(setting.media_volume);
     AUDIO_renderer_supress_master_value(70);
 
-    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
+    setting.voice_sel_id = VOICE_init(setting.voice_sel_id, &setting.locale);
 
     MQUEUE_INIT(&zone.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     PERIPHERAL_gpio_intr_enable();
@@ -179,6 +181,9 @@ void PERIPHERAL_init(void)
 
         GPIO_disable(PIN_RTC_CAL_IN);
     }
+
+    CLOCK_app_specify_callback(PWR_callback);
+    UCSH_REGISTER("pwr", PWR_shell_command);
 
     MYNOISE_init();
     MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
@@ -249,7 +254,7 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
         timeout_start(&runtime->volume_adj_intv, (void *)PIN_VOLUME_DOWN_BUTTON);
 }
 
-static void setting_timeout_callback(struct zone_runtime_t *runtime)
+static void SETTING_timeout_save(struct zone_runtime_t *runtime)
 {
     if (runtime->setting)
     {
@@ -263,7 +268,7 @@ static void setting_timeout_callback(struct zone_runtime_t *runtime)
         NVM_set(NVM_SETTING, sizeof(setting), &setting);
 }
 
-static void volume_adj_intv_callback(uint32_t button_pin)
+static void SETTING_volume_adj_intv(uint32_t button_pin)
 {
     timeout_stop(&zone.setting_timeo);
 
@@ -292,6 +297,9 @@ static void volume_adj_intv_callback(uint32_t button_pin)
     }
 }
 
+/****************************************************************************
+ *  @private: message thread & loops
+ ****************************************************************************/
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
     // LOG_debug("alive");
@@ -448,13 +456,13 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             break;
 
         case VOICE_SETTING_LANG:
-            old_voice_id = setting.sel_voice_id;
+            old_voice_id = setting.voice_sel_id;
             if (PIN_VOLUME_UP_BUTTON == button)
-                setting.sel_voice_id = VOICE_next_locale();
+                setting.voice_sel_id = VOICE_next_locale();
             else
-                setting.sel_voice_id = VOICE_prev_locale();
+                setting.voice_sel_id = VOICE_prev_locale();
 
-            if (old_voice_id != setting.sel_voice_id)
+            if (old_voice_id != setting.voice_sel_id)
             {
                 setting.locale.dfmt = DFMT_DEFAULT;
                 setting.locale.hfmt = HFMT_DEFAULT;
@@ -463,13 +471,13 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             break;
 
         case VOICE_SETTING_VOICE:
-            old_voice_id = setting.sel_voice_id;
+            old_voice_id = setting.voice_sel_id;
             if (PIN_VOLUME_UP_BUTTON == button)
-                setting.sel_voice_id = VOICE_next_voice();
+                setting.voice_sel_id = VOICE_next_voice();
             else
-                setting.sel_voice_id = VOICE_prev_voice();
+                setting.voice_sel_id = VOICE_prev_voice();
 
-            if (old_voice_id != setting.sel_voice_id)
+            if (old_voice_id != setting.voice_sel_id)
             {
                 setting.locale.dfmt = DFMT_DEFAULT;
                 setting.locale.hfmt = HFMT_DEFAULT;
@@ -890,4 +898,20 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 MSG_alive(runtime);
         }
     }
+}
+
+/****************************************************************************
+ *  @private: auto power & shell
+ ****************************************************************************/
+static void PWR_callback(void)
+{
+}
+
+static int PWR_shell_command(struct UCSH_env *env)
+{
+    if (1 == env->argc)
+    {
+        // int pos = 0;
+    }
+    return ENOSYS;
 }

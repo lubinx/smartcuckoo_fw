@@ -73,12 +73,12 @@
     {
         uint8_t media_volume;
         uint8_t dim;
-        bytebool_t alarm_is_on;   // REVIEW: has no hardware switcher
+        bytebool_t alarm_is_on; // REVIEW: has no hardware switcher
 
-        int16_t sel_voice_id;
-        uint16_t last_noise_id;
-
+        int16_t voice_sel_id;
         struct LOCALE_t locale;
+
+        char pwr_noise[96];     // REVIEW: for shell pwr command
     };
 
 /***************************************************************************

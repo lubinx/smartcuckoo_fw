@@ -85,7 +85,7 @@ void PERIPHERAL_init(void)
     setting.media_volume = MAX(50, setting.media_volume);
     AUDIO_set_volume_percent(setting.media_volume);
 
-    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
+    setting.voice_sel_id = VOICE_init(setting.voice_sel_id, &setting.locale);
 
     GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
@@ -280,10 +280,10 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
             break;
 
         case VOICE_SETTING_LANG:
-            old_voice_id = setting.sel_voice_id;
-            setting.sel_voice_id = VOICE_next_locale();
+            old_voice_id = setting.voice_sel_id;
+            setting.voice_sel_id = VOICE_next_locale();
 
-            if (old_voice_id != setting.sel_voice_id)
+            if (old_voice_id != setting.voice_sel_id)
             {
                 setting.locale.dfmt = DFMT_DEFAULT;
                 setting.locale.hfmt = HFMT_DEFAULT;
@@ -292,10 +292,10 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
             break;
 
         case VOICE_SETTING_VOICE:
-            old_voice_id = setting.sel_voice_id;
-            setting.sel_voice_id = VOICE_next_voice();
+            old_voice_id = setting.voice_sel_id;
+            setting.voice_sel_id = VOICE_next_voice();
 
-            if (old_voice_id != setting.sel_voice_id)
+            if (old_voice_id != setting.voice_sel_id)
             {
                 setting.locale.dfmt = DFMT_DEFAULT;
                 setting.locale.hfmt = HFMT_DEFAULT;
