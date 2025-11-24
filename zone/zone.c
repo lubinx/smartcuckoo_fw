@@ -95,8 +95,7 @@ void PERIPHERAL_gpio_intr_enable(void)
 bool PERIPHERAL_is_enable_usb(void)
 {
 #ifdef DEBUG
-    // return true;
-    return false;
+    return true;
 #else
     return 0 == GPIO_peek(PIN_POWER_BUTTON);
 #endif
