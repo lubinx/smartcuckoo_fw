@@ -374,7 +374,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 
         setting_modify_alarm:
             ts = mktime(&runtime->setting_dt) % 86400;
-            mtime = time_to_mtime(ts);
+            mtime = time2mtime(ts);
 
             if (! alarm0->enabled || mtime != alarm0->mtime)
             {
@@ -426,7 +426,7 @@ static void MSG_setting_button(struct talking_button_runtime_t *runtime)
     if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
         VOICE_SETTING_ALARM_MIN == runtime->setting_part)
     {
-        time_t ts = mtime_to_time(alarm0->mtime);
+        time_t ts = mtime2time(alarm0->mtime);
 
         localtime_r(&ts, &runtime->setting_dt);
         runtime->setting_dt.tm_sec = 0;

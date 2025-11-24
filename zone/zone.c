@@ -91,12 +91,6 @@ void PERIPHERAL_gpio_intr_enable(void)
         (void *)GPIO_button_callback, &zone);
 }
 
-void PERIPHERAL_shell_init(void)
-{
-    MYNOISE_register_shell();
-    MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
-}
-
 bool PERIPHERAL_is_enable_usb(void)
 {
 #ifdef DEBUG
@@ -186,6 +180,9 @@ void PERIPHERAL_init(void)
 
         GPIO_disable(PIN_RTC_CAL_IN);
     }
+
+    MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+    MYNOISE_register_shell();
 }
 
 /****************************************************************************
@@ -423,7 +420,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
             VOICE_SETTING_ALARM_MIN == runtime->setting_part)
         {
-            time_t ts = mtime_to_time(alarm0->mtime);
+            time_t ts = mtime2time(alarm0->mtime);
 
             localtime_r(&ts, &runtime->setting_dt);
             runtime->setting_dt.tm_sec = 0;
@@ -577,7 +574,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         setting_modify_alarm:
             ts = mktime(&runtime->setting_dt);
-            mtime = time_to_mtime(ts);
+            mtime = time2mtime(ts);
 
             if (! alarm0->enabled || mtime != alarm0->mtime)
             {

@@ -198,9 +198,6 @@ static void SHELL_register(void)
         }
     );
 #endif
-
-    // REVIEW: peripheral extensions.
-    PERIPHERAL_shell_init();
 }
 
 void SHELL_bootstrap(void)

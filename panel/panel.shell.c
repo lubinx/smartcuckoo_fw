@@ -9,7 +9,7 @@ static int SHELL_dim(struct UCSH_env *env);
 /****************************************************************************
  * @implements
  ****************************************************************************/
-void PERIPHERAL_shell_init(void)
+void PANEL_shell_register(void)
 {
     UCSH_register("env", SHELL_env_sensor);
     UCSH_register("dim", SHELL_dim);

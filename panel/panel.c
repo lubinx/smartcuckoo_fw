@@ -181,6 +181,9 @@ void PERIPHERAL_init(void)
     // start schedule intv
     timeout_init(&panel.schedule_intv, 380, (void *)SCHEDULE_intv_callback, TIMEOUT_FLAG_REPEAT);
     timeout_start(&panel.schedule_intv, &panel);
+
+    extern void PANEL_shell_register(void);
+    PANEL_shell_register();
 }
 
 void mplayer_stopping_callback(void)

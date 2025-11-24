@@ -139,9 +139,6 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow))
     void PERIPHERAL_on_wakeup(void);
 
-extern __attribute__((nothrow))
-    void PERIPHERAL_shell_init(void);
-
 /***************************************************************************
  *  shell
  ***************************************************************************/
