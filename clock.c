@@ -615,7 +615,7 @@ static int SHELL_clock(struct UCSH_env *env)
             pos += sprintf(env->buf + pos, ",\n\t\"timezone_offset\": %d", nvm_ptr->timezone_offset);
 
             pos += sprintf(env->buf + pos, ",\n\t\"dst\":\n\t{");
-            pos += sprintf(env->buf + pos, "\n\t\t\"en\": %s", nvm_ptr->dst.en ? "true" : "false");
+            pos += sprintf(env->buf + pos, "\n\t\t\"enabled\": %s", nvm_ptr->dst.en ? "true" : "false");
             pos += sprintf(env->buf + pos, ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
 
             if (flush_bytes < pos)
@@ -720,6 +720,9 @@ static int SHELL_clock(struct UCSH_env *env)
     }
     else if (0 == strcmp("dst", env->argv[1]))
     {
+        if (2 == env->argc)
+            return EINVAL;
+
         if (3 == env->argc)
         {
             if (0 != strcasecmp(env->argv[1], "on") && 0 != strcasecmp(env->argv[2], "off"))
