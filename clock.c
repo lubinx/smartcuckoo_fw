@@ -70,7 +70,9 @@ struct CLOCK_runtime_t
     time_t alarm_snooze_end_ts;
     time_t reminder_slient_end_ts;
 
+    bytebool_t dst_active;
     int8_t alarming_idx;
+
 
     void (* app_specify_moment_callback)(void);
 };
@@ -115,9 +117,14 @@ int get_dst_offset(struct tm *tm)
         for (unsigned i = 0; i < nvm_ptr->dst.tbl_count; i ++)
         {
             if (dt >= nvm_ptr->dst.tbl[i].start && dt < nvm_ptr->dst.tbl[i].end)
+            {
+                clock_runtime.dst_active = true;
                 return 60 * nvm_ptr->dst.minute_offset;
+            }
         }
     }
+
+    clock_runtime.dst_active = false;
     return 0;
 }
 
@@ -185,6 +192,11 @@ void CLOCK_init(void)
     UCSH_REGISTER("clock",      SHELL_clock);
     UCSH_REGISTER("alm",        SHELL_alarm);
     UCSH_REGISTER("rmd",        SHELL_reminder);
+}
+
+bool CLOCK_get_dst_is_active(void)
+{
+    return clock_runtime.dst_active;
 }
 
 void CLOCK_app_specify_callback(void (*callback)(void))
@@ -616,6 +628,7 @@ static int SHELL_clock(struct UCSH_env *env)
 
             pos += sprintf(env->buf + pos, ",\n\t\"dst\":\n\t{");
             pos += sprintf(env->buf + pos, "\n\t\t\"enabled\": %s", nvm_ptr->dst.en ? "true" : "false");
+            pos += sprintf(env->buf + pos, "\n\t\t\"activated\": %s", clock_runtime.dst_active ? "true" : "false");
             pos += sprintf(env->buf + pos, ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
 
             if (flush_bytes < pos)
@@ -725,7 +738,7 @@ static int SHELL_clock(struct UCSH_env *env)
 
         if (3 == env->argc)
         {
-            if (0 != strcasecmp(env->argv[1], "on") && 0 != strcasecmp(env->argv[2], "off"))
+            if (0 != strcasecmp(env->argv[2], "on") && 0 != strcasecmp(env->argv[2], "off"))
                 err = EINVAL;
 
             nvm->dst.en = 0 == strcasecmp(env->argv[1], "on");
@@ -735,7 +748,7 @@ static int SHELL_clock(struct UCSH_env *env)
             if (1)
             {
                 int offset = strtol(env->argv[2], NULL, 10);
-                if (120 < abs(offset))
+                if (120 >= abs(offset))
                 {
                     nvm->dst.en = true;
                     nvm->dst.minute_offset = (int8_t)offset;
@@ -747,6 +760,7 @@ static int SHELL_clock(struct UCSH_env *env)
                 }
             }
 
+            nvm->dst.tbl_count = 0;
             // parse YYYYMMDDHH~YYYYMMDDHH ...
             for (int i = 3; i < env->argc; i ++)
             {
@@ -808,6 +822,13 @@ static int SHELL_clock(struct UCSH_env *env)
 
                 if (++ nvm->dst.tbl_count == lengthof(nvm->dst.tbl))
                     break;
+            }
+
+            if (1)
+            {
+                struct tm dt;
+                time_t ts = time(NULL);
+                localtime_r(&ts, &dt);
             }
         }
     }
@@ -975,7 +996,7 @@ static int SHELL_alarm(struct UCSH_env *env)
                 wdays = strtol(wday_str, NULL, 10);
                 if (0 == wdays)
                     wdays = strtol(wday_str, NULL, 16);
-                if (0 == wdays || 0x7F < wdays)
+                if (0x7F < wdays)
                     return EINVAL;
             }
         }

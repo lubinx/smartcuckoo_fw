@@ -50,6 +50,12 @@ extern __attribute__((nothrow))
     void CLOCK_init(void);
 
     /**
+     *  CLOCK_get_dst_is_active()
+    */
+extern __attribute__((nothrow, pure))
+    bool CLOCK_get_dst_is_active(void);
+
+    /**
      *  CLOCK_app_specify_callback()
     */
 extern __attribute__((nothrow, nonnull))
