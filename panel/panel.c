@@ -94,15 +94,15 @@ void PERIPHERAL_init(void)
 
     MQUEUE_INIT(&panel.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     // init panel & display
-    PANEL_attr_init(&panel.panel_attr, I2C0, &setting.locale);
+    PANEL_attr_init(&panel.panel_attr, I2C0, &smartcuckoo.locale);
 
     // load settings
     if (0 != NVM_get(NVM_SETTING, &setting, sizeof(setting)))
     {
         memset(&setting, 0, sizeof(setting));
 
-        setting.media_volume = 70;
-        setting.dim = 40;
+        smartcuckoo.media_volume = 70;
+        smartcuckoo.dim = 40;
     }
 
     // tmp content
@@ -119,11 +119,11 @@ void PERIPHERAL_init(void)
     mplayer_initlaize(uart_fd, PIN_PLAY_BUSYING);
     mplayer_idle_shutdown(SETTING_TIMEOUT + 100);
     // volume
-    AUDIO_renderer_set_volume(setting.media_volume);
+    AUDIO_renderer_set_volume(smartcuckoo.media_volume);
     */
 
     // init voice with using alt folder
-    setting.sel_voice_id = VOICE_init(setting.sel_voice_id, &setting.locale);
+    smartcuckoo.sel_voice_id = VOICE_init(smartcuckoo.sel_voice_id, &smartcuckoo.locale);
     // startting RTC calibration if PIN is connected
     //  NOTE: need after VOICE_init() by using common voice folder
     // RTC_calibration_init();
@@ -158,7 +158,7 @@ void PERIPHERAL_init(void)
     }
 
     // modules
-    NOISE_attr_init(setting.last_noise_id);
+    NOISE_attr_init(smartcuckoo.last_noise_id);
     PANEL_light_ad_attr_init(&panel.light_sens);
     IrDA_init(&panel.irda, PIN_IRDA, (void *)IrDA_callback, &panel);
     #ifdef PIN_LAMP
@@ -214,14 +214,14 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
 {
     time_t ts = time(NULL);
 
-    if (runtime->setting.en && SETTING_TIMEOUT < clock() - runtime->setting.tick)
+    if (runtime->smartcuckoo.en && SETTING_TIMEOUT < clock() - runtime->smartcuckoo.tick)
         setting_done(runtime);
 
-    if (runtime->setting.en || runtime->tmp_content.en)
+    if (runtime->smartcuckoo.en || runtime->tmp_content.en)
     {
         enum PANEL_setting_group_t group;
-        if (runtime->setting.en)
-            group = runtime->setting.group;
+        if (runtime->smartcuckoo.en)
+            group = runtime->smartcuckoo.group;
         else
             group = runtime->tmp_content.group;
 
@@ -243,7 +243,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         if (SETTING_TIME_GROUP == group)
         {
             PANEL_attr_set_ringtone_id(&runtime->panel_attr, -1);
-            PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+            PANEL_attr_set_humidity(&runtime->panel_attr, smartcuckoo.locale.hfmt);
         }
 
         if (SETTING_group_is_alarms(group))
@@ -286,7 +286,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         }
     }
 
-    if (! runtime->setting.en &&
+    if (! runtime->smartcuckoo.en &&
         timeout_is_running(&panel.schedule_intv))
     {
         CLOCK_peek_start_reminders(ts);
@@ -304,7 +304,7 @@ static void MSG_alive(struct PANEL_runtime_t *runtime)
         }
     }
 
-    if (timeout_is_running(&runtime->tmp_content.disable_timeo) || runtime->setting.en)
+    if (timeout_is_running(&runtime->tmp_content.disable_timeo) || runtime->smartcuckoo.en)
     {
         // FIXME: aht2x deadlook I2C
         runtime->env_sensor.last_ts = ts;
@@ -341,19 +341,19 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
     PANEL_attr_set_disable(&runtime->panel_attr, 0);
     PANEL_attr_set_blinky(&runtime->panel_attr, 0);
 
-    if (runtime->setting.en)
+    if (runtime->smartcuckoo.en)
     {
         PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_PERCENT);
 
-        if (SETTING_group_is_alarms(runtime->setting.group))
+        if (SETTING_group_is_alarms(runtime->smartcuckoo.group))
         {
             PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
             PANEL_attr_set_humidity(&runtime->panel_attr, -1);
         }
-        else if (SETTING_TIME_GROUP == runtime->setting.group)
+        else if (SETTING_TIME_GROUP == runtime->smartcuckoo.group)
         {
             PANEL_attr_set_disable(&runtime->panel_attr, PANEL_TMPR | PANEL_HUMIDITY);
-            PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+            PANEL_attr_set_humidity(&runtime->panel_attr, smartcuckoo.locale.hfmt);
         }
         else
             PANEL_attr_set_disable(&runtime->panel_attr, 0);
@@ -367,9 +367,9 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_IND_1 << i);
         }
 
-        if (0 == runtime->setting.level)
+        if (0 == runtime->smartcuckoo.level)
         {
-            switch (runtime->setting.group)
+            switch (runtime->smartcuckoo.group)
             {
             case SETTING_DATE_GROUP:
                 PANEL_attr_set_blinky(&runtime->panel_attr, PANEL_DATE);
@@ -395,11 +395,11 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 break;
             };
         }
-        else if (1 == runtime->setting.level)
+        else if (1 == runtime->smartcuckoo.level)
         {
             uint32_t blinky = 0;
 
-            switch (runtime->setting.part)
+            switch (runtime->smartcuckoo.part)
             {
             case SETTING_NONE:
                 break;
@@ -460,14 +460,14 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
                 break;
             }
 
-            switch (runtime->setting.group)
+            switch (runtime->smartcuckoo.group)
             {
             default:
                 break;
 
             case SETTING_TIME_GROUP:
                 PANEL_attr_set_ringtone_id(&runtime->panel_attr, -1);
-                PANEL_attr_set_humidity(&runtime->panel_attr, setting.locale.hfmt);
+                PANEL_attr_set_humidity(&runtime->panel_attr, smartcuckoo.locale.hfmt);
                 break;
 
             case SETTING_ALARM_1_GROUP:
@@ -493,7 +493,7 @@ static void MSG_set_blinky(struct PANEL_runtime_t *runtime)
 
 static void MSG_light_sensitive(struct PANEL_runtime_t *runtime, int percent)
 {
-    PANEL_set_dim(&runtime->panel_attr, setting.dim, (uint8_t)percent);
+    PANEL_set_dim(&runtime->panel_attr, smartcuckoo.dim, (uint8_t)percent);
 }
 
 static void MSG_irda(struct IrDA_t *irda)
@@ -573,15 +573,15 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
         break;
 
     case MSG_SETTING_BUTTON:
-        runtime->setting.tick = clock();
+        runtime->smartcuckoo.tick = clock();
 
-        if ( ! runtime->setting.en)
+        if ( ! runtime->smartcuckoo.en)
         {
-            runtime->setting.en = true;
-            runtime->setting.level = 0;
+            runtime->smartcuckoo.en = true;
+            runtime->smartcuckoo.level = 0;
 
-            runtime->setting.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
-            runtime->setting.part = 0;
+            runtime->smartcuckoo.group = runtime->tmp_content.en ? runtime->tmp_content.group : 0;
+            runtime->smartcuckoo.part = 0;
 
             NOISE_stop(true);
             mplayer_stop();
@@ -590,10 +590,10 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
         }
         else
         {
-            if (0 == runtime->setting.level)
+            if (0 == runtime->smartcuckoo.level)
                 setting_done(runtime);
             else
-                runtime->setting.level --;
+                runtime->smartcuckoo.level --;
         }
 
         tmp_content_disable(runtime);
@@ -601,7 +601,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
         break;
 
     case MSG_NOISE_BUTTON:
-        if (! runtime->setting.en)
+        if (! runtime->smartcuckoo.en)
         {
             NOISE_toggle(true);
 
@@ -625,7 +625,7 @@ static void MSG_function_key(struct PANEL_runtime_t *runtime, enum PANEL_message
 
 static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_message_t msgid)
 {
-    runtime->setting.tick = clock();
+    runtime->smartcuckoo.tick = clock();
     int value;
 
     switch (msgid)
@@ -634,21 +634,21 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         break;
 
     case MSG_SNOOZE_BUTTON:
-        if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
-            SETTING_ALARM_4_GROUP >= runtime->setting.group)
+        if (SETTING_ALARM_1_GROUP <= runtime->smartcuckoo.group &&
+            SETTING_ALARM_4_GROUP >= runtime->smartcuckoo.group)
         {
-            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
 
             if (0 == moment->mdate && 0 >= moment->wdays)
                 moment->wdays = 0x3E;
 
             moment->enabled = ! moment->enabled;
-            runtime->setting.part = __setting_gp[runtime->setting.group].start;
+            runtime->smartcuckoo.part = __setting_gp[runtime->smartcuckoo.group].start;
 
             if (moment->enabled)
-                runtime->setting.level = 1;
+                runtime->smartcuckoo.level = 1;
             else
-                runtime->setting.level = 0;
+                runtime->smartcuckoo.level = 0;
 
             goto post_set_blinky;
         }
@@ -658,40 +658,40 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
 
     case MSG_OK_BUTTON:
     msg_button_ok:
-        if (SETTING_TMPR_UNIT_GROUP == runtime->setting.group)
+        if (SETTING_TMPR_UNIT_GROUP == runtime->smartcuckoo.group)
         {
-            if (CELSIUS == setting.locale.tmpr_unit)
-                setting.locale.tmpr_unit = FAHRENHEIT;
+            if (CELSIUS == smartcuckoo.locale.tmpr_unit)
+                smartcuckoo.locale.tmpr_unit = FAHRENHEIT;
             else
-                setting.locale.tmpr_unit = CELSIUS;
+                smartcuckoo.locale.tmpr_unit = CELSIUS;
 
-            runtime->setting.is_modified = true;
+            runtime->smartcuckoo.is_modified = true;
         }
-        else if (SETTING_HOUR_FORMT == runtime->setting.part)
+        else if (SETTING_HOUR_FORMT == runtime->smartcuckoo.part)
         {
-            switch (setting.locale.hfmt)
+            switch (smartcuckoo.locale.hfmt)
             {
             case HFMT_DEFAULT:
             case HFMT_24:
-                setting.locale.hfmt = HFMT_12;
+                smartcuckoo.locale.hfmt = HFMT_12;
                 break;
 
             case HFMT_12:
-                setting.locale.hfmt = HFMT_24;
+                smartcuckoo.locale.hfmt = HFMT_24;
                 break;
             }
-            runtime->setting.is_modified = true;
+            runtime->smartcuckoo.is_modified = true;
 
             goto post_set_blinky;
         }
-        else if (runtime->setting.level < __setting_gp[runtime->setting.group].level)
+        else if (runtime->smartcuckoo.level < __setting_gp[runtime->smartcuckoo.group].level)
         {
-            if (1 == ++ runtime->setting.level)
-               runtime->setting.part = __setting_gp[runtime->setting.group].start;
+            if (1 == ++ runtime->smartcuckoo.level)
+               runtime->smartcuckoo.part = __setting_gp[runtime->smartcuckoo.group].start;
 
-            if (SETTING_group_is_alarms(runtime->setting.group))
+            if (SETTING_group_is_alarms(runtime->smartcuckoo.group))
             {
-                struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+                struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
 
                 if (! moment->enabled)
                 {
@@ -703,16 +703,16 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             }
             goto post_set_blinky;
         }
-        else if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
-            SETTING_ALARM_4_GROUP >= runtime->setting.group)
+        else if (SETTING_ALARM_1_GROUP <= runtime->smartcuckoo.group &&
+            SETTING_ALARM_4_GROUP >= runtime->smartcuckoo.group)
         {
-            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
 
-            if (SETTING_part_is_wdays(runtime->setting.part))
+            if (SETTING_part_is_wdays(runtime->smartcuckoo.part))
             {
                 int8_t wday;
 
-                switch (runtime->setting.part)
+                switch (runtime->smartcuckoo.part)
                 {
                 default:
                     wday = 0;
@@ -747,36 +747,36 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
                     moment->wdays |= wday;
             }
 
-            runtime->setting.alarm_is_modified = true;
+            runtime->smartcuckoo.alarm_is_modified = true;
             goto post_set_blinky;
         }
         else
         {
-            if (runtime->setting.level)
+            if (runtime->smartcuckoo.level)
             {
-                runtime->setting.level --;
+                runtime->smartcuckoo.level --;
                 goto post_set_blinky;
             }
         }
         break;
 
     case MSG_UP_BUTTON:
-        if (0 == runtime->setting.level)
+        if (0 == runtime->smartcuckoo.level)
         {
-            if (0 < runtime->setting.group)
-                runtime->setting.group --;
+            if (0 < runtime->smartcuckoo.group)
+                runtime->smartcuckoo.group --;
             else
-                runtime->setting.group = SETTING_GROUP_MAX;
+                runtime->smartcuckoo.group = SETTING_GROUP_MAX;
             goto post_set_blinky;
         }
         else
         {
-            if (SETTING_part_is_wdays(runtime->setting.part))
+            if (SETTING_part_is_wdays(runtime->smartcuckoo.part))
             {
-                runtime->setting.part --;
+                runtime->smartcuckoo.part --;
 
-                if (! SETTING_part_is_wdays(runtime->setting.part))
-                    runtime->setting.part = SETTING_WDAY_END;
+                if (! SETTING_part_is_wdays(runtime->smartcuckoo.part))
+                    runtime->smartcuckoo.part = SETTING_WDAY_END;
 
                 goto post_set_blinky;
             }
@@ -784,7 +784,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             {
                 value = 1;
 
-                if (SETTING_A_RINGTONE == runtime->setting.part)
+                if (SETTING_A_RINGTONE == runtime->smartcuckoo.part)
                     goto ringtone_inc_dec;
                 else
                     goto datetime_inc_dec;
@@ -793,22 +793,22 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         break;
 
     case MSG_DOWN_BUTTON:
-        if (0 == runtime->setting.level)
+        if (0 == runtime->smartcuckoo.level)
         {
-            if (SETTING_GROUP_MAX > runtime->setting.group)
-                runtime->setting.group ++;
+            if (SETTING_GROUP_MAX > runtime->smartcuckoo.group)
+                runtime->smartcuckoo.group ++;
             else
-                runtime->setting.group = 0;
+                runtime->smartcuckoo.group = 0;
             goto post_set_blinky;
         }
         else
         {
-            if (SETTING_part_is_wdays(runtime->setting.part))
+            if (SETTING_part_is_wdays(runtime->smartcuckoo.part))
             {
-                runtime->setting.part ++;
+                runtime->smartcuckoo.part ++;
 
-                if (! SETTING_part_is_wdays(runtime->setting.part))
-                    runtime->setting.part = SETTING_WDAY_START;
+                if (! SETTING_part_is_wdays(runtime->smartcuckoo.part))
+                    runtime->smartcuckoo.part = SETTING_WDAY_START;
 
                 goto post_set_blinky;
             }
@@ -816,7 +816,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             {
                 value = -1;
 
-                if (SETTING_A_RINGTONE == runtime->setting.part)
+                if (SETTING_A_RINGTONE == runtime->smartcuckoo.part)
                     goto ringtone_inc_dec;
                 else
                     goto datetime_inc_dec;
@@ -825,24 +825,24 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         break;
 
     case MSG_LEFT_BUTTON:
-        if (0 == runtime->setting.level)
+        if (0 == runtime->smartcuckoo.level)
             goto msg_button_ok;
 
-        if (runtime->setting.part > __setting_gp[runtime->setting.group].start)
+        if (runtime->smartcuckoo.part > __setting_gp[runtime->smartcuckoo.group].start)
         {
-            if (SETTING_part_is_wdays(runtime->setting.part))
-                runtime->setting.part = SETTING_WDAY_START - 1;
-            else if (SETTING_part_is_wdays(runtime->setting.part - 1))
-                runtime->setting.part = SETTING_WDAY_START;
+            if (SETTING_part_is_wdays(runtime->smartcuckoo.part))
+                runtime->smartcuckoo.part = SETTING_WDAY_START - 1;
+            else if (SETTING_part_is_wdays(runtime->smartcuckoo.part - 1))
+                runtime->smartcuckoo.part = SETTING_WDAY_START;
             else
-                runtime->setting.part --;
+                runtime->smartcuckoo.part --;
         }
         else
-            runtime->setting.part = __setting_gp[runtime->setting.group].end;
+            runtime->smartcuckoo.part = __setting_gp[runtime->smartcuckoo.group].end;
 
-        if (SETTING_A_RINGTONE == runtime->setting.part)
+        if (SETTING_A_RINGTONE == runtime->smartcuckoo.part)
         {
-            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
             VOICE_play_ringtone(moment->ringtone_id);
@@ -850,22 +850,22 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         goto post_set_blinky;
 
     case MSG_RIGHT_BUTTON:
-        if (0 == runtime->setting.level)
+        if (0 == runtime->smartcuckoo.level)
             goto msg_button_ok;
 
-        if (runtime->setting.part < __setting_gp[runtime->setting.group].end)
+        if (runtime->smartcuckoo.part < __setting_gp[runtime->smartcuckoo.group].end)
         {
-            if (SETTING_part_is_wdays(runtime->setting.part))
-                runtime->setting.part = SETTING_WDAY_END + 1;
+            if (SETTING_part_is_wdays(runtime->smartcuckoo.part))
+                runtime->smartcuckoo.part = SETTING_WDAY_END + 1;
             else
-                runtime->setting.part ++;
+                runtime->smartcuckoo.part ++;
         }
         else
-            runtime->setting.part = __setting_gp[runtime->setting.group].start;
+            runtime->smartcuckoo.part = __setting_gp[runtime->smartcuckoo.group].start;
 
-        if (SETTING_A_RINGTONE == runtime->setting.part)
+        if (SETTING_A_RINGTONE == runtime->smartcuckoo.part)
         {
-            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+            struct CLOCK_moment_t *moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
 
             mplayer_stop();
             VOICE_play_ringtone(moment->ringtone_id);
@@ -886,7 +886,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
     ringtone_inc_dec:
         mplayer_stop();
 
-        moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+        moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
         if (0 < value)
             moment->ringtone_id = (uint8_t)VOICE_next_ringtone(moment->ringtone_id);
         else
@@ -901,15 +901,15 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         struct CLOCK_moment_t *moment;
 
     datetime_inc_dec:
-        if (SETTING_ALARM_1_GROUP <= runtime->setting.group &&
-            SETTING_ALARM_4_GROUP >= runtime->setting.group)
+        if (SETTING_ALARM_1_GROUP <= runtime->smartcuckoo.group &&
+            SETTING_ALARM_4_GROUP >= runtime->smartcuckoo.group)
         {
-            moment = CLOCK_get_alarm(runtime->setting.group - SETTING_ALARM_1_GROUP);
+            moment = CLOCK_get_alarm(runtime->smartcuckoo.group - SETTING_ALARM_1_GROUP);
         }
         else
             moment = NULL;
 
-        switch (runtime->setting.part)
+        switch (runtime->smartcuckoo.part)
         {
         default:
             moment = NULL;
@@ -940,10 +940,10 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
             RTC_minute_add(value);
             break;
         case SETTING_HOUR_FORMT:
-            if (HFMT_12 == setting.locale.hfmt)
-                setting.locale.hfmt = HFMT_24;
+            if (HFMT_12 == smartcuckoo.locale.hfmt)
+                smartcuckoo.locale.hfmt = HFMT_24;
             else
-                setting.locale.hfmt = HFMT_12;
+                smartcuckoo.locale.hfmt = HFMT_12;
             break;
 
         case SETTING_A_HOUR:
@@ -955,7 +955,7 @@ static void MSG_common_key_setting(struct PANEL_runtime_t *runtime, enum PANEL_m
         }
 
         if (NULL != moment)
-            runtime->setting.alarm_is_modified = true;
+            runtime->smartcuckoo.alarm_is_modified = true;
 
         mqueue_postv(runtime->mqd, MSG_ALIVE, 0, 0);
     }
@@ -979,14 +979,14 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     case MSG_LEFT_BUTTON:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = NOISE_prev(true);
+            smartcuckoo.last_noise_id = NOISE_prev(true);
             goto panel_sel_noise;
         }
         break;
     case MSG_RIGHT_BUTTON:
         if (NOISE_is_playing())
         {
-            setting.last_noise_id = NOISE_next(true);
+            smartcuckoo.last_noise_id = NOISE_next(true);
             goto panel_sel_noise;
         }
         break;
@@ -1006,7 +1006,7 @@ static void MSG_common_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     panel_sel_noise:
         tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
         PANEL_attr_unset_flags(&runtime->panel_attr, PANEL_PERCENT);
-        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.last_noise_id);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)smartcuckoo.last_noise_id);
 
         SETTING_defer_save(runtime);
     }
@@ -1025,28 +1025,28 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
 
     case MSG_VOLUME_INC:
         volume = AUDIO_renderer_inc_volume();
-        if (volume != setting.media_volume)
+        if (volume != smartcuckoo.media_volume)
         {
-            setting.media_volume = volume;
+            smartcuckoo.media_volume = volume;
             modified = true;
         }
         break;
 
     case MSG_VOLUME_DEC:
         volume = AUDIO_renderer_dec_volume();
-        if (volume != setting.media_volume)
+        if (volume != smartcuckoo.media_volume)
         {
-            setting.media_volume = volume;
+            smartcuckoo.media_volume = volume;
             modified = true;
         }
         break;
     }
 
-    if (! runtime->setting.en)
+    if (! runtime->smartcuckoo.en)
     {
         tmp_content_start(runtime, SETTING_GROUP_MIN, PANEL_HUMIDITY, 0);
 
-        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)setting.media_volume);
+        PANEL_attr_set_humidity(&runtime->panel_attr, (int8_t)smartcuckoo.media_volume);
         PANEL_attr_set_flags(&runtime->panel_attr, PANEL_PERCENT);
         PANEL_update(&runtime->panel_attr);
     }
@@ -1113,7 +1113,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 MSG_ioext(runtime);         // => MSG_BUTTON_xxx
                 break;
             case MSG_SNOOZE_BUTTON:
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                     MSG_common_key_setting(runtime, msg->msgid);
                 else
                     MSG_button_snooze(runtime);
@@ -1131,7 +1131,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
             case MSG_DOWN_BUTTON:
             case MSG_LEFT_BUTTON:
             case MSG_RIGHT_BUTTON:
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                     MSG_common_key_setting(runtime, msg->msgid);
                 else
                     MSG_common_key(runtime, msg->msgid);
@@ -1144,7 +1144,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 
             case MSG_VOLUME_INC:
             #if defined(PANEL_B)        // volume inc => up
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                     MSG_common_key_setting(runtime, MSG_DOWN_BUTTON);
                 else
             #endif
@@ -1153,7 +1153,7 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 
             case MSG_VOLUME_DEC:
             #if defined(PANEL_B)        // volume dec => down
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                     MSG_common_key_setting(runtime, MSG_UP_BUTTON);
                 else
             #endif
@@ -1162,10 +1162,10 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
 
         #ifdef PANEL_B  // PANEL B only
             case MSG_ALM1_BUTTON:
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                 {
-                    runtime->setting.level = __setting_gp[SETTING_ALARM_1_GROUP].level;
-                    runtime->setting.group = SETTING_ALARM_1_GROUP;
+                    runtime->smartcuckoo.level = __setting_gp[SETTING_ALARM_1_GROUP].level;
+                    runtime->smartcuckoo.group = SETTING_ALARM_1_GROUP;
                     MSG_set_blinky(runtime);
                 }
                 else
@@ -1176,10 +1176,10 @@ static void *MSG_dispatch_thread(struct PANEL_runtime_t *runtime)
                 }
                 break;
             case MSG_ALM2_BUTTON:
-                if (runtime->setting.en)
+                if (runtime->smartcuckoo.en)
                 {
-                    runtime->setting.level = __setting_gp[SETTING_ALARM_2_GROUP].level;
-                    runtime->setting.group = SETTING_ALARM_2_GROUP;
+                    runtime->smartcuckoo.level = __setting_gp[SETTING_ALARM_2_GROUP].level;
+                    runtime->smartcuckoo.group = SETTING_ALARM_2_GROUP;
                     MSG_set_blinky(runtime);
                 }
                 else
@@ -1347,16 +1347,16 @@ static void IrDA_callback(struct IrDA_nec_t *irda, bool repeat, struct PANEL_run
 
 static void setting_done(struct PANEL_runtime_t *runtime)
 {
-    runtime->setting.en = false;
+    runtime->smartcuckoo.en = false;
 
-    if (runtime->setting.is_modified)
+    if (runtime->smartcuckoo.is_modified)
     {
-        runtime->setting.is_modified = false;
+        runtime->smartcuckoo.is_modified = false;
         NVM_set(NVM_SETTING, &setting, sizeof(setting));
     }
-    if (runtime->setting.alarm_is_modified)
+    if (runtime->smartcuckoo.alarm_is_modified)
     {
-        runtime->setting.alarm_is_modified = false;
+        runtime->smartcuckoo.alarm_is_modified = false;
         CLOCK_update_alarms();
     }
 
@@ -1399,10 +1399,10 @@ static void tmp_content_disable(struct PANEL_runtime_t *runtime)
 
 static void setting_defore_store_cb(struct PANEL_runtime_t *runtime)
 {
-    if (runtime->setting.is_modified)
+    if (runtime->smartcuckoo.is_modified)
     {
         NVM_set(NVM_SETTING, &setting, sizeof(setting));
-        runtime->setting.is_modified = false;
+        runtime->smartcuckoo.is_modified = false;
     }
 }
 
@@ -1410,6 +1410,6 @@ void SETTING_defer_save(struct PANEL_runtime_t *runtime)
 {
     static timeout_t timeo = TIMEOUT_INITIALIZER(360000, (void *)setting_defore_store_cb, 0);
 
-    runtime->setting.is_modified = true;
+    runtime->smartcuckoo.is_modified = true;
     timeout_start(&timeo, runtime);
 }

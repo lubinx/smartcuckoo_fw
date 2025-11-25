@@ -69,22 +69,20 @@
 /***************************************************************************
  *  @def
  ***************************************************************************/
-    struct SMARTCUCKOO_setting_t
+    struct SMARTCUCKOO_t
     {
+        bytebool_t alarm_is_on; // REVIEW: has no hardware switcher
         uint8_t media_volume;
         uint8_t dim;
-        bytebool_t alarm_is_on; // REVIEW: has no hardware switcher
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;
-
-        char pwr_noise[96];     // REVIEW: for shell pwr command
     };
 
 /***************************************************************************
  *  @public
  ***************************************************************************/
-    extern struct SMARTCUCKOO_setting_t setting;
+    extern struct SMARTCUCKOO_t smartcuckoo;
 
 /***************************************************************************
  *  c++

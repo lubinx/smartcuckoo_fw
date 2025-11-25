@@ -20,10 +20,10 @@
 #endif
 
 #ifndef BATT_FULL_MV
-    #pragma GCC error "not defined BATT_FULL_MV";
+    #pragma GCC error "not defined BATT_FULL_MV");
 #endif
 #ifndef BATT_HINT_MV
-    #pragma GCC error "not defined BATT_HINT_MV for hint low battery";
+    #pragma GCC error "not defined BATT_HINT_MV for hint low battery");
 #endif
 
 /****************************************************************************
@@ -35,27 +35,27 @@
 /****************************************************************************
  *  @public
  ****************************************************************************/
-struct SMARTCUCKOO_setting_t setting;
+struct SMARTCUCKOO_t smartcuckoo;
 
 bool CLOCK_alarm_switch_is_on(void)
 {
-    return setting.alarm_is_on;
+    return smartcuckoo.alarm_is_on;
 }
 
 enum LOCALE_dfmt_t LOCALE_dfmt(void)
 {
-    if (DFMT_DEFAULT == setting.locale.dfmt)
+    if (DFMT_DEFAULT == smartcuckoo.locale.dfmt)
         return VOICE_get_default_dfmt();
     else
-        return setting.locale.dfmt;
+        return smartcuckoo.locale.dfmt;
 }
 
 enum LOCALE_hfmt_t LOCALE_hfmt(void)
 {
-    if (DFMT_DEFAULT == setting.locale.dfmt)
+    if (DFMT_DEFAULT == smartcuckoo.locale.dfmt)
         return VOICE_get_default_hfmt();
     else
-        return setting.locale.hfmt;
+        return smartcuckoo.locale.hfmt;
 }
 
 /****************************************************************************
@@ -190,7 +190,7 @@ int main(void)
         },
     NULL);
 
-    DISKIO_init(&sdmmc_diskio, 48);
+    DISKIO_init(&sdmmc_diskio, 64);
     FAT_attr_init(&fat, &sdmmc_diskio);
     SDMMC_attr_init(&sdmmc, 3300, 0, &sdmmc_diskio);
 

@@ -103,8 +103,8 @@ static void SHELL_register(void)
                     return EINVAL;
 
                 AUDIO_set_volume_percent((uint8_t)volume);
-                setting.media_volume = (uint8_t)volume;
-                NVM_set(NVM_SETTING, sizeof(setting), &setting);
+                smartcuckoo.media_volume = (uint8_t)volume;
+                NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
                 // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
                 if (AUDIO_renderer_is_idle())
@@ -318,24 +318,24 @@ static int SHELL_locale(struct UCSH_env *env)
         {
             char *end_ptr = env->argv[1];
             int id = strtol(env->argv[1], &end_ptr, 10);
-            int16_t old_voice_id = setting.voice_sel_id;
+            int16_t old_voice_id = smartcuckoo.voice_sel_id;
 
             if ('\0' == *end_ptr)
-                setting.voice_sel_id = VOICE_select_voice((int16_t)id);
+                smartcuckoo.voice_sel_id = VOICE_select_voice((int16_t)id);
             else
-                setting.voice_sel_id = VOICE_select_lcid(env->argv[1]);
+                smartcuckoo.voice_sel_id = VOICE_select_lcid(env->argv[1]);
 
-            if (old_voice_id != setting.voice_sel_id)
+            if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                NVM_set(NVM_SETTING, sizeof(setting), &setting);
+                NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
                 VOICE_say_setting(VOICE_SETTING_DONE);
             }
         }
-        UCSH_printf(env, "voice_id=%d\n", setting.voice_sel_id);
+        UCSH_printf(env, "voice_id=%d\n", smartcuckoo.voice_sel_id);
     }
     else if (1 == env->argc)
     {
-        UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", setting.voice_sel_id);
+        UCSH_printf(env, "{\"voice_id\": %d,\n\"locales\": [\n", smartcuckoo.voice_sel_id);
         VOICE_enum_avail_locales(voice_avail_locales_callback, env);
         UCSH_puts(env, "]}\n");
     }
@@ -348,7 +348,7 @@ static int SHELL_hfmt(struct UCSH_env *env)
     if (2 == env->argc)
     {
         unsigned fmt = strtoul(env->argv[1], NULL, 10);
-        enum LOCALE_hfmt_t old_fmt = setting.locale.hfmt;
+        enum LOCALE_hfmt_t old_fmt = smartcuckoo.locale.hfmt;
 
         switch (fmt)
         {
@@ -358,19 +358,19 @@ static int SHELL_hfmt(struct UCSH_env *env)
         case HFMT_DEFAULT:
         case HFMT_12:
         case HFMT_24:
-            setting.locale.hfmt = (LOCALE_hfmt_t)fmt;
+            smartcuckoo.locale.hfmt = (LOCALE_hfmt_t)fmt;
             break;
         }
 
         if (old_fmt != fmt)
-            NVM_set(NVM_SETTING, sizeof(setting), &setting);
+            NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     if (1)
     {
-        enum LOCALE_hfmt_t fmt = setting.locale.hfmt;
+        enum LOCALE_hfmt_t fmt = smartcuckoo.locale.hfmt;
         if (HFMT_DEFAULT == fmt)
             fmt = VOICE_get_default_hfmt();
 
@@ -384,7 +384,7 @@ static int SHELL_dfmt(struct UCSH_env *env)
     if (2 == env->argc)
     {
         unsigned fmt = strtoul(env->argv[1], NULL, 10);
-        enum LOCALE_dfmt_t old_fmt = setting.locale.dfmt;
+        enum LOCALE_dfmt_t old_fmt = smartcuckoo.locale.dfmt;
 
         switch (fmt)
         {
@@ -395,19 +395,19 @@ static int SHELL_dfmt(struct UCSH_env *env)
         case DFMT_DDMMYY:
         case DFMT_YYMMDD:
         case DFMT_MMDDYY:
-            setting.locale.dfmt = (enum LOCALE_dfmt_t)fmt;
+            smartcuckoo.locale.dfmt = (enum LOCALE_dfmt_t)fmt;
             break;
         }
 
         if (old_fmt != fmt)
-            NVM_set(NVM_SETTING, sizeof(setting), &setting);
+            NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
     if (1)
     {
-        enum LOCALE_dfmt_t fmt = setting.locale.dfmt;
+        enum LOCALE_dfmt_t fmt = smartcuckoo.locale.dfmt;
         if (DFMT_DEFAULT == fmt)
             fmt =  VOICE_get_default_dfmt();
 

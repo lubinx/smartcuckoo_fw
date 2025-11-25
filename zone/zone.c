@@ -120,19 +120,19 @@ void PERIPHERAL_init(void)
     zone.batt_last_ts = time(NULL);
 
     // load settings
-    if (0 != NVM_get(NVM_SETTING, sizeof(setting), &setting))
+    if (0 != NVM_get(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo))
     {
-        memset(&setting, 0, sizeof(setting));
+        memset(&smartcuckoo, 0, sizeof(smartcuckoo));
 
-        setting.alarm_is_on = true;
-        setting.media_volume = 30;
+        smartcuckoo.alarm_is_on = true;
+        smartcuckoo.media_volume = 30;
     }
 
-    setting.media_volume = MIN(50, setting.media_volume);
-    AUDIO_set_volume_percent(setting.media_volume);
-    AUDIO_renderer_supress_master_value(70);
+    smartcuckoo.media_volume = MIN(50, smartcuckoo.media_volume);
+    AUDIO_set_volume_percent(smartcuckoo.media_volume);
+    AUDIO_renderer_supress_master_value(80);
 
-    setting.voice_sel_id = VOICE_init(setting.voice_sel_id, &setting.locale);
+    smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
     MQUEUE_INIT(&zone.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     PERIPHERAL_gpio_intr_enable();
@@ -264,7 +264,7 @@ static void SETTING_timeout_save(struct zone_runtime_t *runtime)
     if (runtime->setting_alarm_is_modified)
         CLOCK_update_alarms();
     if (runtime->setting_is_modified)
-        NVM_set(NVM_SETTING, sizeof(setting), &setting);
+        NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
 static void SETTING_volume_adj_intv(uint32_t button_pin)
@@ -291,7 +291,7 @@ static void SETTING_volume_adj_intv(uint32_t button_pin)
         timeout_stop(&zone.volume_adj_intv);
 
         zone.setting_is_modified = true;
-        setting.media_volume = AUDIO_get_volume_percent();
+        smartcuckoo.media_volume = AUDIO_get_volume_percent();
         timeout_start(&zone.setting_timeo, &zone);
     }
 }
@@ -350,11 +350,11 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
         uint8_t percent = BATT_mv_level(mv);
         if (50 > percent)
         {
-            percent = MIN(setting.media_volume, MAX(25, percent));
+            percent = MIN(smartcuckoo.media_volume, MAX(25, percent));
             AUDIO_set_volume_percent(percent);
         }
         else
-            AUDIO_set_volume_percent(setting.media_volume);
+            AUDIO_set_volume_percent(smartcuckoo.media_volume);
     }
     */
 
@@ -455,31 +455,31 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             break;
 
         case VOICE_SETTING_LANG:
-            old_voice_id = setting.voice_sel_id;
+            old_voice_id = smartcuckoo.voice_sel_id;
             if (PIN_VOLUME_UP_BUTTON == button)
-                setting.voice_sel_id = VOICE_next_locale();
+                smartcuckoo.voice_sel_id = VOICE_next_locale();
             else
-                setting.voice_sel_id = VOICE_prev_locale();
+                smartcuckoo.voice_sel_id = VOICE_prev_locale();
 
-            if (old_voice_id != setting.voice_sel_id)
+            if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                setting.locale.dfmt = DFMT_DEFAULT;
-                setting.locale.hfmt = HFMT_DEFAULT;
+                smartcuckoo.locale.dfmt = DFMT_DEFAULT;
+                smartcuckoo.locale.hfmt = HFMT_DEFAULT;
                 runtime->setting_is_modified = true;
             }
             break;
 
         case VOICE_SETTING_VOICE:
-            old_voice_id = setting.voice_sel_id;
+            old_voice_id = smartcuckoo.voice_sel_id;
             if (PIN_VOLUME_UP_BUTTON == button)
-                setting.voice_sel_id = VOICE_next_voice();
+                smartcuckoo.voice_sel_id = VOICE_next_voice();
             else
-                setting.voice_sel_id = VOICE_prev_voice();
+                smartcuckoo.voice_sel_id = VOICE_prev_voice();
 
-            if (old_voice_id != setting.voice_sel_id)
+            if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                setting.locale.dfmt = DFMT_DEFAULT;
-                setting.locale.hfmt = HFMT_DEFAULT;
+                smartcuckoo.locale.dfmt = DFMT_DEFAULT;
+                smartcuckoo.locale.hfmt = HFMT_DEFAULT;
                 runtime->setting_is_modified = true;
             }
             break;
@@ -601,8 +601,9 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
 static void MSG_mynoise_toggle(bool step)
 {
-    int startting = false;
+    mplayer_stop();
 
+    int startting = false;
     if (step)
     {
         if (MYNOISE_is_running())
@@ -631,10 +632,13 @@ static void MSG_mynoise_toggle(bool step)
 
     if (startting)
     {
-        int err = 0;
+        int err;
 
         if (BATT_HINT_MV > PERIPHERAL_batt_ad_sync())
+        {
+            err = EBATT;
             VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
+        }
         else
             err = MYNOISE_start();
 
@@ -644,20 +648,19 @@ static void MSG_mynoise_toggle(bool step)
     else
     {
         #ifndef NDEBUG
-            if (! MYNOISE_is_running())
-                LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
+            LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
         #endif
     }
 }
 
 static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
 {
-    setting.alarm_is_on = ! setting.alarm_is_on;
+    smartcuckoo.alarm_is_on = ! smartcuckoo.alarm_is_on;
 
     runtime->setting_is_modified = true;
     timeout_start(&zone.setting_timeo, &zone);
 
-    if (setting.alarm_is_on)
+    if (smartcuckoo.alarm_is_on)
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON);
     else
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
@@ -902,15 +905,78 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 /****************************************************************************
  *  @private: auto power & shell
  ****************************************************************************/
+struct ZONE_auto_power_t
+{
+    struct CLOCK_moment_t moment;
+    char noise[96];
+};
+
 static void PWR_callback(void)
 {
+    /*
+    static __VOLATILE_DATA char scenario[80];
+    char *theme = NULL;
+
+    if (1)
+    {
+        char *ptr = smartcuckoo.pwr_noise;
+        while (*ptr && '.' != *ptr) ptr ++;
+
+        if ('.' == *ptr)
+        {
+            memset(scenario, 0, sizeof(scenario));
+
+            strncpy(scenario, smartcuckoo.pwr_noise,  MIN(sizeof(scenario), (unsigned)(ptr - smartcuckoo.pwr_noise)));
+            theme = ptr + 1;
+        }
+        else
+            scenario[0] = '\0';
+    }
+
+    if (NULL == theme)
+        MYNOISE_start();
+    else
+        MYNOISE_start_scenario(scenario, theme);
+    */
 }
 
 static int PWR_shell_command(struct UCSH_env *env)
 {
     if (1 == env->argc)
     {
-        // int pos = 0;
+        int pos = 0;
+        pos += sprintf(env->buf + pos, "{");
+
+        struct CLOCK_moment_t const *moment = CLOCK_get_app_specify_moment();
+        if (1)
+        {
+            pos += sprintf(env->buf + pos, ",\n\t\"enabled\": %s", moment->enabled ? "true" : "false");
+            pos += sprintf(env->buf + pos, ",\n\t\"mtime\" :%d", moment->mtime);
+            pos += sprintf(env->buf + pos, ",\n\t\"wdays\": %d", moment->wdays);
+            pos += sprintf(env->buf + pos, ",\n\t\"mdate\": %" PRIu32, moment->mdate);
+            // pos += sprintf(env->buf + pos, ",\n\t\"noise\": \"%s\"", smartcuckoo.pwr_noise);
+            // pos += sprintf(env->buf + pos, ",\n\t\"off_seconds\": %" PRIu32, smartcuckoo.pwr_off_seconds);
+        }
+
+        pos += sprintf(env->buf + pos, "\n}\n");
+        writebuf(env->fd, env->buf, (unsigned)pos);
+
+        return 0;
     }
-    return ENOSYS;
+
+    int err = 0;
+    char *noise = NULL;
+    struct CLOCK_moment_t moment = {0};
+
+    if (4 == env->argc)
+    {
+        noise = env->argv[1];
+        moment.wdays = 0x7F;
+    }
+
+    if (NULL != noise)
+    {
+    }
+
+    return err;
 }

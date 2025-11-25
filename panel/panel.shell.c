@@ -20,7 +20,7 @@ void PANEL_shell_register(void)
  ****************************************************************************/
 static int SHELL_env_sensor(struct UCSH_env *env)
 {
-    enum TMPR_unit_t unit = setting.locale.tmpr_unit;
+    enum TMPR_unit_t unit = smartcuckoo.locale.tmpr_unit;
 
     if (2 == env->argc)
     {
@@ -29,11 +29,11 @@ static int SHELL_env_sensor(struct UCSH_env *env)
         else if (0 == strncasecmp("FAHRENHEIT", env->argv[1], 3))
             unit = FAHRENHEIT;
 
-        if (unit != setting.locale.tmpr_unit)
+        if (unit != smartcuckoo.locale.tmpr_unit)
         {
-            setting.locale.tmpr_unit = unit;
+            smartcuckoo.locale.tmpr_unit = unit;
 
-            panel.setting.is_modified = true;
+            panel.smartcuckoo.is_modified = true;
             SETTING_defer_save(&panel);
         }
     }
@@ -61,13 +61,13 @@ static int SHELL_dim(struct UCSH_env *env)
         unsigned dim = strtoul(env->argv[1], NULL, 10);
         dim = dim > 100 ? 100 : dim;
 
-        if (setting.dim != dim)
+        if (smartcuckoo.dim != dim)
         {
-            setting.dim = (uint8_t)dim;
-            PANEL_set_dim(&panel.panel_attr, setting.dim, panel.light_sens.percent);
+            smartcuckoo.dim = (uint8_t)dim;
+            PANEL_set_dim(&panel.panel_attr, smartcuckoo.dim, panel.light_sens.percent);
         }
     }
 
-    UCSH_printf(env, "dim=%d\n", setting.dim);
+    UCSH_printf(env, "dim=%d\n", smartcuckoo.dim);
     return 0;
 }

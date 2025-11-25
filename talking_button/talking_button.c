@@ -73,19 +73,19 @@ void PERIPHERAL_init(void)
     talking_button.batt_last_ts = time(NULL);
 
     // load settings
-    if (0 != NVM_get(NVM_SETTING, sizeof(setting), &setting))
+    if (0 != NVM_get(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo))
     {
-        memset(&setting, 0, sizeof(setting));
-        setting.media_volume = 75;
+        memset(&smartcuckoo, 0, sizeof(smartcuckoo));
+        smartcuckoo.media_volume = 75;
     }
 
-    setting.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+    smartcuckoo.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
     alaramsw_timeout_callback(NULL);
 
-    setting.media_volume = MAX(50, setting.media_volume);
-    AUDIO_set_volume_percent(setting.media_volume);
+    smartcuckoo.media_volume = MAX(50, smartcuckoo.media_volume);
+    AUDIO_set_volume_percent(smartcuckoo.media_volume);
 
-    setting.voice_sel_id = VOICE_init(setting.voice_sel_id, &setting.locale);
+    smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
     GPIO_intr_enable(PIN_VOICE_BUTTON, TRIG_BY_FALLING_EDGE,
         (void *)GPIO_button_callback, &talking_button);
@@ -178,13 +178,13 @@ static void alaramsw_timeout_callback(void *arg)
     GPIO_setdir_input_pp(PULL_UP, PIN_ALARM_SW, true);
     {
         usleep(100);
-        setting.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
+        smartcuckoo.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
     }
     GPIO_setdir_input_pp(HIGH_Z, PIN_ALARM_SW, true);
 
     if (NULL != arg && BATT_EMPTY_MV < PERIPHERAL_batt_volt())
     {
-        if (setting.alarm_is_on)
+        if (smartcuckoo.alarm_is_on)
             VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON);
         else
             VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
@@ -235,11 +235,11 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         uint8_t percent = BATT_mv_level(mv);
         if (50 > percent)
         {
-            percent = MIN(setting.media_volume, MAX(25, percent));
+            percent = MIN(smartcuckoo.media_volume, MAX(25, percent));
             AUDIO_set_volume_percent(percent);
         }
         else
-            AUDIO_set_volume_percent(setting.media_volume);
+            AUDIO_set_volume_percent(smartcuckoo.media_volume);
     }
 
     PMU_power_lock();
@@ -280,25 +280,25 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
             break;
 
         case VOICE_SETTING_LANG:
-            old_voice_id = setting.voice_sel_id;
-            setting.voice_sel_id = VOICE_next_locale();
+            old_voice_id = smartcuckoo.voice_sel_id;
+            smartcuckoo.voice_sel_id = VOICE_next_locale();
 
-            if (old_voice_id != setting.voice_sel_id)
+            if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                setting.locale.dfmt = DFMT_DEFAULT;
-                setting.locale.hfmt = HFMT_DEFAULT;
+                smartcuckoo.locale.dfmt = DFMT_DEFAULT;
+                smartcuckoo.locale.hfmt = HFMT_DEFAULT;
                 runtime->setting_is_modified = true;
             }
             break;
 
         case VOICE_SETTING_VOICE:
-            old_voice_id = setting.voice_sel_id;
-            setting.voice_sel_id = VOICE_next_voice();
+            old_voice_id = smartcuckoo.voice_sel_id;
+            smartcuckoo.voice_sel_id = VOICE_next_voice();
 
-            if (old_voice_id != setting.voice_sel_id)
+            if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                setting.locale.dfmt = DFMT_DEFAULT;
-                setting.locale.hfmt = HFMT_DEFAULT;
+                smartcuckoo.locale.dfmt = DFMT_DEFAULT;
+                smartcuckoo.locale.hfmt = HFMT_DEFAULT;
                 runtime->setting_is_modified = true;
             }
             break;
@@ -454,7 +454,7 @@ static void MSG_setting_timeout(struct talking_button_runtime_t *runtime)
         if (runtime->setting_alarm_is_modified)
             CLOCK_update_alarms();
         if (runtime->setting_is_modified)
-            NVM_set(NVM_SETTING, sizeof(setting), &setting);
+            NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
