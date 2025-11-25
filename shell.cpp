@@ -206,7 +206,7 @@ void SHELL_bootstrap(void)
 
     #if 0 == PMU_EM2_EN
         __VOLATILE_DATA static struct UCSH_env UART_sh_env;
-        __VOLATILE_DATA static uint32_t UART_sh_stack[2048 - sizeof(struct UCSH_env)];
+        __VOLATILE_DATA static uint32_t UART_sh_stack[(2048 - sizeof(struct UCSH_env)) / sizeof(uint32_t)];
 
         UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
     #else
