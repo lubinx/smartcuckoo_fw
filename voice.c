@@ -888,7 +888,7 @@ static unsigned VOICE_get_voice_count(void)
 /***************************************************************************
  * @implements
  ***************************************************************************/
-int16_t VOICE_init(int16_t voice_id, struct LOCALE_t *locale)
+int16_t VOICE_init(int16_t voice_id, struct LOCALE_t const *locale)
 {
     locale_ptr = locale;
 

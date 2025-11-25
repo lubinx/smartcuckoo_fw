@@ -36,7 +36,7 @@
 __BEGIN_DECLS
 
 extern __attribute__((nothrow))
-    int16_t VOICE_init(int16_t voice_id, struct LOCALE_t *locale);
+    int16_t VOICE_init(int16_t voice_id, struct LOCALE_t const *locale);
 
 extern __attribute__((nothrow))
     void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg);
