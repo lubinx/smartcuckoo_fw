@@ -3,6 +3,7 @@
 /****************************************************************************
  *  @def
  ****************************************************************************/
+#define ZONE_APWR_NVM_ID                NVM_DEFINE_KEY('A', 'P', 'W', 'R')
 #define MQUEUE_PAYLOAD_SIZE             (4)
 #define MQUEUE_LENGTH                   (8)
 
@@ -41,6 +42,13 @@ struct zone_runtime_t
     time_t batt_last_ts;
 };
 
+struct ZONE_auto_power_t
+{
+    char noise[96];
+    uint32_t off_seconds;
+};
+static_assert(sizeof(struct ZONE_auto_power_t) < NVM_MAX_OBJECT_SIZE, "");
+
 /****************************************************************************
  *  @private
  ****************************************************************************/
@@ -51,8 +59,8 @@ static void SETTING_volume_adj_intv(uint32_t button_pin);
 static void SETTING_timeout_save(struct zone_runtime_t *runtime);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
-static void PWR_callback(void);
-static int PWR_shell_command(struct UCSH_env *env);
+static void APWR_callback(void);
+static int APWR_shell(struct UCSH_env *env);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -181,8 +189,8 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
-    CLOCK_app_specify_callback(PWR_callback);
-    UCSH_REGISTER("pwr", PWR_shell_command);
+    CLOCK_app_specify_callback(APWR_callback);
+    UCSH_REGISTER("apwr", APWR_shell);
 
     MYNOISE_init();
     MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
@@ -905,43 +913,44 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 /****************************************************************************
  *  @private: auto power & shell
  ****************************************************************************/
-struct ZONE_auto_power_t
+static void APWR_callback(void)
 {
-    struct CLOCK_moment_t moment;
-    char noise[96];
-};
-
-static void PWR_callback(void)
-{
-    /*
     static __VOLATILE_DATA char scenario[80];
-    char *theme = NULL;
 
-    if (1)
+    struct ZONE_auto_power_t *nvm_ptr = NVM_get_ptr(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr));
+    if (NULL != nvm_ptr)
     {
-        char *ptr = smartcuckoo.pwr_noise;
-        while (*ptr && '.' != *ptr) ptr ++;
-
-        if ('.' == *ptr)
+        char *theme = NULL;
+        if (1)
         {
-            memset(scenario, 0, sizeof(scenario));
+            char *ptr = nvm_ptr->noise;
+            while (*ptr && '.' != *ptr) ptr ++;
 
-            strncpy(scenario, smartcuckoo.pwr_noise,  MIN(sizeof(scenario), (unsigned)(ptr - smartcuckoo.pwr_noise)));
-            theme = ptr + 1;
+            if ('.' == *ptr)
+            {
+                memset(scenario, 0, sizeof(scenario));
+
+                strncpy(scenario, nvm_ptr->noise,  MIN(sizeof(scenario), (unsigned)(ptr -nvm_ptr->noise)));
+                theme = ptr + 1;
+            }
+            else
+                scenario[0] = '\0';
         }
-        else
-            scenario[0] = '\0';
-    }
 
-    if (NULL == theme)
-        MYNOISE_start();
-    else
-        MYNOISE_start_scenario(scenario, theme);
-    */
+        int err;
+        if (NULL == theme)
+            err = MYNOISE_start();
+        else
+            err = MYNOISE_start_scenario(scenario, theme);
+
+        if (0 == err && 0 != nvm_ptr->off_seconds)
+            MYNOISE_power_off_seconds(nvm_ptr->off_seconds);
+    }
 }
 
-static int PWR_shell_command(struct UCSH_env *env)
+static int APWR_shell(struct UCSH_env *env)
 {
+    struct ZONE_auto_power_t *nvm_ptr = NVM_get_ptr(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr));
     if (1 == env->argc)
     {
         int pos = 0;
@@ -954,8 +963,8 @@ static int PWR_shell_command(struct UCSH_env *env)
             pos += sprintf(env->buf + pos, ",\n\t\"mtime\" :%d", moment->mtime);
             pos += sprintf(env->buf + pos, ",\n\t\"wdays\": %d", moment->wdays);
             pos += sprintf(env->buf + pos, ",\n\t\"mdate\": %" PRIu32, moment->mdate);
-            // pos += sprintf(env->buf + pos, ",\n\t\"noise\": \"%s\"", smartcuckoo.pwr_noise);
-            // pos += sprintf(env->buf + pos, ",\n\t\"off_seconds\": %" PRIu32, smartcuckoo.pwr_off_seconds);
+            pos += sprintf(env->buf + pos, ",\n\t\"noise\": \"%s\"", NULL == nvm_ptr ? "" : nvm_ptr->noise);
+            pos += sprintf(env->buf + pos, ",\n\t\"off_seconds\": %" PRIu32, NULL == nvm_ptr ? 0 : nvm_ptr->off_seconds);
         }
 
         pos += sprintf(env->buf + pos, "\n}\n");
@@ -964,19 +973,92 @@ static int PWR_shell_command(struct UCSH_env *env)
         return 0;
     }
 
-    int err = 0;
-    char *noise = NULL;
+    nvm_ptr = malloc(sizeof(*nvm_ptr));
+    if (NULL == nvm_ptr)
+        return ENOMEM;
+
+    memset(nvm_ptr, 0, sizeof(*nvm_ptr));
+    NVM_get(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr);
+
     struct CLOCK_moment_t moment = {0};
-
-    if (4 == env->argc)
+    int err = 0;
+    /*
+        apwr enable / disable
+    */
+    if (2 == env->argc)
     {
-        noise = env->argv[1];
-        moment.wdays = 0x7F;
+        if (0 == strcasecmp("disable", env->argv[2]))
+            moment.enabled = false;
+        else if (0 == strcasecmp("enable", env->argv[2]))
+            moment.enabled = true;
+        else
+            err = EINVAL;
+    }
+    /*
+        apwr "noise" mtime [wdays=<mask> / mdate=<mdate>] [off_seconds=<seconds>]
+    */
+    else
+    {
+        strncpy(nvm_ptr->noise, env->argv[1], sizeof(nvm_ptr->noise));
+        moment.enabled = true;
+
+        if (1)
+        {
+            int mtime = strtol(env->argv[2], NULL, 10);
+            if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
+                err = EINVAL;
+            else
+                moment.mtime = (int16_t)mtime;
+        }
+
+        if (0 == err)
+        {
+            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+            if (wday_str)
+            {
+                int wdays = strtol(wday_str, NULL, 10);
+                if (0 == wdays)
+                    wdays = strtol(wday_str, NULL, 16);
+                if (0x7F < wdays)
+                    err = EINVAL;
+
+                moment.wdays = (int8_t)wdays;
+            }
+            else
+                moment.wdays = 0x7F;
+        }
+        if (0 == err)
+        {
+            char *mdate_str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
+            if (mdate_str)
+                nvm_ptr->off_seconds = strtoul(mdate_str, NULL, 10);
+        }
+
+        if (0 == err)
+        {
+            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
+            if (mdate_str)
+            {
+                moment.mdate = strtol(mdate_str, NULL, 10);
+                moment.wdays = 0;
+            }
+            else
+                moment.mdate = 0;
+        }
+        // REVIEW: least one of alarm date or week days masks must set
+        if (0 == moment.wdays && 0 == moment.wdays)
+            err = EINVAL;
     }
 
-    if (NULL != noise)
+    if (0 == strlen(nvm_ptr->noise))
+        err = EINVAL;
+
+    if (0 == err)
     {
+        if (0 == (err = NVM_set(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr)))
+            CLOCK_store_app_specify_moment(&moment);
     }
 
+    free(nvm_ptr);
     return err;
 }
