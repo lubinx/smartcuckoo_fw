@@ -313,13 +313,13 @@ void CLOCK_schedule(time_t ts)
             int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
 
             if (mdate == moment->mdate)
-                goto app_moment_callback;
+                goto app_moment_check_mtime;
         }
-
-        if (mtime == moment->mtime)
+        else
         {
-        app_moment_callback:
-            clock_runtime.app_specify_moment_callback();
+        app_moment_check_mtime:
+            if (mtime == moment->mtime && 8 > dt.tm_sec)
+                clock_runtime.app_specify_moment_callback();
         }
     }
 
@@ -741,7 +741,7 @@ static int SHELL_clock(struct UCSH_env *env)
             if (0 != strcasecmp(env->argv[2], "on") && 0 != strcasecmp(env->argv[2], "off"))
                 err = EINVAL;
 
-            nvm->dst.en = 0 == strcasecmp(env->argv[1], "on");
+            nvm->dst.en = 0 == strcasecmp(env->argv[2], "on");
         }
         else
         {
