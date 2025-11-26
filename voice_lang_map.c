@@ -82,26 +82,6 @@ static struct VOICE_t const __voices[] =
         .default_dfmt = DFMT_MMDDYY,
         .default_hfmt = HFMT_12,
     },
-    /*
-    {
-        .lcid = "en-CA",
-        .folder = "/voice/enCAf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    {
-        .lcid = "en-CA",
-        .folder = "/voice/enCAm/",
-        .voice = "Unknown",
-        .tempo = 120,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    */
     {
         .lcid = "ja-JP",
         .folder = "/voice/jaJPf/",
@@ -142,26 +122,6 @@ static struct VOICE_t const __voices[] =
         .default_dfmt = DFMT_DDMMYY,
         .default_hfmt = HFMT_24,
     },
-    /*
-    {
-        .lcid = "fr-CA",
-        .folder = "/voice/frCAf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    {
-        .lcid = "fr-CA",
-        .folder = "/voice/frCAm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    */
     {
         .lcid = "es-ES",
         .folder = "/voice/esESf/",
@@ -430,80 +390,6 @@ static struct VOICE_t const __voices[] =
         .default_dfmt = DFMT_DDMMYY,
         .default_hfmt = HFMT_24,
     },
-    /*
-    {
-        .lcid = "nl-NL",
-        .folder = "/voice/nlNLf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "nl-NL",
-        .folder = "/voice/nlNLm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "pl-PL",
-        .folder = "/voice/plPLm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "pl-PL",
-        .folder = "/voice/plPLm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "ro-RO",
-        .folder = "/voice/roROf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "ro-RO",
-        .folder = "/voice/roROm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "ru-RU",
-        .folder = "/voice/ruRUf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    {
-        .lcid = "ru-RU",
-        .folder = "/voice/ruRUm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_24,
-    },
-    */
     {
         .lcid = "th-TH",
         .folder = "/voice/thTHf/",
@@ -652,26 +538,6 @@ static struct VOICE_t const __voices[] =
         .default_hfmt = HFMT_24,
         .fixed_gr = HFMT_24,
     },
-    /*
-    {
-        .lcid = "ar-SA",
-        .folder = "/voice/arSAf/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    {
-        .lcid = "ar-SA",
-        .folder = "/voice/arSAm/",
-        .voice = "Unknown",
-        .tempo = 100,
-        .tail_idx = -1,
-        .default_dfmt = DFMT_DDMMYY,
-        .default_hfmt = HFMT_12,
-    },
-    */
 };
 static uint8_t __voice_exists[(lengthof(__voices) + 7) / 8];
 
