@@ -959,7 +959,7 @@ static int APWR_shell(struct UCSH_env *env)
         struct CLOCK_moment_t const *moment = CLOCK_get_app_specify_moment();
         if (1)
         {
-            pos += sprintf(env->buf + pos, ",\n\t\"enabled\": %s", moment->enabled ? "true" : "false");
+            pos += sprintf(env->buf + pos, "\n\t\"enabled\": %s", moment->enabled ? "true" : "false");
             pos += sprintf(env->buf + pos, ",\n\t\"mtime\" :%d", moment->mtime);
             pos += sprintf(env->buf + pos, ",\n\t\"wdays\": %d", moment->wdays);
             pos += sprintf(env->buf + pos, ",\n\t\"mdate\": %" PRIu32, moment->mdate);

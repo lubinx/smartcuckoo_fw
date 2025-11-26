@@ -628,7 +628,7 @@ static int SHELL_clock(struct UCSH_env *env)
 
             pos += sprintf(env->buf + pos, ",\n\t\"dst\":\n\t{");
             pos += sprintf(env->buf + pos, "\n\t\t\"enabled\": %s", nvm_ptr->dst.en ? "true" : "false");
-            pos += sprintf(env->buf + pos, "\n\t\t\"activated\": %s", clock_runtime.dst_active ? "true" : "false");
+            pos += sprintf(env->buf + pos, ",\n\t\t\"activated\": %s", clock_runtime.dst_active ? "true" : "false");
             pos += sprintf(env->buf + pos, ",\n\t\t\"minute_offset\": %d", nvm_ptr->dst.minute_offset);
 
             if (flush_bytes < pos)
