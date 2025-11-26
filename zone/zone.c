@@ -987,9 +987,9 @@ static int APWR_shell(struct UCSH_env *env)
     */
     if (2 == env->argc)
     {
-        if (0 == strcasecmp("disable", env->argv[2]))
+        if (0 == strcasecmp("off", env->argv[1]))
             moment.enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
+        else if (0 == strcasecmp("on", env->argv[1]))
             moment.enabled = true;
         else
             err = EINVAL;
@@ -1048,10 +1048,10 @@ static int APWR_shell(struct UCSH_env *env)
         // REVIEW: least one of alarm date or week days masks must set
         if (0 == moment.wdays && 0 == moment.wdays)
             err = EINVAL;
-    }
 
-    if (0 == strlen(nvm_ptr->noise))
-        err = EINVAL;
+        if (0 == strlen(nvm_ptr->noise))
+            err = EINVAL;
+    }
 
     if (0 == err)
     {
