@@ -248,11 +248,19 @@ int16_t VOICE_init(int16_t voice_id, struct LOCALE_t const *locale)
 
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)
 {
-    for (unsigned idx = 0; idx < lengthof(__voices); idx ++)
+    struct VOICE_t const *locale;
+
+    for (int idx = 0; idx < (int)lengthof(__voices); idx ++)
     {
-        struct VOICE_t const *locale = &__voices[idx];
-        callback((int)idx, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, idx == lengthof(__voices) - 1);
+        locale = &__voices[idx];
+
+        if (VOICE_exists(idx))
+            callback((int)idx, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, false);
+
+        if (! VOICE_exists(idx + 1))
+            break;
     }
+    callback(locale - __voices, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, true);
 }
 
 enum LOCALE_dfmt_t VOICE_get_default_dfmt()
