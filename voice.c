@@ -260,7 +260,8 @@ void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg
         if (! VOICE_exists(idx + 1))
             break;
     }
-    callback(locale - __voices, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, true);
+    if (VOICE_exists(locale - __voices))
+        callback(locale - __voices, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, true);
 }
 
 enum LOCALE_dfmt_t VOICE_get_default_dfmt()
