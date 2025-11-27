@@ -4,6 +4,7 @@
 
 #include "smartcuckoo.h"
 #include "ble.hpp"
+#include "flash.h"
 
 #if defined(PANEL_B) || defined(PANEL_C)
     #include "panel_private.h"
@@ -18,6 +19,7 @@ extern "C" int SHELL_ota(struct UCSH_env *env);         // shell_ota.c
 /*****************************************************************************/
 /** @internal
 *****************************************************************************/
+static int SHELL_batt(struct UCSH_env *env);
 static int SHELL_locale(struct UCSH_env *env);
 static int SHELL_dfmt(struct UCSH_env *env);
 static int SHELL_hfmt(struct UCSH_env *env);
@@ -41,17 +43,7 @@ static void SHELL_register(void)
     // upgrade
     UCSH_REGISTER("ota",        SHELL_ota);
 
-    UCSH_REGISTER("batt",
-        [](struct UCSH_env *env)
-        {
-            int batt = PERIPHERAL_batt_ad_sync();
-
-            if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
-                UCSH_printf(env, "batt=%u\n", batt);
-            else
-                UCSH_printf(env, "batt=%u\n", BATT_mv_level(batt));
-            return 0;
-        });
+    UCSH_REGISTER("batt",       SHELL_batt);
 
     UCSH_REGISTER("rtcc",
         [](struct UCSH_env *env)
@@ -292,6 +284,34 @@ void UCSH_prompt_handle(struct UCSH_env *env)
 /*****************************************************************************/
 /** @internal
 *****************************************************************************/
+static int SHELL_batt(struct UCSH_env *env)
+{
+    if (3 == env->argc && 0 == strcasecmp("shift", env->argv[1]))
+    {
+        int shift = strtol(env->argv[2], NULL, 10);
+        FLASH_set_batt_shift(shift);
+
+        goto echo_batt_mv;
+    }
+    else if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
+    {
+        int batt;
+        int shift;
+
+    echo_batt_mv:
+        batt  = PERIPHERAL_batt_ad_sync();
+        shift = FLASH_get_batt_shift();
+        UCSH_printf(env, "batt=%u shift: %d\n", batt, shift);
+    }
+    else
+    {
+        int batt  = PERIPHERAL_batt_ad_sync();
+        UCSH_printf(env, "batt=%u\n", BATT_mv_level(batt));
+    }
+
+    return 0;
+}
+
 static void voice_avail_locales_callback(int id, char const *lcid,
     enum LOCALE_dfmt_t dfmt, enum LOCALE_hfmt_t hfmt,  char const *voice, void *arg, bool final)
 {
