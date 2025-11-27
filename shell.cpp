@@ -44,10 +44,12 @@ static void SHELL_register(void)
     UCSH_REGISTER("batt",
         [](struct UCSH_env *env)
         {
+            int batt = PERIPHERAL_batt_ad_sync();
+
             if (2 == env->argc && 0 == strcasecmp("mv", env->argv[1]))
-                UCSH_printf(env, "batt=%u\n", PERIPHERAL_batt_volt());
+                UCSH_printf(env, "batt=%u\n", batt);
             else
-                UCSH_printf(env, "batt=%u\n", BATT_mv_level(PERIPHERAL_batt_volt()));
+                UCSH_printf(env, "batt=%u\n", BATT_mv_level(batt));
             return 0;
         });
 

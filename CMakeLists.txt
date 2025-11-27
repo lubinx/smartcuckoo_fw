@@ -71,6 +71,7 @@ build_target(zone
         "zone/*.c"
     DEFINITIONS
         NVM_TAG="zone"
+        ADC_VREF=0
     DEPENDENCIES
         "lc3"
     OUTPUT_DIR

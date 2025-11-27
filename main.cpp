@@ -75,21 +75,21 @@ static struct PMU_attr_t pmu_attr;
 #endif
 
 #ifdef PIN_BATT_ADC
-    struct batt_ad_t
+struct batt_ad_t
+{
+    int value;
+
+    struct
     {
-        int value;
-
-        struct
-        {
-            int cumul;
-            int cumul_count;
-        };
-
-        struct ADC_attr_t attr;
-        struct timeout_t lowbatt_intv;
+        int cumul;
+        int cumul_count;
     };
 
-    static struct batt_ad_t batt_ad;
+    struct ADC_attr_t attr;
+    struct timeout_t lowbatt_intv;
+};
+
+static struct batt_ad_t batt_ad;
 #endif
 
 void SDIO_power_ctrl(struct SDMMC_implement_t const *sdio_impl, bool en)
@@ -152,26 +152,19 @@ int main(void)
 
     #ifdef PIN_BATT_ADC
         ADC_attr_init(&batt_ad.attr, 3000, [](int volt, int raw, void *arg)-> void
+        {
+            ARG_UNUSED(raw);
+            struct batt_ad_t *ad = (struct batt_ad_t *)arg;
+            batt_ad.cumul += volt;
+
+            if (5 == ++ ad->cumul_count)
             {
-                struct batt_ad_t *ad = (struct batt_ad_t *)arg;
-
-            #ifdef DEBUG
-                ARG_UNUSED(volt, raw);
-                ad->value = BATT_FULL_MV;
+                ad->value = ad->cumul / ad->cumul_count;
+                ad->cumul = 0;
+                ad->cumul_count = 0;
                 ADC_stop_convert(&ad->attr);
-            #else
-                ARG_UNUSED(raw);
-                batt_ad.cumul += volt;
-
-                if (5 == ++ ad->cumul_count)
-                {
-                    ad->value = ad->cumul / ad->cumul_count;
-                    ad->cumul = 0;
-                    ad->cumul_count = 0;
-                    ADC_stop_convert(&ad->attr);
-                }
-            #endif
-            });
+            }
+        });
 
         ADC_attr_positive_input(&batt_ad.attr, PIN_BATT_ADC);
         ADC_attr_scale(&batt_ad.attr, BATT_AD_NUMERATOR, BATT_AD_DENOMINATOR);
@@ -308,6 +301,8 @@ uint16_t PERIPHERAL_batt_ad_sync(void)
     PERIPHERAL_batt_ad_start();
 
     while (0 == batt_ad.value) pthread_yield();
+
+    LOG_info("batt: %d mV", batt_ad.value);
     return (uint16_t)batt_ad.value;
 #else
     return 0;

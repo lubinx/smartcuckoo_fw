@@ -5,7 +5,7 @@
 #include <gpio.h>
 
     #define PROJECT_NAME                "smartcuckoo"
-    #define PROJECT_VERSION             VERSION_INFO(1, 0, 1)
+    #define PROJECT_VERSION             VERSION_INFO(1, 0, 2)
     #define PROJECT_ID                  "zone"
 
 // console
@@ -27,7 +27,7 @@
     #define BATT_EMPTY_MV               (3000)
 
     // batt adc interval
-    #define BATT_AD_INTV_SECONDS        (60)
+    #define BATT_AD_INTV_SECONDS        (900)
 
 // USB
     #define USB_PINS                    PA12, PA11

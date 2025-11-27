@@ -1056,7 +1056,10 @@ static int APWR_shell(struct UCSH_env *env)
     if (0 == err)
     {
         if (0 == (err = NVM_set(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr)))
+        {
             CLOCK_store_app_specify_moment(&moment);
+            VOICE_say_setting(VOICE_SETTING_DONE);
+        }
     }
 
     free(nvm_ptr);
