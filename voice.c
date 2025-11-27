@@ -248,19 +248,27 @@ int16_t VOICE_init(int16_t voice_id, struct LOCALE_t const *locale)
 
 void VOICE_enum_avail_locales(VOICE_avail_locales_callback_t callback, void *arg)
 {
-    struct VOICE_t const *locale;
+    struct VOICE_t const *locale = NULL;
+    int idx = 0;
 
-    for (int idx = 0; idx < (int)lengthof(__voices); idx ++)
+    while (idx < (int)lengthof(__voices))
     {
-        locale = &__voices[idx];
-
         if (VOICE_exists(idx))
-            callback((int)idx, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, false);
+            locale = &__voices[idx];
+        idx ++;
 
-        if (! VOICE_exists(idx + 1))
-            break;
+        while (idx < (int)lengthof(__voices))
+        {
+            if (VOICE_exists(idx))
+                break;
+            else
+                idx ++;
+        }
+
+        if (idx < (int)lengthof(__voices))
+            callback(locale - __voices, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, false);
     }
-    if (VOICE_exists(locale - __voices))
+    if (NULL != locale)
         callback(locale - __voices, locale->lcid, locale->default_dfmt, locale->default_hfmt, locale->voice, arg, true);
 }
 
