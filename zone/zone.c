@@ -138,7 +138,7 @@ void PERIPHERAL_init(void)
 
     smartcuckoo.media_volume = MIN(50, smartcuckoo.media_volume);
     AUDIO_set_volume_percent(smartcuckoo.media_volume);
-    AUDIO_renderer_supress_master_value(80);
+    AUDIO_renderer_supress_master_value(85);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
