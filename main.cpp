@@ -142,7 +142,7 @@ int main(void)
 
     #ifdef I2S_PINS
         I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
-        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 350);
+        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 200);
 
         I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
     #else
@@ -159,7 +159,7 @@ int main(void)
 
             if (5 == ++ ad->cumul_count)
             {
-                ad->value = ad->cumul / ad->cumul_count;
+                ad->value = ad->cumul / ad->cumul_count + ADC_get_batt_shift();
                 ad->cumul = 0;
                 ad->cumul_count = 0;
                 ADC_stop_convert(&ad->attr);
