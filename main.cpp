@@ -142,7 +142,7 @@ int main(void)
 
     #ifdef I2S_PINS
         I2S_attr_init(&i2s_attr, I2S2, I2S_PINS);
-        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 200);
+        I2S_amplifier_pin(&i2s_attr, AMPIFIER_PIN, AMPIFIER_EN_PULL, 250);
 
         I2S_attr_init_codec(&i2s_attr, ES8156_codec, I2S_CODEC_I2C_PINS);
     #else

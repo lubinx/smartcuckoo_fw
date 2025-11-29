@@ -71,7 +71,9 @@
  ***************************************************************************/
     struct SMARTCUCKOO_t
     {
-        bytebool_t alarm_is_on; // REVIEW: has no hardware switcher
+        // REVIEW: has no hardware switcher
+        bytebool_t alarm_is_on;
+
         uint8_t media_volume;
         uint8_t dim;
 
