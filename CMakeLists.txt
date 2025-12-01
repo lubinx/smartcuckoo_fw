@@ -5,6 +5,7 @@ project(smartcuckoo)
 set(COMMON_SRCS
     "datetime_utils.c"
     "clock.c"
+    "noise_apwr.c"
     "voice.c"
     # main
     "main.cpp"
@@ -16,10 +17,15 @@ set(COMMON_SRCS
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND COMMON_SRCS
         # "ultracore/src/core/retarget.c"
-        # "ultracore/src/audio/wavefile.c"
+        "ultracore/src/audio/wavefile.c"
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
+        "ultracore/src/audio/codec/es8156.c"
+        "ultracore/src/hw/common_i2s.c"
+        # "ultracore/src/core/diskio.c"
+        # "ultracore/src/core/filesystem.c"
+        # "ultracore/src/fs/fat.c"
     )
 endif()
 
@@ -42,7 +48,6 @@ build_target(talking_button
     OUTPUT_DIR
         "../_bin"
 )
-# generate talking_button.gz
 add_custom_command(TARGET talking_button
     POST_BUILD
     COMMAND
@@ -77,7 +82,6 @@ build_target(zone
     OUTPUT_DIR
         "../_bin"
 )
-# generate talking_button.gz
 add_custom_command(TARGET zone
     POST_BUILD
     COMMAND
@@ -86,6 +90,40 @@ add_custom_command(TARGET zone
         gzip -f "zone.bin"
     COMMAND
         stat -c "zone.bin.gz: %s" "zone.bin.gz"
+    COMMAND
+        echo --------------------------------------------------
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
+    VERBATIM
+)
+
+build_target(midas
+    DEVICE
+        "N32WB452LE"
+    DRIVER
+        "../n32x45x"
+    CONFIG_DIR
+        "midas/config"
+    INCLUDE_DIRS
+        "."
+    SRCS
+        ${COMMON_SRCS}
+        "midas/*.c"
+    DEFINITIONS
+        NVM_TAG="midas"
+        ADC_VREF=0
+    DEPENDENCIES
+        "lc3"
+    OUTPUT_DIR
+        "../_bin"
+)
+add_custom_command(TARGET midas
+    POST_BUILD
+    COMMAND
+        ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/midas.elf" "midas.bin"
+    COMMAND
+        gzip -f "midas.bin"
+    COMMAND
+        stat -c "midas.bin.gz: %s" "midas.bin.gz"
     COMMAND
         echo --------------------------------------------------
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"

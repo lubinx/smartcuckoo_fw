@@ -34,6 +34,7 @@
 #include "limits.h"
 
 #include "clock.h"
+#include "noise_apwr.h"
 #include "voice.h"
 
 #include "N32X45X_config.h"
