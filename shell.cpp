@@ -318,10 +318,10 @@ static void voice_avail_locales_callback(int id, char const *lcid,
     struct UCSH_env *env = (struct UCSH_env *)arg;
     int pos = 0;
 
-    pos += sprintf(env->buf + pos, "\t{\"id\":%d, ", id);
-    pos += sprintf(env->buf + pos, "\"lcid\":\"%s\", ", lcid);
-    pos += sprintf(env->buf + pos, "\"dfmt\":\"%d\", ", dfmt);
-    pos += sprintf(env->buf + pos, "\"hfmt\":\"%d\", ", hfmt);
+    pos += sprintf(env->buf + pos, "\t{\"id\": %d, ", id);
+    pos += sprintf(env->buf + pos, "\"lcid\": \"%s\", ", lcid);
+    pos += sprintf(env->buf + pos, "\"dfmt\": %d, ", dfmt);
+    pos += sprintf(env->buf + pos, "\"hfmt\": %d, ", hfmt);
     pos += sprintf(env->buf + pos,  "\"voice\":\"%s\"}", voice);
 
     if (final)
