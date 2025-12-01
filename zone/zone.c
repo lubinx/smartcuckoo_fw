@@ -951,6 +951,8 @@ static void APWR_callback(void)
 static int APWR_shell(struct UCSH_env *env)
 {
     struct ZONE_auto_power_t *nvm_ptr = NVM_get_ptr(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr));
+    int err = 0;
+
     if (1 == env->argc)
     {
         int pos = 0;
@@ -969,99 +971,106 @@ static int APWR_shell(struct UCSH_env *env)
 
         pos += sprintf(env->buf + pos, "\n}\n");
         writebuf(env->fd, env->buf, (unsigned)pos);
-
-        return 0;
     }
-
-    nvm_ptr = malloc(sizeof(*nvm_ptr));
-    if (NULL == nvm_ptr)
-        return ENOMEM;
-
-    memset(nvm_ptr, 0, sizeof(*nvm_ptr));
-    NVM_get(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr);
-
-    struct CLOCK_moment_t moment = {0};
-    int err = 0;
-    /*
-        apwr enable / disable
-    */
-    if (2 == env->argc)
-    {
-        if (0 == strcasecmp("off", env->argv[1]))
-            moment.enabled = false;
-        else if (0 == strcasecmp("on", env->argv[1]))
-            moment.enabled = true;
-        else
-            err = EINVAL;
-    }
-    /*
-        apwr "noise" mtime [wdays=<mask> / mdate=<mdate>] [off_seconds=<seconds>]
-    */
     else
     {
-        strncpy(nvm_ptr->noise, env->argv[1], sizeof(nvm_ptr->noise));
-        moment.enabled = true;
+        nvm_ptr = malloc(sizeof(*nvm_ptr));
+        if (NULL == nvm_ptr)
+            return ENOMEM;
 
+        memset(nvm_ptr, 0, sizeof(*nvm_ptr));
+        NVM_get(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr);
+
+        struct CLOCK_moment_t moment;
         if (1)
         {
-            int mtime = strtol(env->argv[2], NULL, 10);
-            if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
+            struct CLOCK_moment_t const *ptr = CLOCK_get_app_specify_moment();
+            if (NULL != ptr)
+                moment = *ptr;
+            else
+                memset(&moment, 0, sizeof(moment));
+        }
+        /*
+            apwr enable / disable
+        */
+        if (2 == env->argc)
+        {
+            if (0 == strcasecmp("off", env->argv[1]))
+                moment.enabled = false;
+            else if (0 == strcasecmp("on", env->argv[1]))
+                moment.enabled = true;
+            else
                 err = EINVAL;
-            else
-                moment.mtime = (int16_t)mtime;
         }
-
-        if (0 == err)
+        /*
+            apwr "noise" mtime [wdays=<mask> / mdate=<mdate>] [off_seconds=<seconds>]
+        */
+        else
         {
-            char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
-            if (wday_str)
+            strncpy(nvm_ptr->noise, env->argv[1], sizeof(nvm_ptr->noise));
+            moment.enabled = true;
+
+            if (1)
             {
-                int wdays = strtol(wday_str, NULL, 10);
-                if (0 == wdays)
-                    wdays = strtol(wday_str, NULL, 16);
-                if (0x7F < wdays)
+                int mtime = strtol(env->argv[2], NULL, 10);
+                if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
                     err = EINVAL;
-
-                moment.wdays = (int8_t)wdays;
+                else
+                    moment.mtime = (int16_t)mtime;
             }
-            else
-                moment.wdays = 0x7F;
-        }
-        if (0 == err)
-        {
-            char *mdate_str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
-            if (mdate_str)
-                nvm_ptr->off_seconds = strtoul(mdate_str, NULL, 10);
-        }
 
-        if (0 == err)
-        {
-            char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
-            if (mdate_str)
+            if (0 == err)
             {
-                moment.mdate = strtol(mdate_str, NULL, 10);
-                moment.wdays = 0;
+                char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+                if (wday_str)
+                {
+                    int wdays = strtol(wday_str, NULL, 10);
+                    if (0 == wdays)
+                        wdays = strtol(wday_str, NULL, 16);
+                    if (0x7F < wdays)
+                        err = EINVAL;
+
+                    moment.wdays = (int8_t)wdays;
+                }
+                else
+                    moment.wdays = 0x7F;
             }
-            else
-                moment.mdate = 0;
+            if (0 == err)
+            {
+                char *mdate_str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
+                if (mdate_str)
+                    nvm_ptr->off_seconds = strtoul(mdate_str, NULL, 10);
+            }
+
+            if (0 == err)
+            {
+                char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
+                if (mdate_str)
+                {
+                    moment.mdate = strtol(mdate_str, NULL, 10);
+                    moment.wdays = 0;
+                }
+                else
+                    moment.mdate = 0;
+            }
+            // REVIEW: least one of alarm date or week days masks must set
+            if (0 == moment.wdays && 0 == moment.wdays)
+                err = EINVAL;
+
+            if (0 == strlen(nvm_ptr->noise))
+                err = EINVAL;
         }
-        // REVIEW: least one of alarm date or week days masks must set
-        if (0 == moment.wdays && 0 == moment.wdays)
-            err = EINVAL;
 
-        if (0 == strlen(nvm_ptr->noise))
-            err = EINVAL;
-    }
-
-    if (0 == err)
-    {
-        if (0 == (err = NVM_set(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr)))
+        if (0 == err)
         {
-            CLOCK_store_app_specify_moment(&moment);
-            VOICE_say_setting(VOICE_SETTING_DONE);
+            if (0 == (err = NVM_set(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr), nvm_ptr)))
+            {
+                CLOCK_store_app_specify_moment(&moment);
+                VOICE_say_setting(VOICE_SETTING_DONE);
+            }
         }
-    }
 
-    free(nvm_ptr);
+        free(nvm_ptr);
+    }
     return err;
 }
