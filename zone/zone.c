@@ -123,11 +123,13 @@ void PERIPHERAL_init(void)
         memset(&smartcuckoo, 0, sizeof(smartcuckoo));
 
         smartcuckoo.alarm_is_on = true;
-        smartcuckoo.media_volume = 30;
+        smartcuckoo.volume = 30;
     }
+    if (0 == smartcuckoo.volume)
+        smartcuckoo.volume = 30;
 
-    smartcuckoo.media_volume = MIN(50, smartcuckoo.media_volume);
-    AUDIO_set_volume_percent(smartcuckoo.media_volume);
+    smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
+    AUDIO_set_volume_percent(smartcuckoo.volume);
     AUDIO_renderer_supress_master_value(75);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
@@ -288,7 +290,7 @@ static void SETTING_volume_adj_intv(uint32_t button_pin)
         timeout_stop(&zone.volume_adj_intv);
 
         zone.setting_is_modified = true;
-        smartcuckoo.media_volume = AUDIO_get_volume_percent();
+        smartcuckoo.volume = AUDIO_get_volume_percent();
         timeout_start(&zone.setting_timeo, &zone);
     }
 }
@@ -347,11 +349,11 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
         uint8_t percent = BATT_mv_level(mv);
         if (50 > percent)
         {
-            percent = MIN(smartcuckoo.media_volume, MAX(25, percent));
+            percent = MIN(smartcuckoo.volume, MAX(25, percent));
             AUDIO_set_volume_percent(percent);
         }
         else
-            AUDIO_set_volume_percent(smartcuckoo.media_volume);
+            AUDIO_set_volume_percent(smartcuckoo.volume);
     }
     */
 

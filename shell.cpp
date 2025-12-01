@@ -97,7 +97,7 @@ static void SHELL_register(void)
                     return EINVAL;
 
                 AUDIO_set_volume_percent((uint8_t)volume);
-                smartcuckoo.media_volume = (uint8_t)volume;
+                smartcuckoo.volume = (uint8_t)volume;
                 NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
                 // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);

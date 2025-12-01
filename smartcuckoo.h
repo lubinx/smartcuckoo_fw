@@ -74,9 +74,10 @@
     {
         // REVIEW: has no hardware switcher
         bytebool_t alarm_is_on;
-
-        uint8_t media_volume;
         uint8_t dim;
+
+        uint8_t volume;
+        uint8_t seprate_voice_volume;
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;
