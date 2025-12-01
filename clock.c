@@ -64,7 +64,6 @@ struct CLOCK_nvm_t
 };
 static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
 
-
 struct CLOCK_runtime_t
 {
     time_t alarm_snooze_end_ts;
@@ -73,8 +72,8 @@ struct CLOCK_runtime_t
     bytebool_t dst_active;
     int8_t alarming_idx;
 
-
-    void (* app_specify_moment_callback)(void);
+    int16_t app_specify_cb_mtime;
+    void (* app_specify_cb_moment)(void);
 };
 
 /****************************************************************************
@@ -201,7 +200,7 @@ bool CLOCK_get_dst_is_active(void)
 
 void CLOCK_app_specify_callback(void (*callback)(void))
 {
-    clock_runtime.app_specify_moment_callback = callback;
+    clock_runtime.app_specify_cb_moment = callback;
 }
 
 struct CLOCK_moment_t const * CLOCK_get_app_specify_moment(void)
@@ -243,7 +242,7 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
         current_alarm = &alarms[clock_runtime.alarming_idx];
         time_t ts_end = (mtime2time(current_alarm->mtime) + nvm_ptr->ring_seconds) % 86400;
 
-        if (ts_end < time(NULL) % 86400)
+        if (ts_end < ts % 86400)
         {
             current_alarm = NULL;
             clock_runtime.alarming_idx = -1;
@@ -299,7 +298,7 @@ void next_timeo_callback(void *arg)
 
 void CLOCK_schedule(time_t ts)
 {
-    if (NULL != clock_runtime.app_specify_moment_callback && nvm_ptr->app_specify_moment.enabled)
+    if (NULL != clock_runtime.app_specify_cb_moment && nvm_ptr->app_specify_moment.enabled)
     {
         int16_t mtime = time2mtime(ts);
 
@@ -318,8 +317,10 @@ void CLOCK_schedule(time_t ts)
         else
         {
         app_moment_check_mtime:
-            if (mtime == moment->mtime && 8 > dt.tm_sec)
-                clock_runtime.app_specify_moment_callback();
+            if (mtime == moment->mtime && mtime != clock_runtime.app_specify_cb_mtime)
+                clock_runtime.app_specify_cb_moment();
+
+            clock_runtime.app_specify_cb_mtime = mtime;
         }
     }
 
