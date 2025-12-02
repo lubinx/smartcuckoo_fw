@@ -10,6 +10,7 @@
 #include <ultracore/thread.h>
 #include <ultracore/syscon.h>
 #include <sh/ucsh.h>
+#include <hw/smart_led.h>
 
 #include <audio/renderer.h>
 #include <audio/mplayer.h>
