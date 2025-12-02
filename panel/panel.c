@@ -1056,7 +1056,7 @@ static void MSG_volume_key(struct PANEL_runtime_t *runtime, enum PANEL_message_t
     {
         int ringtone_id = -1;
 
-        for (unsigned i = 0; i < CLOCK_alarm_count(); i ++)
+        for (unsigned i = 0; i < CLOCK_alarm_max_count(); i ++)
         {
             struct CLOCK_moment_t *moment = CLOCK_get_alarm(i);
 

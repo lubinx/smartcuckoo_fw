@@ -50,6 +50,25 @@ extern __attribute__((nothrow))
     void CLOCK_init(void);
 
     /**
+     *  CLOCK_alarm_max_count()
+     *      get maxinum alarms count was supported
+    */
+extern __attribute__((nothrow, const))
+    unsigned CLOCK_alarm_max_count(void);
+
+    /**
+     *  CLOCK_get_timestamp()
+    */
+extern __attribute__((nothrow, pure))
+    time_t CLOCK_get_timestamp(void);
+
+    /**
+     *  CLOCK_update_timestamp()
+    */
+extern __attribute__((nothrow))
+    struct tm const *CLOCK_update_timestamp(time_t *ts_out);
+
+    /**
      *  CLOCK_get_dst_is_active()
     */
 extern __attribute__((nothrow, pure))
@@ -77,13 +96,6 @@ extern __attribute__((nothrow, nonnull))
     */
 extern __attribute__((nothrow, pure))
     bool CLOCK_alarm_switch_is_on(void);
-
-    /**
-     *  CLOCK_alarm_count()
-     *      get maxinum alarms count was supported
-    */
-extern __attribute__((nothrow, const))
-    unsigned CLOCK_alarm_count(void);
 
     /**
      *  CLOCK_get_alarming_idx()
@@ -116,7 +128,7 @@ extern __attribute__((nothrow))
      *  CLOCK_schedule()
     */
 extern __attribute__((nothrow))
-    void CLOCK_schedule(time_t ts);
+    void CLOCK_schedule(void);
 
     /**
      *  CLOCK_snooze() / CLOCK_dismiss()
@@ -130,13 +142,15 @@ extern __attribute__((nothrow))
     bool CLOCK_dismiss(void);
 
     /**
-     *  CLOCK_say_reminders()
+     *  CLOCK_now_say_reminders()
      *
      *  @returns
      *      reminders count
     */
 extern __attribute__((nothrow))
-    unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze);
+    unsigned CLOCK_now_say_reminders(bool ignore_snooze);
+extern __attribute__((nothrow))
+    unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze);
 
 /***************************************************************************
  * utils

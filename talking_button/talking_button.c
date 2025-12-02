@@ -19,6 +19,7 @@ struct talking_button_runtime_t
 {
     int mqd;
     clock_t voice_last_tick;
+    time_t batt_last_ts;
 
     timeout_t setting_timeo;
     timeout_t alarm_sw_timeo;
@@ -29,8 +30,6 @@ struct talking_button_runtime_t
 
     enum VOICE_setting_t setting_part;
     struct tm setting_dt;
-
-    time_t batt_last_ts;
 };
 
 /****************************************************************************
@@ -76,14 +75,14 @@ void PERIPHERAL_init(void)
     if (0 != NVM_get(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo))
     {
         memset(&smartcuckoo, 0, sizeof(smartcuckoo));
-        smartcuckoo.media_volume = 75;
+        smartcuckoo.volume = 75;
     }
 
     smartcuckoo.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
     alaramsw_timeout_callback(NULL);
 
-    smartcuckoo.media_volume = MAX(50, smartcuckoo.media_volume);
-    AUDIO_set_volume_percent(smartcuckoo.media_volume);
+    smartcuckoo.volume = MAX(50, smartcuckoo.volume);
+    AUDIO_set_volume_percent(smartcuckoo.volume);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
@@ -147,7 +146,7 @@ void mplayer_idle_callback(void)
     if (talking_button.setting)
         timeout_start(&talking_button.setting_timeo, NULL);
     else
-        CLOCK_schedule(time(NULL));
+        CLOCK_schedule();
 }
 
 /****************************************************************************
@@ -202,25 +201,20 @@ static void MSG_alive(struct talking_button_runtime_t *runtime)
     }
     else
     {
-        time_t now = time(NULL);
+        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
+            CLOCK_schedule();
 
-        if (BATT_AD_INTV_SECONDS < now - runtime->batt_last_ts)
+        if (BATT_AD_INTV_SECONDS < CLOCK_get_timestamp() - runtime->batt_last_ts)
         {
-            runtime->batt_last_ts = now;
+            runtime->batt_last_ts = CLOCK_get_timestamp();
             PERIPHERAL_batt_ad_start();
         }
-
-        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
-            CLOCK_schedule(now);
     }
 }
 
 static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 {
-    time_t now = time(NULL);
-
     PERIPHERAL_batt_ad_sync();
-    runtime->batt_last_ts = now;
 
     uint16_t mv = PERIPHERAL_batt_volt();
     LOG_info("batt %dmV", mv);
@@ -235,13 +229,14 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         uint8_t percent = BATT_mv_level(mv);
         if (50 > percent)
         {
-            percent = MIN(smartcuckoo.media_volume, MAX(25, percent));
+            percent = MIN(smartcuckoo.volume, MAX(25, percent));
             AUDIO_set_volume_percent(percent);
         }
         else
-            AUDIO_set_volume_percent(smartcuckoo.media_volume);
+            AUDIO_set_volume_percent(smartcuckoo.volume);
     }
 
+    struct tm const *dt = CLOCK_update_timestamp(&runtime->batt_last_ts);
     PMU_power_lock();
     mplayer_playlist_clear();
 
@@ -258,13 +253,13 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
         {
             runtime->voice_last_tick = clock();
 
-            VOICE_say_time_epoch(now);
-            CLOCK_say_reminders(now, true);
+            VOICE_say_time(dt);
+            CLOCK_say_reminders(dt, true);
         }
         else
         {
             runtime->voice_last_tick -= SETTING_TIMEOUT;
-            VOICE_say_date_epoch(now);
+            VOICE_say_date(dt);
         }
     }
     else

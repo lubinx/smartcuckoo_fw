@@ -66,11 +66,14 @@ static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
 
 struct CLOCK_runtime_t
 {
-    time_t alarm_snooze_end_ts;
-    time_t reminder_slient_end_ts;
+    struct tm dt;
+    time_t ts;
 
-    bytebool_t dst_active;
+    time_t ts_alarm_snooze_end;
+    time_t ts_reminder_slient_end;
+
     int8_t alarming_idx;
+    bytebool_t dst_active;
 
     int16_t app_specify_cb_mtime;
     void (* app_specify_cb_moment)(void);
@@ -193,6 +196,27 @@ void CLOCK_init(void)
     UCSH_REGISTER("rmd",        SHELL_reminder);
 }
 
+unsigned CLOCK_alarm_max_count(void)
+{
+    return lengthof(alarms);
+}
+
+time_t CLOCK_get_timestamp(void)
+{
+    return clock_runtime.ts;
+}
+
+struct tm const *CLOCK_update_timestamp(time_t *ts_out)
+{
+    time_t ts = time(NULL);
+
+    if (NULL != ts_out)
+        *ts_out = ts;
+
+    clock_runtime.ts = ts;
+    return localtime_r(&ts, &clock_runtime.dt);
+}
+
 bool CLOCK_get_dst_is_active(void)
 {
     return clock_runtime.dst_active;
@@ -224,17 +248,15 @@ int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment)
     return 0;
 }
 
-static int8_t CLOCK_peek_start_alarms(time_t ts)
+static int8_t CLOCK_peek_start_alarms(void)
 {
     if (! CLOCK_alarm_switch_is_on())
         return -1;
-    if (ts <= clock_runtime.alarm_snooze_end_ts)
+    if (clock_runtime.ts <= clock_runtime.ts_alarm_snooze_end)
         return -1;
 
-    struct tm dt;
-    localtime_r(&ts, &dt);
-
-    int16_t mtime = time2mtime(ts);
+    struct tm const *dt = &clock_runtime.dt;
+    int16_t mtime = time2mtime(clock_runtime.ts);
     struct CLOCK_moment_t const *current_alarm = NULL;
 
     if (-1 != clock_runtime.alarming_idx)
@@ -242,7 +264,7 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
         current_alarm = &alarms[clock_runtime.alarming_idx];
         time_t ts_end = (mtime2time(current_alarm->mtime) + nvm_ptr->ring_seconds) % 86400;
 
-        if (ts_end < ts % 86400)
+        if (ts_end < clock_runtime.ts % 86400)
         {
             current_alarm = NULL;
             clock_runtime.alarming_idx = -1;
@@ -257,9 +279,9 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
             continue;
 
         // matching week days mask or mdate
-        if (0 == ((1 << dt.tm_wday) & alarm->wdays))
+        if (0 == ((1 << dt->tm_wday) & alarm->wdays))
         {
-            int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+            int32_t mdate = (((dt->tm_year + 1900) * 100 + dt->tm_mon + 1) * 100 + dt->tm_mday);
 
             if (mdate != alarm->mdate)
                 continue;
@@ -284,32 +306,30 @@ static int8_t CLOCK_peek_start_alarms(time_t ts)
 
 void next_timeo_callback(void *arg)
 {
-    if (NULL == arg)
-    {
-        time_t ts = time(NULL);
-        VOICE_say_time_epoch(ts);
-    }
+    struct tm const *dt = CLOCK_update_timestamp(NULL);
 
-    if (0 == CLOCK_say_reminders(0, true))
+    if (NULL == arg)
+        VOICE_say_time(dt);
+
+    if (0 == CLOCK_say_reminders(dt, true))
         timeout_stop(&next_timeo);
     else
         timeout_start(&next_timeo, NULL);
 }
 
-void CLOCK_schedule(time_t ts)
+void CLOCK_schedule(void)
 {
+    struct tm const *dt = CLOCK_update_timestamp(NULL);
+
     if (NULL != clock_runtime.app_specify_cb_moment && nvm_ptr->app_specify_moment.enabled)
     {
-        int16_t mtime = time2mtime(ts);
-
-        struct tm dt;
-        localtime_r(&ts, &dt);
+        int16_t mtime = time2mtime(clock_runtime.ts);
         struct CLOCK_moment_t const *moment = &nvm_ptr->app_specify_moment;
 
         // matching week days mask or mdate
-        if (0 == ((1 << dt.tm_wday) & moment->wdays))
+        if (0 == ((1 << dt->tm_wday) & moment->wdays))
         {
-            int32_t mdate = (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+            int32_t mdate = (((dt->tm_year + 1900) * 100 + dt->tm_mon + 1) * 100 + dt->tm_mday);
 
             if (mdate == moment->mdate)
                 goto app_moment_check_mtime;
@@ -324,7 +344,7 @@ void CLOCK_schedule(time_t ts)
         }
     }
 
-    if (-1 != CLOCK_peek_start_alarms(ts))
+    if (-1 != CLOCK_peek_start_alarms())
     {
         timeout_stop(&next_timeo);
         return;
@@ -332,7 +352,7 @@ void CLOCK_schedule(time_t ts)
 
     if (0 != nvm_ptr->say_zero_hour_mask)
     {
-        unsigned next_zero_hour = (unsigned)((ts % 86400) / 3600 + 1) % 24;
+        unsigned next_zero_hour = (unsigned)((clock_runtime.ts % 86400) / 3600 + 1) % 24;
         int next_zero_intv = -1;
 
         if ((1U << next_zero_hour) & nvm_ptr->say_zero_hour_mask)
@@ -340,12 +360,11 @@ void CLOCK_schedule(time_t ts)
             if (0 == nvm_ptr->say_zero_hour_wdays || 0x7F == nvm_ptr->say_zero_hour_wdays)
             {
             set_next_intv:
-                next_zero_intv = 1000 * (3600 - (int)(ts % 3600));
+                next_zero_intv = 1000 * (3600 - (int)(clock_runtime.ts % 3600));
             }
             else
             {
-                struct tm const *tm = localtime(&ts);
-                if ((1U << tm->tm_wday) & nvm_ptr->say_zero_hour_wdays)
+                if ((1U << dt->tm_wday) & nvm_ptr->say_zero_hour_wdays)
                     goto set_next_intv;
             }
 
@@ -359,7 +378,7 @@ void CLOCK_schedule(time_t ts)
 
     if (! timeout_is_running(&next_timeo))
     {
-        if(0 != CLOCK_say_reminders(ts, false))
+        if(0 != CLOCK_say_reminders(dt, false))
         {
             timeout_update(&next_timeo, 1000 * nvm_ptr->reminder_intv_seconds);
             timeout_start(&next_timeo, reminders);
@@ -371,11 +390,6 @@ __attribute__((weak))
 bool CLOCK_alarm_switch_is_on(void)
 {
     return true;
-}
-
-unsigned CLOCK_alarm_count(void)
-{
-    return lengthof(alarms);
 }
 
 void CLOCK_update_alarms(void)
@@ -391,10 +405,7 @@ int8_t CLOCK_get_alarming_idx(void)
 int CLOCK_get_ringtone_id(void)
 {
     int ringtone_id = -1;
-
-    time_t ts = time(NULL);
-    struct tm dt;
-    localtime_r(&ts, &dt);
+    struct tm const *dt = CLOCK_update_timestamp(NULL);
 
     for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
     {
@@ -402,7 +413,7 @@ int CLOCK_get_ringtone_id(void)
         if (alarm->enabled || -1 == ringtone_id)
             ringtone_id = alarm->ringtone_id;
 
-        if (0 != ((1 << ((dt.tm_wday + 1) % 7)) & alarm->wdays))
+        if (0 != ((1 << ((dt->tm_wday + 1) % 7)) & alarm->wdays))
         {
             ringtone_id = alarm->ringtone_id;
             break;
@@ -457,7 +468,7 @@ static bool CLOCK_canceling(bool snooze)
     if (-1 != clock_runtime.alarming_idx)
     {
         clock_runtime.alarming_idx = -1;
-        clock_runtime.alarm_snooze_end_ts = time(NULL) + 60;
+        clock_runtime.ts_alarm_snooze_end = time(NULL) + 60;
 
         if (! mplayer_is_idle()) mplayer_stop();
         return true;
@@ -468,7 +479,7 @@ static bool CLOCK_canceling(bool snooze)
         if (timeout_is_running(&next_timeo))
         {
             timeout_stop(&next_timeo);
-            clock_runtime.reminder_slient_end_ts = time(NULL) + nvm_ptr->reminder_seconds;
+            clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
         }
 
         return false;
@@ -485,14 +496,12 @@ bool CLOCK_snooze(void)
     return CLOCK_canceling(true);
 }
 
-unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
+unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze)
 {
     unsigned reminder_count = 0;
-    struct tm dt;
-    localtime_r(&ts, &dt);
 
-    time_t ts_base = ts - ts % 86400;
-    int16_t mtime = time2mtime(ts);
+    time_t ts_base = clock_runtime.ts - clock_runtime.ts % 86400;
+    int16_t mtime = time2mtime(clock_runtime.ts);
 
     for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
     {
@@ -504,20 +513,20 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
         time_t reminder_end_ts = ts_base + mtime2time(reminder->mtime) + nvm_ptr->reminder_seconds;
 
         // matching week days mask or mdate
-        if (0 == ((1 << dt.tm_wday) & reminder->wdays))
+        if (0 == ((1 << dt->tm_wday) & reminder->wdays))
         {
             int32_t mdate =
-                (((dt.tm_year + 1900) * 100 + dt.tm_mon + 1) * 100 + dt.tm_mday);
+                (((dt->tm_year + 1900) * 100 + dt->tm_mon + 1) * 100 + dt->tm_mday);
 
             if (mdate != reminder->mdate)
                 continue;
         }
 
-        if (mtime >= reminder->mtime && ts < reminder_end_ts)
+        if (mtime >= reminder->mtime && clock_runtime.ts < reminder_end_ts)
         {
-            if (ignore_snooze || reminder_end_ts > clock_runtime.reminder_slient_end_ts)
+            if (ignore_snooze || reminder_end_ts > clock_runtime.ts_reminder_slient_end)
             {
-                if (reminder_end_ts > clock_runtime.reminder_slient_end_ts)
+                if (reminder_end_ts > clock_runtime.ts_reminder_slient_end)
                     reminder_count ++;
 
                 VOICE_play_reminder(reminder->reminder_id);
@@ -525,6 +534,12 @@ unsigned CLOCK_say_reminders(time_t ts, bool ignore_snooze)
         }
     }
     return reminder_count;
+}
+
+unsigned CLOCK_now_say_reminders(bool ignore_snooze)
+{
+    struct tm const *dt = CLOCK_update_timestamp(NULL);
+    return CLOCK_say_reminders(dt, ignore_snooze);
 }
 
 /***************************************************************************

@@ -72,12 +72,11 @@
  ***************************************************************************/
     struct SMARTCUCKOO_t
     {
-        // REVIEW: has no hardware switcher
-        bytebool_t alarm_is_on;
+        bytebool_t alarm_is_on;         // hw alram switcher
         uint8_t dim;
 
         uint8_t volume;
-        uint8_t seprate_voice_volume;
+        uint8_t volume_voice_supression;
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;

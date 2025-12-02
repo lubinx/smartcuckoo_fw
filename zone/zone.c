@@ -21,7 +21,6 @@ enum zone_message
 struct zone_runtime_t
 {
     int mqd;
-    clock_t voice_last_tick;
 
     timeout_t setting_timeo;
     timeout_t volume_adj_intv;
@@ -34,6 +33,7 @@ struct zone_runtime_t
     enum VOICE_setting_t setting_part;
     struct tm setting_dt;
 
+    clock_t voice_last_tick;
     clock_t top_button_stick;
     clock_t power_button_stick;
     clock_t prev_next_button_stick;
@@ -195,7 +195,7 @@ void mplayer_idle_callback(void)
     if (zone.setting)
         timeout_start(&zone.setting_timeo, &zone);
     else
-        CLOCK_schedule(time(NULL));
+        CLOCK_schedule();
 }
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain)
@@ -317,46 +317,19 @@ static void MSG_alive(struct zone_runtime_t *runtime)
     }
     else
     {
-        time_t now = time(NULL);
+        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
+            CLOCK_schedule();
 
-        if (BATT_AD_INTV_SECONDS < now - runtime->batt_last_ts)
+        if (BATT_AD_INTV_SECONDS < CLOCK_get_timestamp() - runtime->batt_last_ts)
         {
-            runtime->batt_last_ts = now;
+            runtime->batt_last_ts = CLOCK_get_timestamp();
             PERIPHERAL_batt_ad_start();
         }
-
-        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
-            CLOCK_schedule(now);
     }
 }
 
 static void MSG_voice_button(struct zone_runtime_t *runtime)
 {
-    /*
-    PERIPHERAL_batt_ad_sync();
-    runtime->batt_last_ts = time(NULL);
-
-    uint16_t mv = PERIPHERAL_batt_volt();
-    LOG_info("batt %dmV", mv);
-
-    if (BATT_EMPTY_MV > mv)
-    {
-        runtime->setting = false;
-        return;
-    }
-    else
-    {
-        uint8_t percent = BATT_mv_level(mv);
-        if (50 > percent)
-        {
-            percent = MIN(smartcuckoo.volume, MAX(25, percent));
-            AUDIO_set_volume_percent(percent);
-        }
-        else
-            AUDIO_set_volume_percent(smartcuckoo.volume);
-    }
-    */
-
     PMU_power_lock();
     mplayer_playlist_clear();
     CLOCK_dismiss();
@@ -367,19 +340,19 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
 
     if (! runtime->setting)
     {
-        time_t ts = time(NULL);
+        struct tm const *dt = CLOCK_update_timestamp(NULL);
 
         if (SETTING_TIMEOUT < clock() - runtime->voice_last_tick)
         {
             runtime->voice_last_tick = clock();
 
-            VOICE_say_time_epoch(ts);
-            CLOCK_say_reminders(ts, true);
+            VOICE_say_time(dt);
+            CLOCK_say_reminders(dt, true);
         }
         else
         {
             runtime->voice_last_tick -= SETTING_TIMEOUT;
-            VOICE_say_date_epoch(ts);
+            VOICE_say_date(dt);
         }
     }
 
