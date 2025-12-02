@@ -62,6 +62,35 @@
         },
       ],
       "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
+    },
+    {
+      "name": "Debug zinc",
+      "type": "cppdbg",
+      "request": "launch",
+      "miDebuggerServerAddress": "127.0.0.1:2331",
+      "program": "${workspaceFolder}/build/zinc.elf",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "${userHome}/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+      "stopAtConnect": true,
+      "postRemoteConnectCommands": [
+        {
+          "text": "set mem inaccessible-by-default off"
+        },
+        {
+          "text": "monitor reset"
+        },
+        {
+          "text": "load"
+        },
+        {
+          "text": "monitor reset"
+        },
+      ],
+      "svdPath": "${workspaceFolder}/../n32x45x/svd/N32WB452.svd",
     }
   ]
 }
