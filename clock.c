@@ -131,6 +131,19 @@ int get_dst_offset(struct tm *tm)
 }
 
 /****************************************************************************
+ *  @implements: rtc
+ ****************************************************************************/
+void RTC_updated_callback(time_t ts)
+{
+    struct tm const *dt = localtime_r(&ts, &clock_runtime.dt);
+
+    if (ts != clock_runtime.ts)
+        CLOCK_update_display_callback(dt);
+
+    clock_runtime.ts = ts;
+}
+
+/****************************************************************************
  *  @implements
  ****************************************************************************/
 void CLOCK_init(void)
@@ -158,6 +171,8 @@ void CLOCK_init(void)
         LOG_info("%04d/%02d/%02d %02d:%02d:%02d",
             dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday,
             dt.tm_hour, dt.tm_min, dt.tm_sec);
+
+        CLOCK_update_display_callback(&dt);
     }
 
     clock_runtime.alarming_idx = -1;
@@ -206,6 +221,12 @@ time_t CLOCK_get_timestamp(void)
     return clock_runtime.ts;
 }
 
+__attribute__((weak))
+void CLOCK_update_display_callback(struct tm const *dt)
+{
+    ARG_UNUSED(dt);
+}
+
 struct tm const *CLOCK_update_timestamp(time_t *ts_out)
 {
     time_t ts = time(NULL);
@@ -213,8 +234,13 @@ struct tm const *CLOCK_update_timestamp(time_t *ts_out)
     if (NULL != ts_out)
         *ts_out = ts;
 
+    struct tm const *dt = localtime_r(&ts, &clock_runtime.dt);
+
+    if (ts != clock_runtime.ts)
+        CLOCK_update_display_callback(dt);
+
     clock_runtime.ts = ts;
-    return localtime_r(&ts, &clock_runtime.dt);
+    return dt;
 }
 
 bool CLOCK_get_dst_is_active(void)
@@ -304,7 +330,7 @@ static int8_t CLOCK_peek_start_alarms(void)
         return -1;
 }
 
-void next_timeo_callback(void *arg)
+static void next_timeo_callback(void *arg)
 {
     struct tm const *dt = CLOCK_update_timestamp(NULL);
 

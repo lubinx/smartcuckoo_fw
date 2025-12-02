@@ -75,6 +75,21 @@ extern __attribute__((nothrow, pure))
     bool CLOCK_get_dst_is_active(void);
 
     /**
+     *  CLOCK_update_display_callback()
+    */
+extern __attribute__((nothrow))
+    void CLOCK_update_display_callback(struct tm const *dt);
+
+ /***************************************************************************
+ * @def: scheduler
+ ***************************************************************************/
+extern __attribute__((nothrow))
+    void CLOCK_schedule(void);
+
+/***************************************************************************
+ * @def: app specify callback
+ ***************************************************************************/
+    /**
      *  CLOCK_app_specify_callback()
     */
 extern __attribute__((nothrow, nonnull))
@@ -88,6 +103,9 @@ extern __attribute__((nothrow, pure))
 extern __attribute__((nothrow, nonnull))
     int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment);
 
+ /***************************************************************************
+ * @def: alarms & reminders
+ ***************************************************************************/
     /**
      *  CLOCK_alarm_switch_is_on()
      *
@@ -123,12 +141,6 @@ extern __attribute__((nothrow, pure))
     */
 extern __attribute__((nothrow))
     void CLOCK_update_alarms(void);
-
-    /**
-     *  CLOCK_schedule()
-    */
-extern __attribute__((nothrow))
-    void CLOCK_schedule(void);
 
     /**
      *  CLOCK_snooze() / CLOCK_dismiss()
