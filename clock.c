@@ -84,9 +84,7 @@ struct CLOCK_runtime_t
  ****************************************************************************/
 static struct timeout_t next_timeo;
 static void next_timeo_callback(void *arg);
-
 static struct CLOCK_runtime_t clock_runtime = {0};
-static struct CLOCK_nvm_t const *nvm_ptr;
 
 static struct CLOCK_moment_t alarms[ALARM_COUNT];
 static struct CLOCK_moment_t reminders[ALARM_COUNT];
@@ -101,6 +99,8 @@ static int SHELL_reminder(struct UCSH_env *env);
  ****************************************************************************/
 int get_timezone_offset(void)
 {
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+
     if (NULL == nvm_ptr)
         return 0;
     else
@@ -109,6 +109,8 @@ int get_timezone_offset(void)
 
 int get_dst_offset(struct tm *tm)
 {
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+
     if (NULL == nvm_ptr)
         return 0;
 
@@ -148,6 +150,28 @@ void RTC_updated_callback(time_t ts)
  ****************************************************************************/
 void CLOCK_init(void)
 {
+    struct CLOCK_nvm_t const *nvm_ptr;
+    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr))))
+    {
+        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+        if (NULL == nvm)
+        {
+            __BREAK_IFDBG();
+            NVIC_SystemReset();
+        }
+        memset(nvm, 0, sizeof(*nvm));
+
+        nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
+        nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
+        nvm->reminder_seconds = CLOCK_DEF_RMD_SECONDS;
+        nvm->reminder_intv_seconds = CLOCK_DEF_RMD_INTV_SECONDS;
+
+        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        free(nvm);
+
+        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    }
+
     if (1)
     {
         time_t now = time(NULL);
@@ -183,28 +207,6 @@ void CLOCK_init(void)
 
     if (0 != NVM_get(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders))
         memset(&reminders, 0, sizeof(reminders));
-
-    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr))))
-    {
-        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-        if (NULL == nvm)
-        {
-            __BREAK_IFDBG();
-            NVIC_SystemReset();
-        }
-
-        memset(nvm, 0, sizeof(*nvm));
-
-        nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
-        nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
-        nvm->reminder_seconds = CLOCK_DEF_RMD_SECONDS;
-        nvm->reminder_intv_seconds = CLOCK_DEF_RMD_INTV_SECONDS;
-
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        free(nvm);
-
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-    }
 
     UCSH_REGISTER("clock",      SHELL_clock);
     UCSH_REGISTER("alm",        SHELL_alarm);
@@ -253,9 +255,13 @@ void CLOCK_app_specify_callback(void (*callback)(void))
     clock_runtime.app_specify_cb_moment = callback;
 }
 
-struct CLOCK_moment_t const * CLOCK_get_app_specify_moment(void)
+struct CLOCK_moment_t const *CLOCK_get_app_specify_moment(void)
 {
-    return &nvm_ptr->app_specify_moment;
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    if (NULL != nvm_ptr)
+        return &nvm_ptr->app_specify_moment;
+    else
+        return NULL;
 }
 
 int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment)
@@ -270,11 +276,10 @@ int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment)
     NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
     free(nvm);
 
-    nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
     return 0;
 }
 
-static int8_t CLOCK_peek_start_alarms(void)
+static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
 {
     if (! CLOCK_alarm_switch_is_on())
         return -1;
@@ -346,6 +351,7 @@ static void next_timeo_callback(void *arg)
 void CLOCK_schedule(void)
 {
     struct tm const *dt = CLOCK_update_timestamp(NULL);
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
 
     if (NULL != clock_runtime.app_specify_cb_moment && nvm_ptr->app_specify_moment.enabled)
     {
@@ -370,7 +376,7 @@ void CLOCK_schedule(void)
         }
     }
 
-    if (-1 != CLOCK_peek_start_alarms())
+    if (-1 != CLOCK_peek_start_alarms(nvm_ptr))
     {
         timeout_stop(&next_timeo);
         return;
@@ -505,6 +511,8 @@ static bool CLOCK_canceling(bool snooze)
         if (timeout_is_running(&next_timeo))
         {
             timeout_stop(&next_timeo);
+
+            struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
             clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
         }
 
@@ -525,6 +533,7 @@ bool CLOCK_snooze(void)
 unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze)
 {
     unsigned reminder_count = 0;
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
 
     time_t ts_base = clock_runtime.ts - clock_runtime.ts % 86400;
     int16_t mtime = time2mtime(clock_runtime.ts);
@@ -629,8 +638,7 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
  ****************************************************************************/
 static int SHELL_clock(struct UCSH_env *env)
 {
-    if (NULL == nvm_ptr)
-        return EHAL_NOT_CONFIGURED;
+    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
 
     if (1 == env->argc)
     {
@@ -918,8 +926,6 @@ static int SHELL_clock(struct UCSH_env *env)
     if (0 == err)
     {
         NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
