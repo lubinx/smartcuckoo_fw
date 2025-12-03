@@ -50,11 +50,10 @@ extern __attribute__((nothrow))
     void CLOCK_init(void);
 
     /**
-     *  CLOCK_alarm_max_count()
-     *      get maxinum alarms count was supported
-    */
-extern __attribute__((nothrow, const))
-    unsigned CLOCK_alarm_max_count(void);
+     *  CLOCK_schedule()
+     */
+extern __attribute__((nothrow))
+    void CLOCK_schedule(void);
 
     /**
      *  CLOCK_get_timestamp()
@@ -74,17 +73,35 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow, pure))
     bool CLOCK_get_dst_is_active(void);
 
+/***************************************************************************
+ * @def: weak
+ ***************************************************************************/
+    /**
+     *  CLOCK_alarm_switch_is_on()
+     *
+     *  NOTE: override to return hardward switcher of alarm
+     *      default is alrays on
+    */
+extern __attribute__((nothrow, pure))
+    bool CLOCK_alarm_switch_is_on(void);
+
     /**
      *  CLOCK_update_display_callback()
     */
 extern __attribute__((nothrow))
     void CLOCK_update_display_callback(struct tm const *dt);
 
- /***************************************************************************
- * @def: scheduler
- ***************************************************************************/
+    /**
+     *  CLOCK_get_dim_percent()
+    */
+extern __attribute__((nothrow, pure))
+    uint8_t CLOCK_get_dim_percent(void);
+
+    /**
+     *  CLOCK_shell_set_dim_percent()
+    */
 extern __attribute__((nothrow))
-    void CLOCK_schedule(void);
+    void CLOCK_shell_set_dim_percent(uint8_t dim_percent);
 
 /***************************************************************************
  * @def: app specify callback
@@ -107,13 +124,11 @@ extern __attribute__((nothrow, nonnull))
  * @def: alarms & reminders
  ***************************************************************************/
     /**
-     *  CLOCK_alarm_switch_is_on()
-     *
-     *  NOTE: override to return hardward switcher of alarm
-     *      default is alrays on
+     *  CLOCK_alarm_max_count()
+     *      get maxinum alarms count was supported
     */
-extern __attribute__((nothrow, pure))
-    bool CLOCK_alarm_switch_is_on(void);
+extern __attribute__((nothrow, const))
+    unsigned CLOCK_alarm_max_count(void);
 
     /**
      *  CLOCK_get_alarming_idx()
