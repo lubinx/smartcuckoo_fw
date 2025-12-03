@@ -3,10 +3,9 @@
 /****************************************************************************
  *  @def
  ****************************************************************************/
+#define MQUEUE_ALIVE_INTV               (2500)
 #define MQUEUE_PAYLOAD_SIZE             (4)
 #define MQUEUE_LENGTH                   (8)
-
-#define MQUEUE_ALIVE_INTV_SECONDS       (5)
 
 enum zone_message
 {
@@ -139,7 +138,7 @@ void PERIPHERAL_init(void)
 
     if (true)
     {
-        uint32_t timeout = 1000 * MQUEUE_ALIVE_INTV_SECONDS;
+        uint32_t timeout = MQUEUE_ALIVE_INTV;
         ioctl(zone.mqd, OPT_RD_TIMEO, &timeout);
 
         pthread_attr_t attr;
