@@ -68,8 +68,13 @@ static void APWR_callback(void)
         else
             err = MYNOISE_start_scenario(scenario, theme);
 
-        if (0 == err && 0 != nvm_ptr->off_seconds)
-            MYNOISE_power_off_seconds(nvm_ptr->off_seconds);
+        if (0 == err)
+        {
+            MYNOISE_no_store_stat();
+
+            if (0 != nvm_ptr->off_seconds)
+                MYNOISE_power_off_seconds(nvm_ptr->off_seconds);
+        }
     }
 }
 
@@ -165,6 +170,8 @@ static int APWR_shell(struct UCSH_env *env)
                 char *mdate_str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
                 if (mdate_str)
                     nvm_ptr->off_seconds = strtoul(mdate_str, NULL, 10);
+                else
+                    nvm_ptr->off_seconds = 0;
             }
 
             if (0 == err)
