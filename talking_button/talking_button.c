@@ -3,6 +3,7 @@
 /****************************************************************************
  *  @def
  ****************************************************************************/
+#define MQUEUE_ALIVE_INTV               (5000)
 #define MQUEUE_PAYLOAD_SIZE             (8)
 #define MQUEUE_LENGTH                   (8)
 
@@ -96,7 +97,7 @@ void PERIPHERAL_init(void)
     MQUEUE_INIT(&talking_button.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     if (true)
     {
-        uint32_t timeout = 5000;
+        uint32_t timeout = MQUEUE_ALIVE_INTV;
         ioctl(talking_button.mqd, OPT_RD_TIMEO, &timeout);
 
         pthread_attr_t attr;
