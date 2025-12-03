@@ -69,7 +69,7 @@ struct CLOCK_runtime_t
     struct tm dt;
     time_t ts;
 
-    struct timeout_t next_timeo;
+    struct timeout_t intv_next;
     time_t ts_alarm_snooze_end;
     time_t ts_reminder_slient_end;
 
@@ -90,7 +90,7 @@ static struct CLOCK_moment_t alarms[ALARM_COUNT];
 static struct CLOCK_moment_t reminders[ALARM_COUNT];
 
 static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr);
-static void CLOCK_next_timeo_callback(void *arg);
+static void CLOCK_intv_next_callback(void *arg);
 // shell commands
 static int SHELL_clock(struct UCSH_env *env);       // REVIEW: misc clock settings
 static int SHELL_alarm(struct UCSH_env *env);
@@ -229,7 +229,7 @@ void CLOCK_init(void)
     }
 
     clock_runtime.alarming_idx = -1;
-    timeout_init(&clock_runtime.next_timeo, 1000 * nvm_ptr->reminder_intv_seconds, CLOCK_next_timeo_callback, 0);
+    timeout_init(&clock_runtime.intv_next, 1000 * nvm_ptr->reminder_intv_seconds, CLOCK_intv_next_callback, TIMEOUT_FLAG_REPEAT);
 
     if (0 != NVM_get(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms))
         memset(&alarms, 0, sizeof(alarms));
@@ -272,42 +272,37 @@ void CLOCK_schedule(void)
 
     if (-1 != CLOCK_peek_start_alarms(nvm_ptr))
     {
-        timeout_stop(&clock_runtime.next_timeo);
+        timeout_stop(&clock_runtime.intv_next);
         return;
     }
 
     if (0 != nvm_ptr->say_zero_hour_mask)
     {
         unsigned next_zero_hour = (unsigned)((clock_runtime.ts % 86400) / 3600 + 1) % 24;
-        int next_zero_intv = -1;
+        int next_zsec_intv = -1;
 
         if ((1U << next_zero_hour) & nvm_ptr->say_zero_hour_mask)
         {
-            if (0 == nvm_ptr->say_zero_hour_wdays || 0x7F == nvm_ptr->say_zero_hour_wdays)
+            if ((0 == nvm_ptr->say_zero_hour_wdays || 0x7F == nvm_ptr->say_zero_hour_wdays) ||
+                ((1U << dt->tm_wday) & nvm_ptr->say_zero_hour_wdays))
             {
-            set_next_intv:
-                next_zero_intv = 1000 * (3600 - (int)(clock_runtime.ts % 3600));
-            }
-            else
-            {
-                if ((1U << dt->tm_wday) & nvm_ptr->say_zero_hour_wdays)
-                    goto set_next_intv;
+                next_zsec_intv = 1000 * (3600 - (int)(clock_runtime.ts % 3600));
             }
 
-            if (0 <= next_zero_intv && 1000 * nvm_ptr->reminder_intv_seconds > next_zero_intv)
+            if (0 <= next_zsec_intv && 1000 * nvm_ptr->reminder_intv_seconds > next_zsec_intv)
             {
-                timeout_update(&clock_runtime.next_timeo, (unsigned)next_zero_intv);
-                timeout_start(&clock_runtime.next_timeo, NULL);
+                timeout_update(&clock_runtime.intv_next, (unsigned)next_zsec_intv);
+                timeout_start(&clock_runtime.intv_next, NULL);
             }
         }
     }
 
-    if (! timeout_is_running(&clock_runtime.next_timeo))
+    if (! timeout_is_running(&clock_runtime.intv_next))
     {
         if(0 != CLOCK_say_reminders(dt, false))
         {
-            timeout_update(&clock_runtime.next_timeo, 1000 * nvm_ptr->reminder_intv_seconds);
-            timeout_start(&clock_runtime.next_timeo, reminders);
+            timeout_update(&clock_runtime.intv_next, 1000 * nvm_ptr->reminder_intv_seconds);
+            timeout_start(&clock_runtime.intv_next, reminders);
         }
     }
 }
@@ -429,9 +424,9 @@ static bool CLOCK_canceling(bool snooze)
     else
     {
         // stop activity reminders
-        if (timeout_is_running(&clock_runtime.next_timeo))
+        if (timeout_is_running(&clock_runtime.intv_next))
         {
-            timeout_stop(&clock_runtime.next_timeo);
+            timeout_stop(&clock_runtime.intv_next);
 
             struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
             clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
@@ -646,17 +641,16 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
         return -1;
 }
 
-static void CLOCK_next_timeo_callback(void *arg)
+static void CLOCK_intv_next_callback(void *arg)
 {
+    timeout_stop(&clock_runtime.intv_next);
     struct tm const *dt = CLOCK_update_timestamp(NULL);
 
     if (NULL == arg)
         VOICE_say_time(dt);
 
-    if (0 == CLOCK_say_reminders(dt, true))
-        timeout_stop(&clock_runtime.next_timeo);
-    else
-        timeout_start(&clock_runtime.next_timeo, NULL);
+    if (0 != CLOCK_say_reminders(dt, true))
+        timeout_start(&clock_runtime.intv_next, arg);
 }
 
  /****************************************************************************
