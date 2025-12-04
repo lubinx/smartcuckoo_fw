@@ -34,15 +34,10 @@ static void SHELL_register(void)
 {
     // locale
     UCSH_REGISTER("loc",        SHELL_locale);
-    // UCSH_REGISTER("locale",     SHELL_locale);
-    // hour format
     UCSH_REGISTER("hfmt",       SHELL_hfmt);
-    // date format: voice only
     UCSH_REGISTER("dfmt",       SHELL_dfmt);
 
-    // upgrade
     UCSH_REGISTER("ota",        SHELL_ota);
-
     UCSH_REGISTER("batt",       SHELL_batt);
 
     UCSH_REGISTER("rtcc",
@@ -97,10 +92,10 @@ static void SHELL_register(void)
                     return EINVAL;
 
                 AUDIO_set_volume_percent((uint8_t)volume);
+
                 smartcuckoo.volume = (uint8_t)volume;
                 NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 
-                // VOICE_say_time_epoch(time(NULL), clock_runtime.dst_minute_offset);
                 if (AUDIO_renderer_is_idle())
                     VOICE_say_setting(VOICE_SETTING_DONE);
             }
@@ -139,7 +134,6 @@ static void SHELL_register(void)
                         iter = iter->next;
                     }
                 }
-                // UCSH_printf(env, "heap freed:\n", heap_avail);
 
                 UCSH_puts(env, "summary\n");
                 UCSH_printf(env, "\ttotal   : %u\n", SYSCON_get_heap_total());
