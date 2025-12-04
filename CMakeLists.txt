@@ -7,7 +7,6 @@ set(COMMON_SRCS
     "clock.c"
     "noise_apwr.c"
     "voice.c"
-    # main
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
@@ -22,7 +21,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
         "ultracore/src/audio/codec/es8156.c"
-        "ultracore/src/hw/common_i2s.c"
+        # "ultracore/src/hw/common_i2s.c"
         # "ultracore/src/core/diskio.c"
         # "ultracore/src/core/filesystem.c"
         # "ultracore/src/fs/fat.c"
@@ -96,34 +95,36 @@ add_custom_command(TARGET zone
     VERBATIM
 )
 
-build_target(midas
+build_target(zinc
     DEVICE
         "N32WB452LE"
     DRIVER
         "../n32x45x"
     CONFIG_DIR
-        "midas/config"
+        "zinc/config"
     INCLUDE_DIRS
         "."
     SRCS
         ${COMMON_SRCS}
-        "midas/*.c"
+        "zinc/*.c"
+        "ws2812b_driver.c"
+        "ultracore/src/hw/smart_led.c"
     DEFINITIONS
-        NVM_TAG="midas"
+        NVM_TAG="zinc"
         ADC_VREF=0
     DEPENDENCIES
         "lc3"
     OUTPUT_DIR
         "../_bin"
 )
-add_custom_command(TARGET midas
+add_custom_command(TARGET zinc
     POST_BUILD
     COMMAND
-        ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/midas.elf" "midas.bin"
+        ${CMAKE_OBJCOPY} -O binary "${CMAKE_BINARY_DIR}/zinc.elf" "zinc.bin"
     COMMAND
-        gzip -f "midas.bin"
+        gzip -f "zinc.bin"
     COMMAND
-        stat -c "midas.bin.gz: %s" "midas.bin.gz"
+        stat -c "zinc.bin.gz: %s" "zinc.bin.gz"
     COMMAND
         echo --------------------------------------------------
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
