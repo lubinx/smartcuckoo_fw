@@ -184,6 +184,8 @@ int main(void)
     NULL);
 
     DISKIO_init(&sdmmc_diskio, 48);
+    DISKIO_set_readahead(&sdmmc_diskio, 4);     // REVIEW: 2k readhead is optimized for 48 caches
+
     FAT_attr_init(&fat, &sdmmc_diskio);
     SDMMC_attr_init(&sdmmc, 3300, 0, &sdmmc_diskio);
 
