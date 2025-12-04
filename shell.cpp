@@ -108,11 +108,12 @@ static void SHELL_register(void)
         [](struct UCSH_env *env)
         {
             #ifdef __NEWLIB__
+                struct malloc_chunk const *__malloc_end = (struct malloc_chunk *)sbrk(0);
+
                 UCSH_puts(env, "fragment\n");
                 if (1)
                 {
                     struct malloc_chunk *iter = __malloc_sbrk_start;
-                    struct malloc_chunk *__malloc_end = (struct malloc_chunk *)sbrk(0);
 
                     while (iter < __malloc_end)
                     {
@@ -127,7 +128,7 @@ static void SHELL_register(void)
                 {
                     struct malloc_chunk *iter = __malloc_free_list;
 
-                    while (NULL != iter)
+                    while (NULL != iter && iter < __malloc_end)
                     {
                         UCSH_printf(env, "\tchunk: 0x%08X, size: %u\n", (uintptr_t)iter, (unsigned)iter->size);
                         freed += iter->size;
