@@ -151,12 +151,12 @@ static int APWR_shell(struct UCSH_env *env)
 
             if (0 == err)
             {
-                char *wday_str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
-                if (wday_str)
+                char *str = CMD_paramvalue_byname("wdays", env->argc, env->argv);
+                if (str)
                 {
-                    int wdays = strtol(wday_str, NULL, 10);
+                    int wdays = strtol(str, NULL, 10);
                     if (0 == wdays)
-                        wdays = strtol(wday_str, NULL, 16);
+                        wdays = strtol(str, NULL, 16);
                     if (0x7F < wdays)
                         err = EINVAL;
 
@@ -167,19 +167,19 @@ static int APWR_shell(struct UCSH_env *env)
             }
             if (0 == err)
             {
-                char *mdate_str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
-                if (mdate_str)
-                    nvm_ptr->off_seconds = strtoul(mdate_str, NULL, 10);
+                char *str = CMD_paramvalue_byname("off_seconds", env->argc, env->argv);
+                if (str)
+                    nvm_ptr->off_seconds = strtoul(str, NULL, 10);
                 else
                     nvm_ptr->off_seconds = 0;
             }
 
             if (0 == err)
             {
-                char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
-                if (mdate_str)
+                char *str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
+                if (str)
                 {
-                    moment.mdate = strtol(mdate_str, NULL, 10);
+                    moment.mdate = strtol(str, NULL, 10);
                     moment.wdays = 0;
                 }
                 else
