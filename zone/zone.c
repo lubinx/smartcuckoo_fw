@@ -760,7 +760,12 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 switch ((enum zone_message)msg->msgid)
                 {
                 case MSG_TOP_BUTTON:
-                    if (0 == GPIO_peek(PIN_TOP_BUTTON))
+                    if (CLOCK_is_reminding())
+                    {
+                        CLOCK_snooze();
+                        MSG_voice_button(runtime);
+                    }
+                    else if (0 == GPIO_peek(PIN_TOP_BUTTON))
                     {
                         if (0 == runtime->top_button_stick)
                             runtime->top_button_stick = clock();
@@ -843,6 +848,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             MYNOISE_power_off_seconds(power_off_seconds);
                         else
                             MYNOISE_power_off_seconds(0);
+
+                        mqueue_flush(runtime->mqd);
                     }
                     break;
 
@@ -884,6 +891,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             MYNOISE_power_off_seconds(power_off_seconds);
                         else
                             MYNOISE_power_off_seconds(0);
+
+                        mqueue_flush(runtime->mqd);
                     }
                     break;
 
