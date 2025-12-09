@@ -267,30 +267,55 @@ static void SETTING_timeout_save(struct zone_runtime_t *runtime)
 
 static void SETTING_volume_adj_intv(uint32_t button_pin)
 {
+    static clock_t tick = 0;
     timeout_stop(&zone.setting_timeo);
 
     if (PIN_VOLUME_UP_BUTTON == button_pin)
     {
         if (0 == GPIO_peek(PIN_VOLUME_UP_BUTTON))
+        {
             mqueue_postv(zone.mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
+            goto volume_notification;
+        }
         else
             goto volume_adj_done;
     }
     else if (PIN_VOLUME_DOWN_BUTTON == button_pin)
     {
         if (0 == GPIO_peek(PIN_VOLUME_DOWN_BUTTON))
+        {
             mqueue_postv(zone.mqd, MSG_VOLUME_DOWN_BUTTON, 0, 0);
+            goto volume_notification;
+        }
         else
             goto volume_adj_done;
     }
     else
     {
     volume_adj_done:
+        tick = 0;
         timeout_stop(&zone.volume_adj_intv);
 
         zone.setting_is_modified = true;
         smartcuckoo.volume = AUDIO_get_volume_percent();
         timeout_start(&zone.setting_timeo, &zone);
+
+        goto volume_notification_2;
+    }
+
+    if (false)
+    {
+    volume_notification:
+        if (0 == tick)
+            tick = clock();
+
+        if (500 < clock() - tick)
+        {
+            tick = clock();
+    volume_notification_2:
+            char buf[16];
+            SHELL_notification(buf, (unsigned)sprintf(buf, "volume: %d\n", AUDIO_get_volume_percent()));
+        }
     }
 }
 
@@ -580,15 +605,29 @@ static void MSG_mynoise_toggle(bool step)
         if (MYNOISE_is_running())
         {
             uint32_t seconds = MYNOISE_get_power_off_seconds();
+            char buf[26];
+            int len;
 
             if (0 == seconds)
+            {
                 MYNOISE_power_off_seconds(POWER_OFF_STEP_SECONDS);
+                len = sprintf(buf, "noise: off_seconds=%d\n", POWER_OFF_STEP_SECONDS);
+            }
             else if (POWER_OFF_STEP_SECONDS >= seconds)
+            {
                 MYNOISE_power_off_seconds(2U * POWER_OFF_STEP_SECONDS);
+                len = sprintf(buf, "noise: off_seconds=%d\n", 2U *POWER_OFF_STEP_SECONDS);
+            }
             else if (2U * POWER_OFF_STEP_SECONDS >= seconds)
+            {
                 MYNOISE_power_off_seconds(3U * POWER_OFF_STEP_SECONDS);
+                len = sprintf(buf, "noise: off_seconds=%d\n", 3U *POWER_OFF_STEP_SECONDS);
+            }
             else
                 MYNOISE_stop();
+
+            if (0 != (seconds = MYNOISE_get_power_off_seconds()))
+                SHELL_notification(buf, (unsigned)len);
         }
         else
             startting = true;
@@ -635,6 +674,11 @@ static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_ON);
     else
         VOICE_say_setting(VOICE_SETTING_EXT_ALARM_OFF);
+
+    if (smartcuckoo.alarm_is_on)
+        SHELL_notification("alarm: on\n", 10);
+    else
+        SHELL_notification("alarm: off\n", 11);
 }
 
 static void MSG_power_button(struct zone_runtime_t *runtime, bool power_down)

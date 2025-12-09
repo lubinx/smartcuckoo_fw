@@ -250,8 +250,19 @@ void PERIPHERAL_write_tlv(TMemStream &advs)
 }
 
 /***************************************************************************/
-/** UCSH @override
+/** @implements: overrides
 ****************************************************************************/
+void BluetoothNotification(char const *str, size_t strlen)
+{
+    BLE.Notification(str, strlen);
+}
+
+void MYNOISE_notification(char const *str, size_t strlen)
+    __attribute__((alias("BluetoothNotification")));
+
+void SHELL_notification(char const *str, size_t strlen)
+    __attribute__((alias("BluetoothNotification")));
+
 void UCSH_startup_handle(struct UCSH_env *env)
 {
     if (env->fd == __stdout_fd)

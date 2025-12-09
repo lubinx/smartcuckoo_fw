@@ -145,12 +145,10 @@ extern __attribute__((nothrow))
  *  shell
  ***************************************************************************/
 extern __attribute__((nothrow))
-    void SHELL_init(void);
-extern __attribute__((nothrow))
-    void SHELL_voice_say_reminders(void);
+    void SHELL_bootstrap(void);
 
 extern __attribute__((nothrow))
-    void SHELL_bootstrap(void);
+    void SHELL_notification(char const *str, size_t strlen);
 
 /***************************************************************************
  *  batt milli-voltage => level

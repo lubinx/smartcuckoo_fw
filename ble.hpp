@@ -78,6 +78,11 @@
             ADV_Finalize(scanrsp);
         }
 
+        void Notification(char const *str, size_t strlen)
+        {
+            Shell.WriteBuf(str, strlen);
+        }
+
         Bluetooth::TSerialPortService Shell;
 
     private:
@@ -87,6 +92,9 @@
             LOG_debug("BLE: shell destruct");
         }
     };
-    // extern TUltraCorePeripheral BLE;
+
+    // cpp => c
+extern "C" __attribute__((nothrow))
+    void BluetoothNotification(char const *str, size_t strlen);
 
 #endif
