@@ -137,6 +137,12 @@ extern __attribute__((nothrow, pure))
     int8_t CLOCK_get_alarming_idx(void);
 
     /**
+     *  CLOCK_is_reminding()
+    */
+extern __attribute__((nothrow, pure))
+    bool CLOCK_is_reminding(void);
+
+    /**
      *  CLOCK_get_ringtone_id()
     */
 extern __attribute__((nothrow))

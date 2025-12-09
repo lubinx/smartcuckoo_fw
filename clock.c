@@ -32,6 +32,7 @@
 
 #define ALARM_COUNT                     (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 #define REMINDER_COUNT                  (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+#define ALARM_RINGTONE_ID_APP_SPECIFY   (0xFF)
 
 struct DST_t
 {
@@ -91,6 +92,8 @@ static struct CLOCK_moment_t reminders[ALARM_COUNT];
 
 static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr);
 static void CLOCK_intv_next_callback(void *arg);
+static unsigned CLOCK_reminders(struct tm const *dt, bool ignore_snooze, bool saying);
+
 // shell commands
 static int SHELL_clock(struct UCSH_env *env);       // REVIEW: misc clock settings
 static int SHELL_alarm(struct UCSH_env *env);
@@ -378,6 +381,12 @@ int8_t CLOCK_get_alarming_idx(void)
     return clock_runtime.alarming_idx;
 }
 
+bool CLOCK_is_reminding(void)
+{
+    time_t ts = time(NULL);
+    return 0 < CLOCK_reminders(localtime(&ts), true, false);
+}
+
 int CLOCK_get_ringtone_id(void)
 {
     int ringtone_id = -1;
@@ -446,7 +455,7 @@ bool CLOCK_snooze(void)
     return CLOCK_canceling(true);
 }
 
-unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze)
+static unsigned CLOCK_reminders(struct tm const *dt, bool ignore_snooze, bool saying)
 {
     unsigned reminder_count = 0;
     struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
@@ -480,11 +489,17 @@ unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze)
                 if (reminder_end_ts > clock_runtime.ts_reminder_slient_end)
                     reminder_count ++;
 
-                VOICE_play_reminder(reminder->reminder_id);
+                if (saying)
+                    VOICE_play_reminder(reminder->reminder_id);
             }
         }
     }
     return reminder_count;
+}
+
+unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze)
+{
+    return CLOCK_reminders(dt, ignore_snooze, true);
 }
 
 unsigned CLOCK_now_say_reminders(bool ignore_snooze)
@@ -1046,7 +1061,7 @@ static int SHELL_alarm(struct UCSH_env *env)
         VOICE_say_setting(VOICE_SETTING_DONE);
         return 0;
     }
-    else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <0~COUNT> wdays=0x7f
+    else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <ringtone_id/"string"> wdays=0x7f
     {
         int idx = strtol(env->argv[1], NULL, 10);
         if (0 == idx || (unsigned)idx > lengthof(alarms))
@@ -1065,8 +1080,17 @@ static int SHELL_alarm(struct UCSH_env *env)
         if (60 <= mtime % 100 || 24 <= mtime / 100)     // 0000 ~ 2359
             return EINVAL;
 
-        int ringtone = strtol(env->argv[4], NULL, 10);
-        ringtone = VOICE_select_ringtone(ringtone);
+        int ringtone;
+        if (1)
+        {
+            char *endptr;
+            ringtone = strtol(env->argv[4], &endptr, 10);
+            if ('\0' != *endptr)
+            {
+            }
+            else
+                ringtone = VOICE_select_ringtone(ringtone);
+        }
 
         int wdays = 0;
         if (true)
