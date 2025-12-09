@@ -59,16 +59,10 @@ static void APWR_callback(void)
                 theme = ptr + 1;
             }
             else
-                scenario[0] = '\0';
+                strncpy(scenario, nvm_ptr->noise, sizeof(scenario));
         }
 
-        int err;
-        if (NULL == theme)
-            err = MYNOISE_start();
-        else
-            err = MYNOISE_start_scenario(scenario, theme);
-
-        if (0 == err)
+        if (0 == MYNOISE_start_scenario(scenario, theme))
         {
             MYNOISE_no_store_stat();
 
