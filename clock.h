@@ -185,6 +185,15 @@ extern __attribute__((nothrow))
 extern __attribute__((nothrow))
     unsigned CLOCK_say_reminders(struct tm const *dt, bool ignore_snooze);
 
+
+    /**
+     *  CLOCK_get_app_ringtone_cb() / CLOCK_set_app_ringtone_cb()
+    */
+extern __attribute__((nothrow, pure))
+    char const *CLOCK_get_app_ringtone_cb(uint8_t alarm_idx);
+extern __attribute__((nothrow))
+    int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str);
+
 /***************************************************************************
  * utils
  ***************************************************************************/

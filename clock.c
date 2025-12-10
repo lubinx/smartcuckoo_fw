@@ -508,6 +508,20 @@ unsigned CLOCK_now_say_reminders(bool ignore_snooze)
     return CLOCK_say_reminders(dt, ignore_snooze);
 }
 
+__attribute__((weak))
+char const *CLOCK_get_app_ringtone_cb(uint8_t alarm_idx)
+{
+    ARG_UNUSED(alarm_idx);
+    return NULL;
+}
+
+__attribute__((weak))
+int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
+{
+    ARG_UNUSED(alarm_idx, str);
+    return ENOSYS;
+}
+
 /***************************************************************************
  * @implements: utils
  ***************************************************************************/
@@ -990,7 +1004,7 @@ static int SHELL_alarm(struct UCSH_env *env)
         int cnt = 0;
 
         pos += sprintf(env->buf + pos, "{\n\t\"alarms\": [");
-        for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
+        for (uint8_t idx = 0; idx < lengthof(alarms); idx ++)
         {
             struct CLOCK_moment_t *alarm = &alarms[idx];
 
@@ -1006,7 +1020,14 @@ static int SHELL_alarm(struct UCSH_env *env)
             pos += sprintf(env->buf + pos, "\t\t{\"id\":%d, ", idx + 1);
             pos += sprintf(env->buf + pos, "\"enabled\":%s, ", alarm->enabled ? "true" : "false");
             pos += sprintf(env->buf + pos, "\"mtime\":%d, ",  alarm->mtime);
-            pos += sprintf(env->buf + pos, "\"ringtone_id\":%d, ", alarm->ringtone_id);
+            if (1)
+            {
+                char const *str;
+                if (ALARM_RINGTONE_ID_APP_SPECIFY == alarm->ringtone_id && NULL != (str = CLOCK_get_app_ringtone_cb(idx)))
+                    pos += sprintf(env->buf + pos, "\"ringtone_id\":%s, ", str);
+                else
+                    pos += sprintf(env->buf + pos, "\"ringtone_id\":%d, ", alarm->ringtone_id);
+            }
             pos += sprintf(env->buf + pos, "\"mdate\":%lu, ",  alarm->mdate);
             pos += sprintf(env->buf + pos, "\"wdays\":%d}", alarm->wdays);
 
@@ -1087,6 +1108,9 @@ static int SHELL_alarm(struct UCSH_env *env)
             ringtone = strtol(env->argv[4], &endptr, 10);
             if ('\0' != *endptr)
             {
+                int err = CLOCK_set_app_ringtone_cb((uint8_t)(idx - 1), env->argv[4]);
+                if (0 != err)
+                    return err;
             }
             else
                 ringtone = VOICE_select_ringtone(ringtone);
