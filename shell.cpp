@@ -26,12 +26,27 @@ static int SHELL_hfmt(struct UCSH_env *env);
 
 /// @var
 TUltraCorePeripheral BLE;
+timeout_t SHELL_defer_nvm_timeo;
 
 /*****************************************************************************/
 /** @export
 *****************************************************************************/
+static void SHELL_defer_nvm_write(void)
+{
+    timeout_stop(&SHELL_defer_nvm_timeo);
+    timeout_start(&SHELL_defer_nvm_timeo, NULL);
+}
+
+static void SHELL_defer_write_nvm_timeo_cb(void *arg)
+{
+    ARG_UNUSED(arg);
+    NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
+}
+
 static void SHELL_register(void)
 {
+    timeout_init(&SHELL_defer_nvm_timeo, SETTING_TIMEOUT, SHELL_defer_write_nvm_timeo_cb, 0);
+
     // locale
     UCSH_REGISTER("loc",        SHELL_locale);
     UCSH_REGISTER("hfmt",       SHELL_hfmt);
@@ -91,13 +106,16 @@ static void SHELL_register(void)
                 if (0 > volume || 100 < volume)
                     return EINVAL;
 
-                AUDIO_set_volume_percent((uint8_t)volume);
+                if (volume != AUDIO_get_volume_percent())
+                {
+                    AUDIO_set_volume_percent((uint8_t)volume);
 
-                smartcuckoo.volume = (uint8_t)volume;
-                NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
+                    smartcuckoo.volume = (uint8_t)volume;
+                    SHELL_defer_nvm_write();
 
-                if (AUDIO_renderer_is_idle())
-                    VOICE_say_setting(VOICE_SETTING_DONE);
+                    if (AUDIO_renderer_is_idle())
+                        VOICE_say_setting(VOICE_SETTING_DONE);
+                }
             }
             UCSH_printf(env, "volume %u%%\n", AUDIO_renderer_get_volume_percent());
             return 0;
@@ -355,8 +373,8 @@ static int SHELL_locale(struct UCSH_env *env)
 
             if (old_voice_id != smartcuckoo.voice_sel_id)
             {
-                NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
                 VOICE_say_setting(VOICE_SETTING_DONE);
+                SHELL_defer_nvm_write();
             }
         }
         UCSH_printf(env, "voice_id=%d\n", smartcuckoo.voice_sel_id);
@@ -391,9 +409,10 @@ static int SHELL_hfmt(struct UCSH_env *env)
         }
 
         if (old_fmt != fmt)
-            NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
-
-        VOICE_say_setting(VOICE_SETTING_DONE);
+        {
+            SHELL_defer_nvm_write();
+            VOICE_say_setting(VOICE_SETTING_DONE);
+        }
     }
 
     if (1)
@@ -428,9 +447,10 @@ static int SHELL_dfmt(struct UCSH_env *env)
         }
 
         if (old_fmt != fmt)
-            NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
-
-        VOICE_say_setting(VOICE_SETTING_DONE);
+        {
+            timeout_start(&SHELL_defer_nvm_timeo, NULL);
+            VOICE_say_setting(VOICE_SETTING_DONE);
+        }
     }
 
     if (1)
