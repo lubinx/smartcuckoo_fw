@@ -216,8 +216,6 @@ void SHELL_bootstrap(void)
         __VOLATILE_DATA static uint32_t UART_sh_stack[(2048 - sizeof(struct UCSH_env)) / sizeof(uint32_t)];
 
         UCSH_init_instance(&UART_sh_env, __stdout_fd, sizeof(UART_sh_stack), UART_sh_stack);
-    #else
-        LOG_printf("smartcuckoo %s startup, RTC calib: %d", PROJECT_ID, RTC_get_calibration_ppb());
     #endif
 
     LOG_info("heap avail: %d", SYSCON_get_heap_unused());

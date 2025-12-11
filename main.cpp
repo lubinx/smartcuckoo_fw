@@ -116,7 +116,11 @@ int main(void)
 
     UART_pin_mux(CONSOLE_DEV, CONSOLE_TXD, CONSOLE_RXD);
     __stdout_fd = UART_createfd(CONSOLE_DEV, 115200, UART_PARITY_NONE, UART_STOP_BITS_ONE);
-    LOG_info("smartcuckoo %s booting", PROJECT_ID);
+
+    LOG_info("smartcuckoo %s v%d.%d.%d, RTC calib: %d",
+        PROJECT_ID, __MAJOR(PROJECT_VERSION), __MINOR(PROJECT_VERSION), __RELEASE(PROJECT_VERSION),
+        RTC_get_calibration_ppb()
+    );
 
     #ifdef DEBUG
         printf("CLK configure:\n");
