@@ -26,7 +26,7 @@
     (__DATE__[10] - '0')   \
 )
 
-#define CLOCK_NVM_ID                    NVM_DEFINE_KEY('C', 'S', 'E', 'T')
+#define CLOCK_NVM_ID                    NVM_DEFINE_KEY('C', 'L', 'K', 'C')
 #define CLOCK_ALARM_NVM_ID              NVM_DEFINE_KEY('C', 'A', 'L', 'M')
 #define CLOCK_REMINDER_NVM_ID           NVM_DEFINE_KEY('C', 'R', 'M', 'D')
 
@@ -522,6 +522,12 @@ int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
     return ENOSYS;
 }
 
+__attribute__((weak))
+void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
+{
+    ARG_UNUSED(alarm_idx);
+}
+
 /***************************************************************************
  * @implements: utils
  ***************************************************************************/
@@ -663,8 +669,14 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
 
     if (NULL != current_alarm)
     {
-        VOICE_play_ringtone(current_alarm->ringtone_id);
-        return (int8_t)(current_alarm - alarms);
+        int8_t alarm_idx = (int8_t)(current_alarm - alarms);
+
+        if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
+            CLOCK_start_app_ringtone_cb((uint8_t)alarm_idx);
+        else
+            VOICE_play_ringtone(current_alarm->ringtone_id);
+
+        return alarm_idx;
     }
     else
         return -1;
@@ -1023,8 +1035,11 @@ static int SHELL_alarm(struct UCSH_env *env)
             if (1)
             {
                 char const *str;
-                if (ALARM_RINGTONE_ID_APP_SPECIFY == alarm->ringtone_id && NULL != (str = CLOCK_get_app_ringtone_cb(idx)))
-                    pos += sprintf(env->buf + pos, "\"ringtone_id\":%s, ", str);
+                if (ALARM_RINGTONE_ID_APP_SPECIFY == alarm->ringtone_id)
+                {
+                    str = CLOCK_get_app_ringtone_cb(idx);
+                    pos += sprintf(env->buf + pos, "\"ringtone_id\":%s, ", NULL == str ? "\"\"" : str);
+                }
                 else
                     pos += sprintf(env->buf + pos, "\"ringtone_id\":%d, ", alarm->ringtone_id);
             }
@@ -1109,8 +1124,10 @@ static int SHELL_alarm(struct UCSH_env *env)
             if ('\0' != *endptr)
             {
                 int err = CLOCK_set_app_ringtone_cb((uint8_t)(idx - 1), env->argv[4]);
-                if (0 != err)
-                    return err;
+                if (0 == err)
+                    ringtone = ALARM_RINGTONE_ID_APP_SPECIFY;
+                else
+                    ringtone = VOICE_select_ringtone(0);    // REVIEW: fallback to using ringtone 0
             }
             else
                 ringtone = VOICE_select_ringtone(ringtone);

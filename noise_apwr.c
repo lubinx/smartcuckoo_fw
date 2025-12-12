@@ -40,7 +40,7 @@ void APWR_init(void)
  ****************************************************************************/
 static void APWR_callback(void)
 {
-    char scenario[64];
+    char scenario[MYNOISE_FOLDER_MAX];
 
     struct AUTO_power_attr_t *nvm_ptr = NVM_get_ptr(ZONE_APWR_NVM_ID, sizeof(*nvm_ptr));
     if (NULL != nvm_ptr)
@@ -62,7 +62,11 @@ static void APWR_callback(void)
                 strncpy(scenario, nvm_ptr->noise, sizeof(scenario));
         }
 
-        if (0 == MYNOISE_start_scenario(scenario, theme))
+        int err = MYNOISE_start_scenario(scenario, theme);
+        if (0 != err)   // REVIEW: fallback
+            err = MYNOISE_start();
+
+        if (0 == err)
         {
             MYNOISE_no_store_stat();
 
