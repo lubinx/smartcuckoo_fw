@@ -66,6 +66,12 @@ void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
     }
 }
 
+void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx)
+{
+    ARG_UNUSED(alarm_idx);
+    MYNOISE_stop();
+}
+
 char const *CLOCK_get_app_ringtone_cb(uint8_t alarm_idx)
 {
     struct noise_ringtone_nvm_t *nvm_ptr = NVM_get_ptr(NOISE_RINGTONE_NVM_ID, sizeof(struct noise_ringtone_nvm_t));

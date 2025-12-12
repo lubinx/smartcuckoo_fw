@@ -345,7 +345,7 @@ static void MSG_alive(struct zone_runtime_t *runtime)
     }
     else
     {
-        if (! runtime->setting && -1 == CLOCK_get_alarming_idx())
+        if (! runtime->setting)
             CLOCK_schedule();
 
         if (BATT_AD_INTV_SECONDS < CLOCK_get_timestamp() - runtime->batt_last_ts)

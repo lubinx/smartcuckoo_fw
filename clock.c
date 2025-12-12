@@ -376,11 +376,6 @@ unsigned CLOCK_alarm_max_count(void)
     return lengthof(alarms);
 }
 
-int8_t CLOCK_get_alarming_idx(void)
-{
-    return clock_runtime.alarming_idx;
-}
-
 bool CLOCK_is_reminding(void)
 {
     time_t ts = time(NULL);
@@ -424,10 +419,15 @@ static bool CLOCK_canceling(bool snooze)
 
     if (-1 != clock_runtime.alarming_idx)
     {
+        struct CLOCK_moment_t *ptr = &alarms[clock_runtime.alarming_idx];
         clock_runtime.alarming_idx = -1;
         clock_runtime.ts_alarm_snooze_end = time(NULL) + 60;
 
         if (! mplayer_is_idle()) mplayer_stop();
+
+        if (ALARM_RINGTONE_ID_APP_SPECIFY == ptr->ringtone_id)
+            CLOCK_stop_app_ringtone_cb((uint8_t)(ptr - alarms));
+
         return true;
     }
     else
@@ -524,6 +524,12 @@ int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
 
 __attribute__((weak))
 void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
+{
+    ARG_UNUSED(alarm_idx);
+}
+
+__attribute__((weak))
+void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx)
 {
     ARG_UNUSED(alarm_idx);
 }
@@ -629,7 +635,9 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
 
     struct tm const *dt = &clock_runtime.dt;
     int16_t mtime = time2mtime(clock_runtime.ts);
+
     struct CLOCK_moment_t const *current_alarm = NULL;
+    int8_t old_alarming_idx = clock_runtime.alarming_idx;
 
     if (-1 != clock_runtime.alarming_idx)
     {
@@ -669,14 +677,14 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
 
     if (NULL != current_alarm)
     {
-        int8_t alarm_idx = (int8_t)(current_alarm - alarms);
-
-        if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
-            CLOCK_start_app_ringtone_cb((uint8_t)alarm_idx);
-        else
-            VOICE_play_ringtone(current_alarm->ringtone_id);
-
-        return alarm_idx;
+        if (old_alarming_idx != clock_runtime.alarming_idx)
+        {
+            if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
+                CLOCK_start_app_ringtone_cb((uint8_t)clock_runtime.alarming_idx);
+            else
+                VOICE_play_ringtone(current_alarm->ringtone_id);
+        }
+        return clock_runtime.alarming_idx;
     }
     else
         return -1;

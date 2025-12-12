@@ -131,12 +131,6 @@ extern __attribute__((nothrow, const))
     unsigned CLOCK_alarm_max_count(void);
 
     /**
-     *  CLOCK_get_alarming_idx()
-    */
-extern __attribute__((nothrow, pure))
-    int8_t CLOCK_get_alarming_idx(void);
-
-    /**
      *  CLOCK_is_reminding()
     */
 extern __attribute__((nothrow, pure))
@@ -195,10 +189,12 @@ extern __attribute__((nothrow))
     int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str);
 
     /**
-     *  CLOCK_start_app_ringtone_cb()
+     *  CLOCK_start_app_ringtone_cb() / CLOCK_stop_app_ringtone_cb()
     */
 extern __attribute__((nothrow))
     void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx);
+extern __attribute__((nothrow))
+    void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx);
 
 /***************************************************************************
  * utils
