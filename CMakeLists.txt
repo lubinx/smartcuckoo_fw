@@ -5,7 +5,6 @@ project(smartcuckoo)
 set(COMMON_SRCS
     "datetime_utils.c"
     "clock.c"
-    "noise_apwr.c"
     "voice.c"
     "main.cpp"
     "shell.cpp"
@@ -16,11 +15,11 @@ set(COMMON_SRCS
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND COMMON_SRCS
         # "ultracore/src/core/retarget.c"
-        "ultracore/src/audio/wavefile.c"
+        # "ultracore/src/audio/wavefile.c"
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
-        "ultracore/src/audio/codec/es8156.c"
+        # "ultracore/src/audio/codec/es8156.c"
         # "ultracore/src/hw/common_i2s.c"
         # "ultracore/src/core/diskio.c"
         # "ultracore/src/core/filesystem.c"
@@ -73,6 +72,8 @@ build_target(zone
     SRCS
         ${COMMON_SRCS}
         "zone/*.c"
+        "noise_apwr.c"
+        "noise_ringtone.c"
     DEFINITIONS
         NVM_TAG="zone"
         ADC_VREF=0
@@ -107,6 +108,7 @@ build_target(zinc
     SRCS
         ${COMMON_SRCS}
         "zinc/*.c"
+        "noise_apwr.c"
         "ws2812b_driver.c"
         "ultracore/src/hw/smart_led.c"
     DEFINITIONS
