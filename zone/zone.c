@@ -100,6 +100,10 @@ bool PERIPHERAL_is_enable_usb(void)
 
 void PERIPHERAL_ota_init(void)
 {
+    SHELL_notification_enable(false);
+    mplayer_stop();
+    MYNOISE_stop();
+
     GPIO_disable(PIN_TOP_BUTTON);
     GPIO_disable(PIN_POWER_BUTTON);
     GPIO_disable(PIN_PREV_BUTTON);
