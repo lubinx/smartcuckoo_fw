@@ -14,7 +14,8 @@
     public:
         TUltraCorePeripheral() :
             inherited(PROJECT_NAME),
-            Shell()
+            Shell(),
+            FNotificationEn(true)
         {
             #ifdef NDEBUG
                 Connections.SetInactiveTimeout(15000);
@@ -78,9 +79,20 @@
             ADV_Finalize(scanrsp);
         }
 
+        void EnableNotification(void)
+        {
+            FNotificationEn = true;
+        }
+
+        void DisbleNotification(void)
+        {
+            FNotificationEn = false;
+        }
+
         void Notification(char const *str, size_t strlen)
         {
-            Shell.WriteBuf(str, strlen);
+            if (FNotificationEn)
+                Shell.WriteBuf(str, strlen);
         }
 
         Bluetooth::TSerialPortService Shell;
@@ -91,10 +103,18 @@
             free(env);
             LOG_debug("BLE: shell destruct");
         }
+
+        bool FNotificationEn;
     };
 
     // cpp => c
-extern "C" __attribute__((nothrow))
-    void BluetoothNotification(char const *str, size_t strlen);
+extern "C"
+{
+    extern  __attribute__((nothrow))
+        void BluetoothNotificationEn(bool enable);
+
+    extern  __attribute__((nothrow))
+        void BluetoothNotification(char const *str, size_t strlen);
+}
 
 #endif
