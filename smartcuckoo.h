@@ -148,6 +148,8 @@ extern __attribute__((nothrow))
     void SHELL_bootstrap(void);
 
 extern __attribute__((nothrow))
+    void SHELL_notification_enable(bool en);
+extern __attribute__((nothrow))
     void SHELL_notification(char const *str, size_t strlen);
 
 /***************************************************************************

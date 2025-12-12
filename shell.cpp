@@ -273,6 +273,14 @@ void BluetoothNotification(char const *str, size_t strlen)
     BLE.Notification(str, strlen);
 }
 
+void SHELL_notification_enable(bool en)
+{
+    if (en)
+        BLE.EnableNotification();
+    else
+        BLE.DisbleNotification();
+}
+
 void MYNOISE_notification(char const *str, size_t strlen)
     __attribute__((alias("BluetoothNotification")));
 
