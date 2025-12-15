@@ -679,7 +679,7 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
     {
         if (old_alarming_idx == clock_runtime.alarming_idx)
         {
-            if (mplayer_is_idle())
+            if (ALARM_RINGTONE_ID_APP_SPECIFY != current_alarm->ringtone_id && mplayer_is_idle())
                 VOICE_play_ringtone(current_alarm->ringtone_id);
         }
         else
