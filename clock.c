@@ -384,19 +384,25 @@ bool CLOCK_is_reminding(void)
 
 int CLOCK_get_ringtone_id(void)
 {
-    int ringtone_id = -1;
+    int ringtone_id = 0;
     struct tm const *dt = CLOCK_update_timestamp(NULL);
 
     for (unsigned idx = 0; idx < lengthof(alarms); idx ++)
     {
         struct CLOCK_moment_t *alarm = &alarms[idx];
-        if (alarm->enabled || -1 == ringtone_id)
-            ringtone_id = alarm->ringtone_id;
+        if (alarm->enabled)
+        {
+            if (ALARM_RINGTONE_ID_APP_SPECIFY != alarm->ringtone_id)
+                ringtone_id = alarm->ringtone_id;
+        }
 
         if (0 != ((1 << ((dt->tm_wday + 1) % 7)) & alarm->wdays))
         {
-            ringtone_id = alarm->ringtone_id;
-            break;
+            if (ALARM_RINGTONE_ID_APP_SPECIFY != alarm->ringtone_id)
+            {
+                ringtone_id = alarm->ringtone_id;
+                break;
+            }
         }
     }
     return ringtone_id;

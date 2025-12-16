@@ -659,12 +659,6 @@ static void MSG_mynoise_toggle(bool step)
         if (0 != err)
             LOG_error("%s", strerror(err));
     }
-    else
-    {
-        #ifndef NDEBUG
-            LOG_warning("heap avail: %u", SYSCON_get_heap_unused());
-        #endif
-    }
 }
 
 static void MSG_alarm_toggle(struct zone_runtime_t *runtime)
