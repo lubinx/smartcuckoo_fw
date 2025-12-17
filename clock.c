@@ -77,7 +77,6 @@ struct CLOCK_runtime_t
     bytebool_t dst_active;
     int8_t alarming_idx;
 
-
     int16_t app_specify_cb_mtime;
     void (* app_specify_cb_moment)(void);
 };
@@ -1190,6 +1189,7 @@ static int SHELL_alarm(struct UCSH_env *env)
             alarm->ringtone_id = (uint8_t)ringtone;
             alarm->mdate = mdate;
             alarm->wdays = (int8_t)wdays;
+
             NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
         }
 
@@ -1244,7 +1244,7 @@ static int SHELL_reminder(struct UCSH_env *env)
         writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     }
-    else if (3 == env->argc)         // rmd <1~COUNT> <enable/disable>
+    else if (3 == env->argc)    // rmd <1~COUNT> <enable/disable>
     {
         int idx = strtol(env->argv[1], NULL, 10);
         if (0 == idx || (unsigned)idx > lengthof(reminders))
@@ -1272,6 +1272,7 @@ static int SHELL_reminder(struct UCSH_env *env)
                 reminder->mdate = 0;
                 reminder->wdays = 0;
             }
+
             NVM_set(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders);
         }
 
@@ -1311,7 +1312,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             }
         }
 
-        int32_t mdate = 0; // format integer: yyyymmdd
+        int32_t mdate = 0;      // format integer: yyyymmdd
         if (true)
         {
             char *mdate_str = CMD_paramvalue_byname("mdate", env->argc, env->argv);
@@ -1334,6 +1335,7 @@ static int SHELL_reminder(struct UCSH_env *env)
             reminder->reminder_id = (uint8_t)reminder_id;
             reminder->mdate = mdate;
             reminder->wdays = (int8_t)wdays;
+
             NVM_set(CLOCK_REMINDER_NVM_ID, sizeof(reminders), &reminders);
         }
 
