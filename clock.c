@@ -660,7 +660,10 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
     {
         struct CLOCK_moment_t const *alarm = &alarms[idx];
 
-        if (! alarm->enabled || alarm == current_alarm)
+        if (! alarm->enabled)
+            continue;
+        // execute first alarm while multiple alarms at the same time
+        if (NULL != current_alarm && alarm != current_alarm && alarm->mtime == current_alarm->mtime)
             continue;
 
         // matching week days mask or mdate
@@ -671,7 +674,7 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
             if (mdate != alarm->mdate)
                 continue;
         }
-
+        // matching time
         if (mtime != alarm->mtime)
             continue;
 

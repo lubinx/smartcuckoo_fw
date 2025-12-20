@@ -14,16 +14,13 @@ set(COMMON_SRCS
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND COMMON_SRCS
-        # "ultracore/src/core/retarget.c"
-        # "ultracore/src/audio/wavefile.c"
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
+        # "ultracore/src/audio/wavefile.c"
         # "ultracore/src/audio/codec/es8156.c"
         # "ultracore/src/hw/common_i2s.c"
-        # "ultracore/src/core/diskio.c"
-        # "ultracore/src/core/filesystem.c"
-        # "ultracore/src/fs/fat.c"
+        # "ultracore/src/core/retarget.c"
     )
 endif()
 
@@ -132,67 +129,6 @@ add_custom_command(TARGET zinc
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/../_bin"
     VERBATIM
 )
-
-# if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-#     build_target(panel_b
-#         DEVICE
-#             "EFR32BG22C224F512GM40"
-#         DRIVER
-#             "../efr32xg22"
-#         CONFIG_DIR
-#             "panel/b_config"
-#         INCLUDE_DIRS
-#             "."
-#             "./sensors"
-#             "./io_ext"
-#             "./panel"
-#             "./panel/drv"
-#         SRCS
-#             ${COMMON_SRCS}
-#             "panel/*.c"
-#             "sensors/*.c"
-#             "io_ext/xl9535.c"
-#         SRCS-
-#             "panel/lamp.c"
-#             "panel/panel_ml_i2c_drv.c"
-#             "sensors/env_sht4x.c"
-#         DEPENDENCIES
-#             "lc3"
-#         DEFINITIONS
-#             NVM_TAG="panel_c"
-#         OUTPUT_DIR
-#             "../_bin"
-#     )
-
-#     build_target(panel_c
-#         DEVICE
-#             "EFR32BG22C224F512GM40"
-#         DRIVER
-#             "../efr32xg22"
-#         CONFIG_DIR
-#             "panel/c_config"
-#         INCLUDE_DIRS
-#             "."
-#             "./sensors"
-#             "./io_ext"
-#             "./panel"
-#             "./panel/drv"
-#         SRCS
-#             ${COMMON_SRCS}
-#             "panel/*.c"
-#             "sensors/*.c"
-#             "io_ext/bs81xc.c"
-#         SRCS-
-#             "panel/panel_ml_i2c_drv.c"
-#             "sensors/env_sht4x.c"
-#         DEPENDENCIES
-#             "lc3"
-#         DEFINITIONS
-#             NVM_TAG="panel_c"
-#         OUTPUT_DIR
-#             "../_bin"
-#     )
-# endif()
 
 # NOTE: required lc3
 option(LC3_PLUS OFF)
