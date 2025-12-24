@@ -60,8 +60,6 @@ struct CLOCK_nvm_t
 
     uint32_t say_zero_hour_mask     : 24;
     uint32_t say_zero_hour_wdays    : 8;
-
-    struct CLOCK_moment_t app_specify_moment;
 };
 static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
 
@@ -249,29 +247,6 @@ void CLOCK_schedule(void)
     struct tm const *dt = CLOCK_update_timestamp(NULL);
     struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
 
-    if (NULL != clock_runtime.app_specify_cb_moment && nvm_ptr->app_specify_moment.enabled)
-    {
-        int16_t mtime = time2mtime(clock_runtime.ts);
-        struct CLOCK_moment_t const *moment = &nvm_ptr->app_specify_moment;
-
-        // matching week days mask or mdate
-        if (0 == ((1 << dt->tm_wday) & moment->wdays))
-        {
-            int32_t mdate = (((dt->tm_year + 1900) * 100 + dt->tm_mon + 1) * 100 + dt->tm_mday);
-
-            if (mdate == moment->mdate)
-                goto app_moment_check_mtime;
-        }
-        else
-        {
-        app_moment_check_mtime:
-            if (mtime == moment->mtime && mtime != clock_runtime.app_specify_cb_mtime)
-                clock_runtime.app_specify_cb_moment();
-
-            clock_runtime.app_specify_cb_mtime = mtime;
-        }
-    }
-
     if (-1 != CLOCK_peek_start_alarms(nvm_ptr))
     {
         timeout_stop(&clock_runtime.intv_next);
@@ -333,38 +308,6 @@ struct tm const *CLOCK_update_timestamp(time_t *ts_out)
 bool CLOCK_get_dst_is_active(void)
 {
     return clock_runtime.dst_active;
-}
-
-/****************************************************************************
- *  @implements: app specify callback
- ****************************************************************************/
-void CLOCK_app_specify_callback(void (*callback)(void))
-{
-    clock_runtime.app_specify_cb_moment = callback;
-}
-
-struct CLOCK_moment_t const *CLOCK_get_app_specify_moment(void)
-{
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
-    if (NULL != nvm_ptr)
-        return &nvm_ptr->app_specify_moment;
-    else
-        return NULL;
-}
-
-int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment)
-{
-    struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
-    if (NULL == nvm)
-        return ENOMEM;
-
-    NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-    nvm->app_specify_moment = *moment;
-
-    NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
-    free(nvm);
-
-    return 0;
 }
 
  /***************************************************************************

@@ -69,7 +69,6 @@ build_target(zone
     SRCS
         ${COMMON_SRCS}
         "zone/*.c"
-        "noise_apwr.c"
         "noise_ringtone.c"
     DEFINITIONS
         NVM_TAG="zone"
@@ -105,7 +104,6 @@ build_target(zinc
     SRCS
         ${COMMON_SRCS}
         "zinc/*.c"
-        "noise_apwr.c"
         "ws2812b_driver.c"
         "ultracore/src/hw/smart_led.c"
     DEFINITIONS

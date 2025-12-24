@@ -103,23 +103,6 @@ extern __attribute__((nothrow, pure))
 extern __attribute__((nothrow))
     void CLOCK_shell_set_dim_percent(uint8_t dim_percent);
 
-/***************************************************************************
- * @def: app specify callback
- ***************************************************************************/
-    /**
-     *  CLOCK_app_specify_callback()
-    */
-extern __attribute__((nothrow, nonnull))
-    void CLOCK_app_specify_callback(void (*callback)(void));
-
-    /**
-     *  CLOCK_get_app_specify_moment() / CLOCK_store_app_specify_moment()
-    */
-extern __attribute__((nothrow, pure))
-    struct CLOCK_moment_t const * CLOCK_get_app_specify_moment(void);
-extern __attribute__((nothrow, nonnull))
-    int CLOCK_store_app_specify_moment(struct CLOCK_moment_t *moment);
-
  /***************************************************************************
  * @def: alarms & reminders
  ***************************************************************************/
