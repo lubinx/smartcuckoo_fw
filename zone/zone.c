@@ -7,9 +7,9 @@
 #define MQUEUE_PAYLOAD_SIZE             (4)
 #define MQUEUE_LENGTH                   (8)
 
-enum zone_message
+enum zone_message_t
 {
-    MSG_TOP_BUTTON              = 0,
+    MSG_TOP_BUTTON              = 1,
     MSG_POWER_BUTTON,
     MSG_PREV_BUTTON,
     MSG_NEXT_BUTTON,
@@ -46,7 +46,7 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
-static void SETTING_volume_adj_intv(uint32_t button_pin);
+static void SETTING_volume_adj_intv(enum zone_message_t);
 static void SETTING_timeout_save(struct zone_runtime_t *runtime);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
@@ -184,8 +184,6 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
-    APWR_init();
-
     MYNOISE_init();
     MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 }
@@ -252,7 +250,7 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     if (PIN_VOLUME_UP_BUTTON == (PIN_VOLUME_UP_BUTTON & pins))
         mqueue_postv(runtime->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
     if (PIN_VOLUME_DOWN_BUTTON == (PIN_VOLUME_DOWN_BUTTON & pins))
-        timeout_start(&runtime->volume_adj_intv, (void *)PIN_VOLUME_DOWN_BUTTON);
+        timeout_start(&runtime->volume_adj_intv, (void *)MSG_VOLUME_DOWN_BUTTON);
 }
 
 static void SETTING_timeout_save(struct zone_runtime_t *runtime)
@@ -269,12 +267,12 @@ static void SETTING_timeout_save(struct zone_runtime_t *runtime)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-static void SETTING_volume_adj_intv(uint32_t button_pin)
+static void SETTING_volume_adj_intv(enum zone_message_t msg_button)
 {
     static clock_t tick = 0;
     timeout_stop(&zone.setting_timeo);
 
-    if (PIN_VOLUME_UP_BUTTON == button_pin)
+    if (MSG_VOLUME_UP_BUTTON == msg_button)
     {
         if (0 == GPIO_peek(PIN_VOLUME_UP_BUTTON))
         {
@@ -284,7 +282,7 @@ static void SETTING_volume_adj_intv(uint32_t button_pin)
         else
             goto volume_adj_done;
     }
-    else if (PIN_VOLUME_DOWN_BUTTON == button_pin)
+    else if (MSG_VOLUME_DOWN_BUTTON == msg_button)
     {
         if (0 == GPIO_peek(PIN_VOLUME_DOWN_BUTTON))
         {
@@ -387,7 +385,7 @@ static void MSG_voice_button(struct zone_runtime_t *runtime)
     PMU_power_unlock();
 }
 
-static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
+static void MSG_setting(struct zone_runtime_t *runtime, enum zone_message_t msg_button)
 {
     PMU_power_lock();
     mplayer_playlist_clear();
@@ -395,7 +393,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
     // any button will stop alarming & snooze reminders
     CLOCK_dismiss();
 
-    if (PIN_POWER_BUTTON == button)
+    if (MSG_POWER_BUTTON == msg_button)
     {
         if (! runtime->setting)
         {
@@ -412,9 +410,9 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             VOICE_say_setting(VOICE_SETTING_DONE);
         }
     }
-    else if (PIN_PREV_BUTTON == button || PIN_NEXT_BUTTON == button)
+    else if (MSG_PREV_BUTTON == msg_button || MSG_NEXT_BUTTON == msg_button)
     {
-        if (PIN_PREV_BUTTON == button)
+        if (MSG_PREV_BUTTON == msg_button)
             runtime->setting_part = VOICE_prev_setting(runtime->setting_part);
         else
             runtime->setting_part = VOICE_next_setting(runtime->setting_part);
@@ -442,7 +440,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
         VOICE_say_setting(runtime->setting_part);
         VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
     }
-    else if (PIN_VOLUME_UP_BUTTON == button || PIN_VOLUME_DOWN_BUTTON == button)
+    else if (MSG_VOLUME_UP_BUTTON == msg_button || MSG_VOLUME_DOWN_BUTTON == msg_button)
     {
         int16_t old_voice_id;
         struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
@@ -456,7 +454,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         case VOICE_SETTING_LANG:
             old_voice_id = smartcuckoo.voice_sel_id;
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 smartcuckoo.voice_sel_id = VOICE_next_locale();
             else
                 smartcuckoo.voice_sel_id = VOICE_prev_locale();
@@ -471,7 +469,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
 
         case VOICE_SETTING_VOICE:
             old_voice_id = smartcuckoo.voice_sel_id;
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 smartcuckoo.voice_sel_id = VOICE_next_voice();
             else
                 smartcuckoo.voice_sel_id = VOICE_prev_voice();
@@ -485,56 +483,56 @@ static void MSG_setting(struct zone_runtime_t *runtime, uint32_t button)
             break;
 
         case VOICE_SETTING_HOUR:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
             else
                 runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 23) % 24;
             goto setting_rtc_set_time;
 
         case VOICE_SETTING_MINUTE:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 1) % 60;
             else
                 runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 59) % 60;
             goto setting_rtc_set_time;
 
         case VOICE_SETTING_YEAR:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 TM_year_add(&runtime->setting_dt, 1);
             else
                 TM_year_add(&runtime->setting_dt, -1);
             goto setting_rtc_set_date;
 
         case VOICE_SETTING_MONTH:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 TM_month_add(&runtime->setting_dt, 1);
             else
                 TM_month_add(&runtime->setting_dt, -1);
             goto setting_rtc_set_date;
 
         case VOICE_SETTING_MDAY:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 TM_mday_add(&runtime->setting_dt, 1);
             else
                 TM_mday_add(&runtime->setting_dt, -1);
             goto setting_rtc_set_date;
 
         case VOICE_SETTING_ALARM_HOUR:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 1) % 24;
             else
                 runtime->setting_dt.tm_hour = (runtime->setting_dt.tm_hour + 23) % 24;
             goto setting_modify_alarm;
 
         case VOICE_SETTING_ALARM_MIN:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 1) % 60;
             else
                 runtime->setting_dt.tm_min = (runtime->setting_dt.tm_min + 59) % 60;
             goto setting_modify_alarm;
 
         case VOICE_SETTING_ALARM_RINGTONE:
-            if (PIN_VOLUME_UP_BUTTON == button)
+            if (MSG_VOLUME_UP_BUTTON == msg_button)
                 alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
             else
                 alarm0->ringtone_id = (uint8_t)VOICE_prev_ringtone(alarm0->ringtone_id);
@@ -716,6 +714,20 @@ static void MSG_power_button(struct zone_runtime_t *runtime, bool power_down)
     }
 }
 
+static void MSG_volume(struct zone_runtime_t *runtime, enum zone_message_t msg_button)
+{
+    if (AUDIO_renderer_is_idle())
+        VOICE_play_ringtone(CLOCK_get_ringtone_id());
+
+    if (MSG_VOLUME_UP_BUTTON == msg_button)
+        AUDIO_inc_volume(VOLUME_MAX_PERCENT);
+    else
+        AUDIO_dec_volume(VOLUME_MIN_PERCENT);
+
+    LOG_info("volume: %d", AUDIO_get_volume_percent());
+    timeout_start(&runtime->volume_adj_intv, (void *)msg_button);
+}
+
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)
 {
     while (true)
@@ -725,37 +737,9 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
         if (msg)
         {
-            if (runtime->setting)
+            if (! runtime->setting)
             {
-                switch ((enum zone_message)msg->msgid)
-                {
-                case MSG_TOP_BUTTON:
-                    break;
-
-                case MSG_POWER_BUTTON:
-                    MSG_setting(runtime, PIN_POWER_BUTTON);
-                    break;
-
-                case MSG_PREV_BUTTON:
-                    MSG_setting(runtime, PIN_PREV_BUTTON);
-                    break;
-
-                case MSG_NEXT_BUTTON:
-                    MSG_setting(runtime, PIN_NEXT_BUTTON);
-                    break;
-
-                case MSG_VOLUME_UP_BUTTON:
-                    MSG_setting(runtime, PIN_VOLUME_UP_BUTTON);
-                    break;
-
-                case MSG_VOLUME_DOWN_BUTTON:
-                    MSG_setting(runtime, PIN_VOLUME_DOWN_BUTTON);
-                    break;
-                }
-            }
-            else
-            {
-                switch ((enum zone_message)msg->msgid)
+                switch ((enum zone_message_t)msg->msgid)
                 {
                 case MSG_TOP_BUTTON:
                     if (CLOCK_is_reminding())
@@ -831,7 +815,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                                 MSG_alarm_toggle(runtime);
                             }
                             else
-                                MSG_setting(runtime, PIN_POWER_BUTTON);
+                                MSG_setting(runtime, MSG_POWER_BUTTON);
                         }
                     }
                     else
@@ -874,7 +858,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                                 MSG_alarm_toggle(runtime);
                             }
                             else
-                                MSG_setting(runtime, PIN_POWER_BUTTON);
+                                MSG_setting(runtime, MSG_POWER_BUTTON);
                         }
                     }
                     else
@@ -895,24 +879,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     break;
 
                 case MSG_VOLUME_UP_BUTTON:
-                    if (AUDIO_renderer_is_idle())
-                        VOICE_play_ringtone(CLOCK_get_ringtone_id());
-
-                    AUDIO_inc_volume(VOLUME_MAX_PERCENT);
-                    LOG_info("volume: %d", AUDIO_get_volume_percent());
-                    timeout_start(&runtime->volume_adj_intv, (void *)PIN_VOLUME_UP_BUTTON);
-                    break;
-
                 case MSG_VOLUME_DOWN_BUTTON:
-                    if (AUDIO_renderer_is_idle())
-                        VOICE_play_ringtone(CLOCK_get_ringtone_id());
-
-                    AUDIO_dec_volume(VOLUME_MIN_PERCENT);
-                    LOG_info("volume: %d", AUDIO_get_volume_percent());
-                    timeout_start(&runtime->volume_adj_intv, (void *)PIN_VOLUME_DOWN_BUTTON);
+                    MSG_volume(runtime, (enum zone_message_t)msg->msgid);
                     break;
                 }
             }
+            else
+                MSG_setting(runtime, (enum zone_message_t)msg->msgid);
 
             mqueue_release_pool(runtime->mqd, msg);
         }
