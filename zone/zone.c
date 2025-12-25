@@ -4,7 +4,7 @@
  *  @def
  ****************************************************************************/
 #define MQUEUE_ALIVE_INTV               (2500)
-#define MQUEUE_PAYLOAD_SIZE             (4)
+#define MQUEUE_PAYLOAD_SIZE             (0)
 #define MQUEUE_LENGTH                   (8)
 
 enum zone_message_t
@@ -222,7 +222,7 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
 {
     (void)pins;
-    timeout_stop(&zone.setting_timeo);
+    timeout_stop(&runtime->setting_timeo);
 
     if (PIN_TOP_BUTTON == (PIN_TOP_BUTTON & pins))
     {
@@ -233,7 +233,7 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     if (PIN_POWER_BUTTON == (PIN_POWER_BUTTON & pins))
     {
         runtime->power_button_stick = 0;
-        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 1, 0);
+        mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
     }
 
     if (PIN_PREV_BUTTON == (PIN_PREV_BUTTON & pins))
@@ -774,9 +774,6 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                     MSG_power_button(runtime, false);
                     CLOCK_dismiss();
 
-                    if (false == msg->payload.as_u32[0])
-                        MSG_mynoise_toggle(true);
-
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
                         if (0 == runtime->power_button_stick)
@@ -785,11 +782,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         if (LONG_PRESS_POWER_DOWN > clock() - runtime->power_button_stick)
                         {
                             thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 1, true);
+                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
                         }
                         else
                             MSG_power_button(runtime, true);
                     }
+                    else
+                        MSG_mynoise_toggle(true);
                     break;
 
                 case MSG_PREV_BUTTON:
