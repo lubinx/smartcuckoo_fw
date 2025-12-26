@@ -434,6 +434,7 @@ static void SETTING_volume_adj_intv(enum zinc_message_t msg_button)
  ****************************************************************************/
 static void MSG_alive(struct zinc_runtime_t *runtime)
 {
+    /*
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {
         runtime->batt_last_ts = time(NULL);
@@ -449,6 +450,7 @@ static void MSG_alive(struct zinc_runtime_t *runtime)
         }
     }
     else
+    */
     {
         if (! runtime->setting)
             CLOCK_schedule();
@@ -687,8 +689,33 @@ static void MSG_voice_button(struct zinc_runtime_t *runtime)
 
 static void MSG_mynoise(enum zinc_message_t msg_button)
 {
-    LOG_debug("NOISE");
-    (void)msg_button;
+    int err = 0;
+
+    switch (msg_button)
+    {
+    default:
+        break;
+
+    case MSG_NOISE_BUTTON:
+        if (MYNOISE_is_running())
+            err = MYNOISE_nextdir();
+        else
+            err = MYNOISE_start();
+        break;
+
+    case MSG_NEXT_BUTTON:
+        if (MYNOISE_is_running())
+            err = MYNOISE_next_indir();
+        break;
+
+    case MSG_PREV_BUTTON:
+        if (MYNOISE_is_running())
+            err = MYNOISE_prev_indir();
+        break;
+    }
+
+    if (0 != err)
+        LOG_error("%s", AUDIO_strerror(err));
 }
 
 static void MSG_volume(struct zinc_runtime_t *runtime, enum zinc_message_t msg_button)
