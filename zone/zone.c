@@ -684,26 +684,28 @@ static void MSG_power_button(struct zone_runtime_t *runtime, bool power_down)
 
     if (power_down)
     {
-        // GPIO_intr_disable(PIN_POWER_BUTTON);
+        runtime->power_is_down = true;
+
         GPIO_intr_disable(PIN_TOP_BUTTON);
         GPIO_intr_disable(PIN_PREV_BUTTON);
         GPIO_intr_disable(PIN_NEXT_BUTTON);
         GPIO_intr_disable(PIN_VOLUME_UP_BUTTON);
         GPIO_intr_disable(PIN_VOLUME_DOWN_BUTTON);
 
-        runtime->power_is_down = true;
-        bluetooth_go_sleep();
-
         MYNOISE_stop();
+        bluetooth_go_sleep();
 
         while (0 == GPIO_peek(PIN_POWER_BUTTON))
         {
+            WDOG_feed();
+
             GPIO_clear(LED_POWER);
             msleep(100);
             GPIO_set(LED_POWER);
             msleep(100);
         }
         GPIO_set(LED_POWER);
+
     }
     else if (runtime->power_is_down)
     {
