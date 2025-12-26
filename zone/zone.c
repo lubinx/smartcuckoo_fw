@@ -648,14 +648,14 @@ static void MSG_mynoise_toggle(bool step)
 
         if (BATT_HINT_MV > PERIPHERAL_batt_ad_sync())
         {
-            err = EBATT;
             VOICE_say_setting(VOICE_SETTING_EXT_LOW_BATT);
+            LOG_error("%s", strerror(EBATT));
         }
         else
-            err = MYNOISE_start();
-
-        if (0 != err)
-            LOG_error("%s", strerror(err));
+        {
+            if (0 != (err = MYNOISE_start()))
+                LOG_error("%s", AUDIO_strerror(err));
+        }
     }
 }
 
