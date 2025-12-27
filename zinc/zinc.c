@@ -495,7 +495,9 @@ static void MSG_setting(struct zinc_runtime_t *runtime, uint32_t button)
         }
 
         VOICE_say_setting(runtime->setting_part);
-        VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
+
+        if (VOICE_SETTING_VOICE >= runtime->setting_part)
+            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
     }
     else if (MSG_VOLUME_UP_BUTTON == button || MSG_VOLUME_DOWN_BUTTON == button)
     {
@@ -647,10 +649,12 @@ static void MSG_setting(struct zinc_runtime_t *runtime, uint32_t button)
             }
         }
 
-        mplayer_playlist_clear();
-        VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
+        if (VOICE_SETTING_VOICE >= runtime->setting_part)
+        {
+            mplayer_playlist_clear();
+            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
+        }
     }
-
     PMU_power_unlock();
 }
 
@@ -741,35 +745,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
 
         if (msg)
         {
-            if (runtime->setting)
-            {
-                switch ((enum zinc_message_t)msg->msgid)
-                {
-                case MSG_SNOOZE_BUTTON:
-                case MSG_NOISE_BUTTON:
-                case MSG_TIMER_BUTTON:
-                case MSG_LAMP_BUTTON:
-                case MSG_DIMMER_BUTTON:
-                    break;
-
-                case MSG_PREV_BUTTON:
-                    MSG_setting(runtime, MSG_PREV_BUTTON);
-                    break;
-
-                case MSG_NEXT_BUTTON:
-                    MSG_setting(runtime, MSG_NEXT_BUTTON);
-                    break;
-
-                case MSG_VOLUME_UP_BUTTON:
-                    MSG_setting(runtime, MSG_VOLUME_UP_BUTTON);
-                    break;
-
-                case MSG_VOLUME_DOWN_BUTTON:
-                    MSG_setting(runtime, MSG_VOLUME_DOWN_BUTTON);
-                    break;
-                }
-            }
-            else
+            if (! runtime->setting)
             {
                 switch ((enum zinc_message_t)msg->msgid)
                 {
@@ -802,6 +778,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                     break;
                 }
             }
+            else
+                MSG_setting(runtime, MSG_VOLUME_DOWN_BUTTON);
 
             mqueue_release_pool(runtime->mqd, msg);
         }
