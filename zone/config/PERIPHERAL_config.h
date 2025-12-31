@@ -63,7 +63,7 @@
     #define PIN_VOLUME_UP_BUTTON        PD15
     #define PIN_VOLUME_DOWN_BUTTON      PD00
 
-    #define VOLUME_ADJ_HOLD_INTV        (60)
+    #define SETTING_VOLUME_ADJ_INTV     (60)
 
     #define LONG_PRESS_VOICE            (1000)
     #define LONG_PRESS_POWER_DOWN       (3000)

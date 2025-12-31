@@ -62,10 +62,10 @@
     #define PIN_COL_3                   PD00
 
     #define GPIO_FILTER_INTV            (50)
-    #define VOLUME_ADJ_HOLD_INTV        (60)
+    #define SETTING_VOLUME_ADJ_INTV     (60)
+    #define SETTING_BLINKY_INTV         (500)
 
     #define LONG_PRESS_VOICE            (1000)
-    #define LONG_PRESS_POWER_DOWN       (3000)
     #define LONG_PRESS_SETTING          (3000)
 
 // volume

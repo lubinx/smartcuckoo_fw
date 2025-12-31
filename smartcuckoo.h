@@ -80,11 +80,15 @@
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;
-    };
 
-/***************************************************************************
- *  @public
- ***************************************************************************/
+        struct
+        {
+            enum SMART_LED_color_t date;
+            enum SMART_LED_color_t time;
+            enum SMART_LED_color_t wdays[6];
+            enum SMART_LED_color_t alarm[4];
+        } led_color;
+    };
     extern struct SMARTCUCKOO_t smartcuckoo;
 
 /***************************************************************************

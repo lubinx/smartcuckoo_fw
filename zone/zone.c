@@ -22,7 +22,7 @@ struct zone_runtime_t
     int mqd;
 
     timeout_t setting_timeo;
-    timeout_t volume_adj_intv;
+    timeout_t setting_volume_intv;
 
     bytebool_t power_is_down;
     bytebool_t setting;
@@ -46,8 +46,8 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
-static void SETTING_volume_adj_intv(enum zone_message_t);
-static void SETTING_timeout_save(struct zone_runtime_t *runtime);
+static void SETTING_volume_intv(enum zone_message_t);
+static void SETTING_timeout_cb(struct zone_runtime_t *runtime);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
 
@@ -114,8 +114,8 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zone.volume_adj_intv, VOLUME_ADJ_HOLD_INTV, (void *)SETTING_volume_adj_intv, 0);
-    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_save, 0);
+    timeout_init(&zone.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv, 0);
+    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_cb, 0);
 
     zone.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
     zone.batt_last_ts = time(NULL);
@@ -250,10 +250,10 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
     if (PIN_VOLUME_UP_BUTTON == (PIN_VOLUME_UP_BUTTON & pins))
         mqueue_postv(runtime->mqd, MSG_VOLUME_UP_BUTTON, 0, 0);
     if (PIN_VOLUME_DOWN_BUTTON == (PIN_VOLUME_DOWN_BUTTON & pins))
-        timeout_start(&runtime->volume_adj_intv, (void *)MSG_VOLUME_DOWN_BUTTON);
+        timeout_start(&runtime->setting_volume_intv, (void *)MSG_VOLUME_DOWN_BUTTON);
 }
 
-static void SETTING_timeout_save(struct zone_runtime_t *runtime)
+static void SETTING_timeout_cb(struct zone_runtime_t *runtime)
 {
     if (runtime->setting)
     {
@@ -267,7 +267,7 @@ static void SETTING_timeout_save(struct zone_runtime_t *runtime)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-static void SETTING_volume_adj_intv(enum zone_message_t msg_button)
+static void SETTING_volume_intv(enum zone_message_t msg_button)
 {
     static clock_t tick = 0;
     timeout_stop(&zone.setting_timeo);
@@ -296,7 +296,7 @@ static void SETTING_volume_adj_intv(enum zone_message_t msg_button)
     {
     volume_adj_done:
         tick = 0;
-        timeout_stop(&zone.volume_adj_intv);
+        timeout_stop(&zone.setting_volume_intv);
 
         zone.setting_is_modified = true;
         smartcuckoo.volume = AUDIO_get_volume_percent();
@@ -727,7 +727,7 @@ static void MSG_volume(struct zone_runtime_t *runtime, enum zone_message_t msg_b
         AUDIO_dec_volume(VOLUME_MIN_PERCENT);
 
     LOG_info("volume: %d", AUDIO_get_volume_percent());
-    timeout_start(&runtime->volume_adj_intv, (void *)msg_button);
+    timeout_start(&runtime->setting_volume_intv, (void *)msg_button);
 }
 
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime)
