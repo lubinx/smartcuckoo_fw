@@ -71,7 +71,7 @@ static void SHELL_register(void)
     UCSH_REGISTER("rtcd",
         [](struct UCSH_env *env)
         {
-            RTC_log(env);
+            RTC_debug(env);
             return 0;
         });
 

@@ -17,10 +17,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
-        # "ultracore/src/audio/wavefile.c"
-        # "ultracore/src/audio/codec/es8156.c"
-        # "ultracore/src/hw/common_i2s.c"
-        # "ultracore/src/core/retarget.c"
     )
 endif()
 
