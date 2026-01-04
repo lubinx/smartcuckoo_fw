@@ -68,6 +68,13 @@ static void SHELL_register(void)
             return 0;
         });
 
+    UCSH_REGISTER("rtcd",
+        [](struct UCSH_env *env)
+        {
+            RTC_log(env);
+            return 0;
+        });
+
     UCSH_REGISTER("md5",
         [](struct UCSH_env *env)
         {
