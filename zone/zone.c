@@ -191,6 +191,12 @@ void PERIPHERAL_init(void)
 /****************************************************************************
  *  @implements: overrides
  ****************************************************************************/
+int CLOCK_alarm_switch(bool en)
+{
+    smartcuckoo.alarm_is_on = en;
+    return NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
+}
+
 void mplayer_idle_callback(void)
 {
     if (zone.setting)

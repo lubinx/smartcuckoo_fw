@@ -79,11 +79,20 @@ extern __attribute__((nothrow, pure))
     /**
      *  CLOCK_alarm_switch_is_on()
      *
-     *  NOTE: override to return hardward switcher of alarm
+     *  NOTE: override to return switcher of alarm
      *      default is alrays on
     */
 extern __attribute__((nothrow, pure))
     bool CLOCK_alarm_switch_is_on(void);
+
+    /**
+     *  CLOCK_alarm_switch()
+     *
+     *  NOTE: override to SET alaram switcher
+     *      default is EACCESS
+    */
+extern __attribute__((nothrow))
+    int CLOCK_alarm_switch(bool en);
 
     /**
      *  CLOCK_update_display_callback()

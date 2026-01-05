@@ -157,6 +157,13 @@ bool CLOCK_alarm_switch_is_on(void)
 }
 
 __attribute__((weak))
+int CLOCK_alarm_switch(bool en)
+{
+    ARG_UNUSED(en);
+    return EACCES;
+}
+
+__attribute__((weak))
 void CLOCK_update_display_callback(struct tm const *dt)
 {
     ARG_UNUSED(dt);
@@ -1027,39 +1034,60 @@ static int SHELL_alarm(struct UCSH_env *env)
         writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     }
-    else if (3 == env->argc)         // alarm <1~COUNT> <enable/disable>
+    else if (3 == env->argc)
     {
-        int idx = strtol(env->argv[1], NULL, 10);
-        if (0 == idx || (unsigned)idx > lengthof(alarms))
-            return EINVAL;
-
-        bool enabled = true;
-        bool deleted = false;
-
-        if (0 == strcasecmp("disable", env->argv[2]))
-            enabled = false;
-        else if (0 == strcasecmp("enable", env->argv[2]))
-            enabled = true;
-        else if (0 == strcasecmp("delete", env->argv[2]))
-            (deleted = true, enabled = false);
-        else
-            return EINVAL;
-
-        struct CLOCK_moment_t *alarm = &alarms[idx - 1];
-        if (enabled != alarm->enabled || deleted)
+        // alarm ctrl on/off
+        if (0 == strcasecmp("ctrl", env->argv[1]))
         {
-            alarm->enabled = enabled;
+            int retval;
 
-            if (deleted)
-            {
-                alarm->mdate = 0;
-                alarm->wdays = 0;
-            }
-            NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
+            if (0 == strcasecmp("on", env->argv[2]))
+                retval = CLOCK_alarm_switch(true);
+            else if (0 == strcasecmp("off", env->argv[2]))
+                retval = CLOCK_alarm_switch(false);
+            else
+                retval = EINVAL;
+
+            if (0 == retval)
+                VOICE_say_setting(VOICE_SETTING_DONE);
+
+            return retval;
         }
+        // alarm <1~COUNT> <enable/disable>
+        else
+        {
+            int idx = strtol(env->argv[1], NULL, 10);
+            if (0 == idx || (unsigned)idx > lengthof(alarms))
+                return EINVAL;
 
-        VOICE_say_setting(VOICE_SETTING_DONE);
-        return 0;
+            bool enabled = true;
+            bool deleted = false;
+
+            if (0 == strcasecmp("disable", env->argv[2]))
+                enabled = false;
+            else if (0 == strcasecmp("enable", env->argv[2]))
+                enabled = true;
+            else if (0 == strcasecmp("delete", env->argv[2]))
+                (deleted = true, enabled = false);
+            else
+                return EINVAL;
+
+            struct CLOCK_moment_t *alarm = &alarms[idx - 1];
+            if (enabled != alarm->enabled || deleted)
+            {
+                alarm->enabled = enabled;
+
+                if (deleted)
+                {
+                    alarm->mdate = 0;
+                    alarm->wdays = 0;
+                }
+                NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
+            }
+
+            VOICE_say_setting(VOICE_SETTING_DONE);
+            return 0;
+        }
     }
     else if (5 < env->argc)     // alarm <1~COUNT> <enable/disable> 1700 <ringtone_id/"string"> wdays=0x7f
     {
