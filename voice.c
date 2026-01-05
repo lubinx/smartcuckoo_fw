@@ -108,10 +108,10 @@ enum VOICE_map
     IDX_SETTING_EXT_ALARM_ON    = 198,
     IDX_SETTING_EXT_ALARM_OFF   = 199,
 
-    IDX_YEAR_2024               = 224,
+    IDX_YEAR_2026               = 226,
         // ...
         IDX_YEAR_2050           = 250,
-#define IDX_YEAR_LO                     (IDX_YEAR_2024 + (COMPILE_YEAR - 2024))
+#define IDX_YEAR_LO                     (IDX_YEAR_2026 + (COMPILE_YEAR - 2026))
 };
 
 /***************************************************************************
