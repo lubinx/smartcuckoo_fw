@@ -17,6 +17,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
+        "ultracore/src/hw/smart_led.c"
     )
 endif()
 
@@ -101,7 +102,8 @@ build_target(zinc
         ${COMMON_SRCS}
         "zinc/*.c"
         "ws2812b_driver.c"
-        "ultracore/src/hw/smart_led.c"
+        "smart_led/led_time.c"
+        "smart_led/led_flags.c"
     DEFINITIONS
         NVM_TAG="zinc"
         ADC_VREF=0

@@ -49,7 +49,7 @@
 
 // LEDs
     #define LED_TIME_DAT                PC07
-    #define LED_DATE_DAT                PC10
+    #define LED_WDAYS_DAT               PC10
 
     #define POWER_OFF_STEP_SECONDS      (1800U)
 
