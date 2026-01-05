@@ -84,8 +84,8 @@ enum VOICE_map
     IDX_GR_AFTERNOON,
     IDX_GR_EVENING,
     IDX_IN_MORNING              = 155,  // 00:00 ~ 11:59 in the morning
-    IDX_IN_AFTERNOON,        // 12:00 ~ 17:59 in the afternoon
-    IDX_IN_EVENING,          // 18:00 ~ 23:59 in the evening
+    IDX_IN_AFTERNOON,                   // 12:00 ~ 17:59 in the afternoon
+    IDX_IN_EVENING,                     // 18:00 ~ 23:59 in the evening
     IDX_MID_NIGHT               = 160,
     IDX_NOON                    = 161,
 
@@ -98,7 +98,6 @@ enum VOICE_map
     IDX_SETTING_MINUTE,
     IDX_SETTING_ALARM_HOUR,
     IDX_SETTING_ALARM_MIN,
-    IDX_SETTING_VOLUME          = IDX_SETTING_LANG,
 
     IDX_REMINDER_0              = 180,
     IDX_REMINDER_END            = 195,
