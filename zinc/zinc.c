@@ -38,10 +38,10 @@ struct zinc_runtime_t
     bytebool_t setting_alarm_is_modified;
     bytebool_t setting_blinky;
 
-    uint16_t display_mtime;
-    uint8_t display_wdays;
     enum VOICE_setting_t setting_part;
     struct tm setting_dt;
+    uint16_t display_mtime;
+    uint32_t display_flags;
 
     clock_t voice_last_tick;
     clock_t timer_button_stick;
@@ -208,7 +208,7 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 
 static void SETTING_blinky(struct zinc_runtime_t *runtime)
 {
-    uint64_t mask = 0;
+    uint32_t mask = 0;
     bool update = true;
 
     if (VOICE_SETTING_HOUR == runtime->setting_part || VOICE_SETTING_ALARM_HOUR == runtime->setting_part)
@@ -281,13 +281,23 @@ void CLOCK_update_display_callback(struct tm const *dt)
         {
             zinc.display_mtime = mtime;
 
-            uint64_t mask = SMART_LED_time_mask_digit(mtime, false) | SMART_LED_TIME_MASK_IND;
+            uint32_t mask = SMART_LED_time_mask_digit(mtime, false) | SMART_LED_TIME_MASK_IND;
             SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
         }
 
-        if (zinc.display_wdays != dt->tm_wday)
+        if (1)
         {
-            SMART_LED_update(&LED_flags, smartcuckoo.dim, smartcuckoo.led_color.time, 0xFFFFFFFFFFFFFFFF);
+            smartcuckoo.led_color.am = LED_GREEN;
+            smartcuckoo.led_color.pm = LED_BLUE;
+
+            uint8_t wdays = 1U << dt->tm_wday;
+            uint8_t alarms = 0;
+
+            uint32_t flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms);
+            if (flags != zinc.display_flags)
+            {
+                SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+            }
         }
     }
 }

@@ -80,14 +80,16 @@
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;
-
         bytebool_t voice_enabled;
+
         struct
         {
-            enum SMART_LED_color_t date;
             enum SMART_LED_color_t time;
-            enum SMART_LED_color_t wdays[7];
+            enum SMART_LED_color_t am;
+            enum SMART_LED_color_t pm;
+            enum SMART_LED_color_t dst;
             enum SMART_LED_color_t alarm[4];
+            enum SMART_LED_color_t wdays[7];
         } led_color;
     };
     extern struct SMARTCUCKOO_t smartcuckoo;

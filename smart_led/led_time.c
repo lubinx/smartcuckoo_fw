@@ -14,19 +14,19 @@ static uint8_t const SMART_LED_digit_mapping[10] =
     /* 9 */ 1U << 0 | 1U << 5 | 1U << 6 | 1U << 1 | 1U << 2 | 1U << 3,
 };
 
-uint64_t SMART_LED_time_mask(time_t const ts)
+uint32_t SMART_LED_time_mask(time_t const ts)
 {
     return SMART_LED_time_mask_tm(localtime(&ts));
 }
 
-uint64_t SMART_LED_time_mask_tm(struct tm const *dt)
+uint32_t SMART_LED_time_mask_tm(struct tm const *dt)
 {
-    uint64_t mask = SMART_LED_time_mask_digit(dt->tm_hour * 100 + dt->tm_min, true);
+    uint32_t mask = SMART_LED_time_mask_digit(dt->tm_hour * 100 + dt->tm_min, true);
     mask |= 0x03 << 14;
     return mask;
 }
 
-uint64_t SMART_LED_time_mask_digit(int digit, bool leading_zero)
+uint32_t SMART_LED_time_mask_digit(int digit, bool leading_zero)
 {
     uint64_t mask = 0;
 
