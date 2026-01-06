@@ -46,7 +46,7 @@
 //          <2=> Depends on build type
 //          <1=> Enable
 //          <0=> Disable
-    #define PMU_EM2_EN                  (1)
+    #define PMU_EM2_EN                  (2)
 //  </h>
 //
 //  <h> Bluetooth
