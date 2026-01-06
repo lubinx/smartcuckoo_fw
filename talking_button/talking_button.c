@@ -75,8 +75,11 @@ void PERIPHERAL_init(void)
     // load settings
     if (0 != NVM_get(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo))
     {
-        memset(&smartcuckoo, 0, sizeof(smartcuckoo));
-        smartcuckoo.volume = 75;
+        if (0 != NVM_get(NVM_SETTING, offsetof(struct SMARTCUCKOO_t, led_color), &smartcuckoo))
+        {
+            memset(&smartcuckoo, 0, sizeof(smartcuckoo));
+            smartcuckoo.volume = 75;
+        }
     }
 
     smartcuckoo.alarm_is_on = (0 != GPIO_peek(PIN_ALARM_SW));
