@@ -542,9 +542,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, enum zone_message_t msg_
                 alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
             else
                 alarm0->ringtone_id = (uint8_t)VOICE_prev_ringtone(alarm0->ringtone_id);
-
-            runtime->setting_alarm_is_modified = true;
-            break;
+            goto setting_modify_alarm;
 
         case VOICE_SETTING_COUNT:
             break;
@@ -579,21 +577,12 @@ static void MSG_setting(struct zone_runtime_t *runtime, enum zone_message_t msg_
 
         if (false)
         {
-            time_t ts;
-            int16_t mtime;
-
         setting_modify_alarm:
-            ts = mktime(&runtime->setting_dt);
-            mtime = time2mtime(ts);
-
-            if (! alarm0->enabled || mtime != alarm0->mtime)
-            {
-                alarm0->enabled = true;
-                alarm0->mtime = mtime;
-                alarm0->mdate = 0;
-                alarm0->wdays = 0x7F;
-                runtime->setting_alarm_is_modified = true;
-            }
+            runtime->setting_alarm_is_modified = true;
+            alarm0->enabled = true;
+            alarm0->mtime = time2mtime(mktime(&runtime->setting_dt));
+            alarm0->mdate = 0;
+            alarm0->wdays = 0x7F;
         }
 
         mplayer_playlist_clear();

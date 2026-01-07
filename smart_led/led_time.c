@@ -28,7 +28,7 @@ uint32_t SMART_LED_time_mask_tm(struct tm const *dt)
 
 uint32_t SMART_LED_time_mask_digit(int digit, bool leading_zero)
 {
-    uint64_t mask = 0;
+    uint32_t mask = 0;
 
     if (1)  // minute part
     {

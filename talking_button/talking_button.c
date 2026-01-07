@@ -332,8 +332,7 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 
         case VOICE_SETTING_ALARM_RINGTONE:
             alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
-            runtime->setting_alarm_is_modified = true;
-            break;
+            goto setting_modify_alarm;
 
         case VOICE_SETTING_COUNT:
             break;
@@ -368,21 +367,12 @@ static void MSG_voice_button(struct talking_button_runtime_t *runtime)
 
         if (false)
         {
-            time_t ts;
-            int16_t mtime;
-
         setting_modify_alarm:
-            ts = mktime(&runtime->setting_dt) % 86400;
-            mtime = time2mtime(ts);
-
-            if (! alarm0->enabled || mtime != alarm0->mtime)
-            {
-                alarm0->enabled = true;
-                alarm0->mtime = mtime;
-                alarm0->mdate = 0;
-                alarm0->wdays = 0x7F;
-                runtime->setting_alarm_is_modified = true;
-            }
+            runtime->setting_alarm_is_modified = true;
+            alarm0->enabled = true;
+            alarm0->mtime = time2mtime(mktime(&runtime->setting_dt));
+            alarm0->mdate = 0;
+            alarm0->wdays = 0x7F;
         }
 
         mplayer_playlist_clear();
