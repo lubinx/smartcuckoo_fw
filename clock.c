@@ -32,6 +32,8 @@
 
 #define ALARM_COUNT                     (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 #define REMINDER_COUNT                  (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
+
+#define ALARM_FORCE_IDX_START           (10)
 #define ALARM_RINGTONE_ID_APP_SPECIFY   (0xFF)
 
 struct DST_t
@@ -583,13 +585,12 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
  ****************************************************************************/
 static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
 {
-    if (! CLOCK_alarm_switch_is_on())
-        return -1;
     if (clock_runtime.ts <= clock_runtime.ts_alarm_snooze_end)
         return -1;
 
     struct tm const *dt = &clock_runtime.dt;
     int16_t mtime = time2mtime(clock_runtime.ts);
+    bool alarm_switch_is_on = CLOCK_alarm_switch_is_on();
 
     struct CLOCK_moment_t const *current_alarm = NULL;
     int8_t old_alarming_idx = clock_runtime.alarming_idx;
@@ -610,6 +611,8 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
     {
         struct CLOCK_moment_t const *alarm = &alarms[idx];
 
+        if (ALARM_FORCE_IDX_START > idx && ! alarm_switch_is_on)
+            continue;
         if (! alarm->enabled)
             continue;
         // execute first alarm while multiple alarms at the same time
@@ -1049,7 +1052,11 @@ static int SHELL_alarm(struct UCSH_env *env)
                 retval = EINVAL;
 
             if (0 == retval)
+            {
+                clock_runtime.alarming_idx = -1;
+                mplayer_stop();
                 VOICE_say_setting(VOICE_SETTING_DONE);
+            }
 
             return retval;
         }
