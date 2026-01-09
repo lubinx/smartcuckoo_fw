@@ -112,6 +112,7 @@ void PERIPHERAL_init(void)
 {
     timeout_init(&zinc.gpio_filter_timeo, GPIO_FILTER_INTV, (void *)GPIO_button_filter_callback, 0);
 
+    zinc.display_mtime = 0xFFFFU;
     zinc.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
     zinc.batt_last_ts = time(NULL);
 
@@ -127,9 +128,9 @@ void PERIPHERAL_init(void)
     }
     DISPLAY_update(&zinc, false);
 
-    smartcuckoo.volume = MIN(VOLUME_MIN_PERCENT, smartcuckoo.volume);
+    smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
     AUDIO_renderer_set_volume_percent(smartcuckoo.volume);
-    AUDIO_renderer_master_volume_balance(10, 30);
+    AUDIO_renderer_master_volume_balance(0, 30);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
