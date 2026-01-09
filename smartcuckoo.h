@@ -76,7 +76,7 @@
         uint8_t dim;
 
         uint8_t volume;
-        uint8_t volume_voice_supression;
+        bytebool_t fixed_ringtone_volume;
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;

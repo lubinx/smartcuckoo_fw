@@ -128,12 +128,10 @@ void PERIPHERAL_init(void)
         smartcuckoo.alarm_is_on = true;
         smartcuckoo.volume = 30;
     }
-    if (0 == smartcuckoo.volume)
-        smartcuckoo.volume = 30;
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
-    AUDIO_set_volume_percent(smartcuckoo.volume);
-    AUDIO_renderer_supress_master_value(75);
+    AUDIO_renderer_set_volume_percent(smartcuckoo.volume);
+    AUDIO_renderer_master_volume_balance(10, 30);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
@@ -428,7 +426,8 @@ static void MSG_setting(struct zone_runtime_t *runtime, enum zone_message_t msg_
         alarm0 = CLOCK_get_alarm(0);
 
         if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
-            VOICE_SETTING_ALARM_MIN == runtime->setting_part)
+            VOICE_SETTING_ALARM_MIN == runtime->setting_part ||
+            VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
         {
             time_t ts = mtime2time(alarm0->mtime);
 

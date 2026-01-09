@@ -122,14 +122,14 @@ void PERIPHERAL_init(void)
 
         smartcuckoo.alarm_is_on = true;
         smartcuckoo.volume = 30;
+
         smartcuckoo.dim = SMART_LED_MAX_DIM / 2;
     }
-    smartcuckoo.dim = 16;
     DISPLAY_update(&zinc, false);
 
-    smartcuckoo.volume = MIN(50, smartcuckoo.volume);
-    AUDIO_set_volume_percent(smartcuckoo.volume);
-    AUDIO_renderer_supress_master_value(80);
+    smartcuckoo.volume = MIN(VOLUME_MIN_PERCENT, smartcuckoo.volume);
+    AUDIO_renderer_set_volume_percent(smartcuckoo.volume);
+    AUDIO_renderer_master_volume_balance(10, 30);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
 
@@ -261,11 +261,15 @@ static void DISPLAY_update(struct zinc_runtime_t *runtime, bool masked)
     if (zinc.setting)
     {
         runtime->setting_blinky = masked;
+
         SETTING_blinky(runtime);
         timeout_start(runtime->setting_blinky_intv, runtime);
     }
     else
     {
+        runtime->display_mtime = 0;
+        runtime->display_flags = 0;
+
         time_t ts = time(NULL);
         CLOCK_update_display_callback(localtime(&ts));
     }
@@ -495,6 +499,7 @@ static void SETTING_timeout_cb(struct zinc_runtime_t *runtime)
     if (runtime->setting)
     {
         VOICE_say_setting(VOICE_SETTING_DONE);
+
         runtime->setting = false;
         DISPLAY_update(runtime, false);
     }
@@ -625,23 +630,29 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     }
     else if (MSG_PREV_BUTTON == msg_button || MSG_NEXT_BUTTON == msg_button)
     {
+        struct CLOCK_moment_t *alarm0;
+
         if (MSG_PREV_BUTTON == msg_button)
             runtime->setting_part = VOICE_prev_setting(runtime->setting_part);
         else
             runtime->setting_part = VOICE_next_setting(runtime->setting_part);
 
+    say_setting_part:
         if (! smartcuckoo.voice_enabled)
         {
             if (VOICE_SETTING_LANG == runtime->setting_part || VOICE_SETTING_VOICE == runtime->setting_part)
-                runtime->setting_part = VOICE_SETTING_HOUR;
+            {
+                if (MSG_NEXT_BUTTON == msg_button || MSG_TIMER_BUTTON == msg_button)
+                    runtime->setting_part = VOICE_SETTING_HOUR;
+                else
+                    runtime->setting_part = VOICE_SETTING_ALARM_RINGTONE;
+            }
         }
-
-        struct CLOCK_moment_t *alarm0;
-    say_setting_part:
         alarm0 = CLOCK_get_alarm(0);
 
         if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
-            VOICE_SETTING_ALARM_MIN == runtime->setting_part)
+            VOICE_SETTING_ALARM_MIN == runtime->setting_part ||
+            VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
         {
             time_t ts = mtime2time(alarm0->mtime);
 
@@ -669,6 +680,10 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         case VOICE_SETTING_MDAY:
         case VOICE_SETTING_ALARM_RINGTONE:
             DISPLAY_update(runtime, false);
+            break;
+
+        case VOICE_SETTING_ALARM_HOUR:
+            DISPLAY_update(runtime, MSG_NEXT_BUTTON != msg_button);
             break;
 
         default:
@@ -772,9 +787,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
                 alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
             else
                 alarm0->ringtone_id = (uint8_t)VOICE_prev_ringtone(alarm0->ringtone_id);
-
-            runtime->setting_alarm_is_modified = true;
-            break;
+            goto setting_modify_alarm;
 
         case VOICE_SETTING_COUNT:
             break;
@@ -809,21 +822,12 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
 
         if (false)
         {
-            time_t ts;
-            int16_t mtime;
-
         setting_modify_alarm:
-            ts = mktime(&runtime->setting_dt);
-            mtime = time2mtime(ts);
-
-            if (! alarm0->enabled || mtime != alarm0->mtime)
-            {
-                alarm0->enabled = true;
-                alarm0->mtime = mtime;
-                alarm0->mdate = 0;
-                alarm0->wdays = 0x7F;
-                runtime->setting_alarm_is_modified = true;
-            }
+            runtime->setting_alarm_is_modified = true;
+            alarm0->enabled = true;
+            alarm0->mtime = time2mtime(mktime(&runtime->setting_dt));
+            alarm0->mdate = 0;
+            alarm0->wdays = 0x7F;
         }
 
         mplayer_playlist_clear();
