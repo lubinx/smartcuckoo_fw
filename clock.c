@@ -1,6 +1,7 @@
 #include <ultracore/log.h>
 #include <ultracore/nvm.h>
 #include <ultracore/timeo.h>
+#include <audio/renderer.h>
 
 #include <stdlib.h>
 #include <strings.h>
@@ -175,6 +176,12 @@ __attribute__((weak))
 uint8_t CLOCK_get_dim_percent(void)
 {
     return 0;
+}
+
+__attribute__((weak))
+uint8_t CLOCK_get_alarm_fadein_seconds(void)
+{
+    return 60;
 }
 
 __attribute__((weak))
@@ -645,10 +652,13 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
         }
         else
         {
-            if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
-                CLOCK_start_app_ringtone_cb((uint8_t)clock_runtime.alarming_idx);
-            else
+            if (ALARM_RINGTONE_ID_APP_SPECIFY != current_alarm->ringtone_id)
+            {
+                AUDIO_renderer_master_begin_fadein(CLOCK_get_alarm_fadein_seconds(), 0, 100);
                 VOICE_play_ringtone(current_alarm->ringtone_id);
+            }
+            else
+                CLOCK_start_app_ringtone_cb((uint8_t)clock_runtime.alarming_idx);
         }
         return clock_runtime.alarming_idx;
     }
