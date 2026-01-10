@@ -17,6 +17,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         "ultracore/src/audio/mplayer.c"
         "ultracore/src/audio/mynoise.c"
         "ultracore/src/audio/renderer.c"
+        "ultracore/src/audio/codec/es8156.c"
         "ultracore/src/hw/smart_led.c"
     )
 endif()
@@ -70,6 +71,8 @@ build_target(zone
     DEFINITIONS
         NVM_TAG="zone"
         ADC_VREF=0
+        CLOCK_DEF_RING_SECONDS=300
+        CLOCK_DEF_RING_FADE_SECONDS=50
     DEPENDENCIES
         "lc3"
     OUTPUT_DIR
@@ -107,6 +110,8 @@ build_target(zinc
     DEFINITIONS
         NVM_TAG="zinc"
         ADC_VREF=0
+        CLOCK_DEF_RING_SECONDS=300
+        CLOCK_DEF_RING_FADE_SECONDS=50
     DEPENDENCIES
         "lc3"
     OUTPUT_DIR
