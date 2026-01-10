@@ -12,6 +12,10 @@
     #define CLOCK_DEF_RING_SECONDS      (180)
 #endif
 
+#ifndef CLOCK_DEF_RING_FADE_SECONDS
+    #define CLOCK_DEF_RING_FADE_SECONDS (30)
+#endif
+
 #ifndef CLOCK_DEF_SNOOZE_SECONDS
     #define CLOCK_DEF_SNOOZE_SECONDS    (600)
 #endif

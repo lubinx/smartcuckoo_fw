@@ -27,9 +27,11 @@
     (__DATE__[10] - '0')   \
 )
 
-#define CLOCK_NVM_ID                    NVM_DEFINE_KEY('C', 'L', 'K', 'C')
+#define CLOCK_SETTING_NVM_ID            NVM_DEFINE_KEY('C', 'S', 'E', 'T')
 #define CLOCK_ALARM_NVM_ID              NVM_DEFINE_KEY('C', 'A', 'L', 'M')
 #define CLOCK_REMINDER_NVM_ID           NVM_DEFINE_KEY('C', 'R', 'M', 'D')
+// deprecated
+#define CLOCK_NVM_ID                    NVM_DEFINE_KEY('C', 'L', 'K', 'C')
 
 #define ALARM_COUNT                     (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
 #define REMINDER_COUNT                  (NVM_MAX_OBJECT_SIZE / sizeof(struct CLOCK_moment_t))
@@ -50,21 +52,22 @@ struct DST_t
     } tbl[20];
 };
 
-struct CLOCK_nvm_t
+struct CLOCK_setting_t
 {
+    struct DST_t dst;
+    int16_t timezone_offset;
+
     uint16_t ring_seconds;
+    uint8_t  ring_fade_seconds;
     uint16_t ring_snooze_seconds;    // TODO: snooze
 
     uint16_t reminder_seconds;
     uint16_t reminder_intv_seconds;
 
-    int16_t timezone_offset;
-    struct DST_t dst;
-
     uint32_t say_zero_hour_mask     : 24;
     uint32_t say_zero_hour_wdays    : 8;
 };
-static_assert(sizeof(struct CLOCK_nvm_t) <= NVM_MAX_OBJECT_SIZE, "");
+static_assert(sizeof(struct CLOCK_setting_t) <= NVM_MAX_OBJECT_SIZE, "");
 
 struct CLOCK_runtime_t
 {
@@ -90,7 +93,7 @@ static struct CLOCK_runtime_t clock_runtime = {0};
 static struct CLOCK_moment_t alarms[ALARM_COUNT];
 static struct CLOCK_moment_t reminders[ALARM_COUNT];
 
-static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr);
+static int8_t CLOCK_peek_start_alarms(struct CLOCK_setting_t const *nvm_ptr);
 static void CLOCK_intv_next_callback(void *arg);
 static unsigned CLOCK_reminders(struct tm const *dt, bool ignore_snooze, bool saying);
 
@@ -104,7 +107,7 @@ static int SHELL_reminder(struct UCSH_env *env);
  ****************************************************************************/
 int get_timezone_offset(void)
 {
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
 
     if (NULL == nvm_ptr)
         return 0;
@@ -114,7 +117,7 @@ int get_timezone_offset(void)
 
 int get_dst_offset(struct tm *tm)
 {
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
 
     if (NULL == nvm_ptr)
         return 0;
@@ -179,12 +182,6 @@ uint8_t CLOCK_get_dim_percent(void)
 }
 
 __attribute__((weak))
-uint8_t CLOCK_get_alarm_fadein_seconds(void)
-{
-    return 60;
-}
-
-__attribute__((weak))
 void CLOCK_shell_set_dim_percent(uint8_t dim_percent)
 {
     ARG_UNUSED(dim_percent);
@@ -195,10 +192,12 @@ void CLOCK_shell_set_dim_percent(uint8_t dim_percent)
  ****************************************************************************/
 void CLOCK_init(void)
 {
-    struct CLOCK_nvm_t const *nvm_ptr;
-    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr))))
+    NVM_delete(CLOCK_NVM_ID);
+
+    struct CLOCK_setting_t const *nvm_ptr;
+    if (NULL == (nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr))))
     {
-        struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+        struct CLOCK_setting_t *nvm = malloc(sizeof(struct CLOCK_setting_t));
         if (NULL == nvm)
         {
             __BREAK_IFDBG();
@@ -207,14 +206,16 @@ void CLOCK_init(void)
         memset(nvm, 0, sizeof(*nvm));
 
         nvm->ring_seconds = CLOCK_DEF_RING_SECONDS;
+        nvm->ring_fade_seconds = CLOCK_DEF_RING_FADE_SECONDS;
         nvm->ring_snooze_seconds = CLOCK_DEF_SNOOZE_SECONDS;
+
         nvm->reminder_seconds = CLOCK_DEF_RMD_SECONDS;
         nvm->reminder_intv_seconds = CLOCK_DEF_RMD_INTV_SECONDS;
 
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        NVM_set(CLOCK_SETTING_NVM_ID, sizeof(*nvm), nvm);
         free(nvm);
 
-        nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+        nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
     }
 
     if (1)
@@ -261,7 +262,7 @@ void CLOCK_init(void)
 void CLOCK_schedule(void)
 {
     struct tm const *dt = CLOCK_update_timestamp(NULL);
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
 
     if (-1 != CLOCK_peek_start_alarms(nvm_ptr))
     {
@@ -401,7 +402,7 @@ static bool CLOCK_canceling(bool snooze)
         {
             timeout_stop(&clock_runtime.intv_next);
 
-            struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+            struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
             clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
         }
 
@@ -422,7 +423,7 @@ bool CLOCK_snooze(void)
 static unsigned CLOCK_reminders(struct tm const *dt, bool ignore_snooze, bool saying)
 {
     unsigned reminder_count = 0;
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
 
     time_t ts_base = clock_runtime.ts - clock_runtime.ts % 86400;
     int16_t mtime = time2mtime(clock_runtime.ts);
@@ -590,7 +591,7 @@ void CLOCK_minute_add(struct CLOCK_moment_t *moment, int value)
 /****************************************************************************
  *  @internal
  ****************************************************************************/
-static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
+static int8_t CLOCK_peek_start_alarms(struct CLOCK_setting_t const *nvm_ptr)
 {
     if (clock_runtime.ts <= clock_runtime.ts_alarm_snooze_end)
         return -1;
@@ -654,7 +655,9 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_nvm_t const *nvm_ptr)
         {
             if (ALARM_RINGTONE_ID_APP_SPECIFY != current_alarm->ringtone_id)
             {
-                AUDIO_renderer_master_begin_fadein(CLOCK_get_alarm_fadein_seconds(), 0, 100);
+                if (0 < nvm_ptr->ring_fade_seconds)
+                    AUDIO_renderer_master_begin_fadein(nvm_ptr->ring_fade_seconds, 0, 100);
+
                 VOICE_play_ringtone(current_alarm->ringtone_id);
             }
             else
@@ -683,7 +686,7 @@ static void CLOCK_intv_next_callback(void *arg)
  ****************************************************************************/
 static int SHELL_clock(struct UCSH_env *env)
 {
-    struct CLOCK_nvm_t const *nvm_ptr = NVM_get_ptr(CLOCK_NVM_ID, sizeof(*nvm_ptr));
+    struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
 
     if (1 == env->argc)
     {
@@ -694,6 +697,7 @@ static int SHELL_clock(struct UCSH_env *env)
         if (1)  // ring & reminder
         {
             pos += sprintf(env->buf + pos, "\n\t\"ring\": %d", nvm_ptr->ring_seconds);
+            pos += sprintf(env->buf + pos, ",\n\t\"ring_fade\": %d", nvm_ptr->ring_fade_seconds);
             pos += sprintf(env->buf + pos, ",\n\t\"snooze\": %d", nvm_ptr->ring_snooze_seconds);
             pos += sprintf(env->buf + pos, ",\n\t\"reminder\": %d", nvm_ptr->reminder_seconds);
             pos += sprintf(env->buf + pos, ",\n\t\"reminder_intv\": %d", nvm_ptr->reminder_intv_seconds);
@@ -759,11 +763,11 @@ static int SHELL_clock(struct UCSH_env *env)
     };
 
     int err = 0;
-    struct CLOCK_nvm_t *nvm = malloc(sizeof(struct CLOCK_nvm_t));
+    struct CLOCK_setting_t *nvm = malloc(sizeof(struct CLOCK_setting_t));
     if (NULL == nvm)
         return ENOMEM;
     else
-        NVM_get(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        NVM_get(CLOCK_SETTING_NVM_ID, sizeof(*nvm), nvm);
 
 // REVIEW: clock ring & snooze seconds
     if (0 == strcmp("ring", env->argv[1]))
@@ -777,6 +781,18 @@ static int SHELL_clock(struct UCSH_env *env)
 
         if (0 == err)
             nvm->ring_seconds = (uint16_t)seconds;
+    }
+    else if (0 == strcmp("ring_fade", env->argv[1]))
+    {
+        if (3 != env->argc)
+            err = EINVAL;
+
+    int seconds = strtol(env->argv[2], NULL, 10);
+        if (0 > seconds || 255 < seconds)
+            err = EINVAL;
+
+        if (0 == err)
+            nvm->ring_fade_seconds = (uint8_t)seconds;
     }
     else if (0 == strcmp("snooze", env->argv[1]))
     {
@@ -983,7 +999,7 @@ static int SHELL_clock(struct UCSH_env *env)
 
     if (0 == err)
     {
-        NVM_set(CLOCK_NVM_ID, sizeof(*nvm), nvm);
+        NVM_set(CLOCK_SETTING_NVM_ID, sizeof(*nvm), nvm);
         VOICE_say_setting(VOICE_SETTING_DONE);
     }
 
