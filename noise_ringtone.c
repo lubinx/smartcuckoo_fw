@@ -3,6 +3,9 @@
 #include <sys/errno.h>
 #include <sh/cmdline.h>
 
+#include <audio/renderer.h>
+#include <audio/mplayer.h>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,13 +32,20 @@ struct noise_ringtone_nvm_t
  *****************************************************************************/
 void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
 {
+    struct noise_ringtone_nvm_t *nvm_ptr;
     char scenario[MYNOISE_FOLDER_MAX];
 
-    struct noise_ringtone_nvm_t *nvm_ptr = NVM_get_ptr(NOISE_RINGTONE_NVM_ID, sizeof(*nvm_ptr));
+    mplayer_stop();
+    AUDIO_renderer_stop();
+
+    unsigned nvm_id = NOISE_RINGTONE_NVM_ID + (alarm_idx - 10) / lengthof(nvm_ptr->item);
+    unsigned idx = (alarm_idx - 10) % lengthof(nvm_ptr->item);
+
+    nvm_ptr = NVM_get_ptr(nvm_id, sizeof(*nvm_ptr));
     if (NULL != nvm_ptr)
     {
         char *theme = NULL;
-        struct noise_ringtone_t *ringtone = &nvm_ptr->item[alarm_idx % lengthof(nvm_ptr->item)];
+        struct noise_ringtone_t *ringtone = &nvm_ptr->item[idx];
         if (1)
         {
             char *ptr = ringtone->noise;
@@ -74,10 +84,15 @@ void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx)
 
 char const *CLOCK_get_app_ringtone_cb(uint8_t alarm_idx)
 {
-    struct noise_ringtone_nvm_t *nvm_ptr = NVM_get_ptr(NOISE_RINGTONE_NVM_ID, sizeof(struct noise_ringtone_nvm_t));
+    struct noise_ringtone_nvm_t *nvm_ptr;
+
+    unsigned nvm_id = NOISE_RINGTONE_NVM_ID + (alarm_idx - 10) / lengthof(nvm_ptr->item);
+    unsigned idx = (alarm_idx - 10) % lengthof(nvm_ptr->item);
+
+    nvm_ptr = NVM_get_ptr(nvm_id, sizeof(struct noise_ringtone_nvm_t));
     if (NULL != nvm_ptr)
     {
-        struct noise_ringtone_t *ptr = &nvm_ptr->item[alarm_idx % lengthof(nvm_ptr->item)];
+        struct noise_ringtone_t *ptr = &nvm_ptr->item[idx];
         char *retval = malloc(MYNOISE_FOLDER_MAX + MYNOISE_THEME_MAX + 16);
 
         sprintf(retval, "\"%s off_seconds=%u\"", ptr->noise, (unsigned)ptr->off_seconds);
@@ -98,10 +113,13 @@ int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
     if (NULL == nvm_ptr)
         return ENOMEM;
 
-    if (0 != NVM_get(NOISE_RINGTONE_NVM_ID, sizeof(struct noise_ringtone_nvm_t), nvm_ptr))
+    unsigned nvm_id = NOISE_RINGTONE_NVM_ID + (alarm_idx - 10) / lengthof(nvm_ptr->item);
+    unsigned idx = (alarm_idx - 10) % lengthof(nvm_ptr->item);
+
+    if (0 != NVM_get(nvm_id, sizeof(struct noise_ringtone_nvm_t), nvm_ptr))
         memset(nvm_ptr, 0, sizeof(*nvm_ptr));
 
-    struct noise_ringtone_t *ptr = &nvm_ptr->item[alarm_idx % lengthof(nvm_ptr->item)];
+    struct noise_ringtone_t *ptr = &nvm_ptr->item[idx];
     strncpy(ptr->noise, argv[0], sizeof(ptr->noise) - 1);
 
     char *off_seconds_str = CMD_paramvalue_byname("off_seconds", argc, argv);
@@ -110,5 +128,5 @@ int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
     else
         ptr->off_seconds = 0;
 
-    return NVM_set(NOISE_RINGTONE_NVM_ID, sizeof(struct noise_ringtone_nvm_t), nvm_ptr);
+    return NVM_set(nvm_id, sizeof(*nvm_ptr), nvm_ptr);
 }

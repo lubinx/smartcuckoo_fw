@@ -388,10 +388,10 @@ static bool CLOCK_canceling(bool snooze)
         clock_runtime.alarming_idx = -1;
         clock_runtime.ts_alarm_snooze_end = time(NULL) + 60;
 
-        if (! mplayer_is_idle()) mplayer_stop();
-
         if (ALARM_RINGTONE_ID_APP_SPECIFY == ptr->ringtone_id)
             CLOCK_stop_app_ringtone_cb((uint8_t)(ptr - alarms));
+        else
+            mplayer_stop();
 
         return true;
     }
@@ -1100,7 +1100,7 @@ static int SHELL_alarm(struct UCSH_env *env)
                 enabled = false;
             else if (0 == strcasecmp("enable", env->argv[2]))
                 enabled = true;
-            else if (0 == strcasecmp("delete", env->argv[2]))
+            else if (0 == strcasecmp("delete", env->argv[2]) || 0 == strcasecmp("del", env->argv[2]))
                 (deleted = true, enabled = false);
             else
                 return EINVAL;
@@ -1118,7 +1118,24 @@ static int SHELL_alarm(struct UCSH_env *env)
                 NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
             }
 
-            VOICE_say_setting(VOICE_SETTING_DONE);
+            if (idx - 1 == clock_runtime.alarming_idx)
+            {
+                clock_runtime.alarming_idx = -1;
+                clock_runtime.ts_alarm_snooze_end = 0;
+
+                if (! enabled)
+                {
+                    struct CLOCK_moment_t const *current_alarm = &alarms[idx - 1];
+
+                    if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
+                        CLOCK_stop_app_ringtone_cb((uint8_t)idx - 1);
+                    else
+                        mplayer_stop();
+                }
+            }
+            else
+                VOICE_say_setting(VOICE_SETTING_DONE);
+
             return 0;
         }
     }
@@ -1200,6 +1217,21 @@ static int SHELL_alarm(struct UCSH_env *env)
             NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
         }
 
+        if (idx - 1 == clock_runtime.alarming_idx)
+        {
+            clock_runtime.alarming_idx = -1;
+            clock_runtime.ts_alarm_snooze_end = 0;
+
+            if (! enabled)
+            {
+                struct CLOCK_moment_t const *current_alarm = &alarms[idx - 1];
+
+                if (ALARM_RINGTONE_ID_APP_SPECIFY == current_alarm->ringtone_id)
+                    CLOCK_stop_app_ringtone_cb((uint8_t)idx - 1);
+                else
+                    mplayer_stop();
+            }
+        }
         VOICE_say_setting(VOICE_SETTING_DONE);
         return 0;
     }
