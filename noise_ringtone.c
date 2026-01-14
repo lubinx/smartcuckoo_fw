@@ -33,7 +33,7 @@ int CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
     struct noise_ringtone_nvm_t *nvm_ptr;
     char scenario[MYNOISE_FOLDER_MAX];
 
-    if (! AUDIO_renderer_is_idle())
+    if (! AUDIO_renderer_is_idle() && ! MYNOISE_is_running())
         return EAGAIN;
 
     unsigned nvm_id = NOISE_RINGTONE_NVM_ID + (alarm_idx - 10) / lengthof(nvm_ptr->item);
