@@ -188,7 +188,7 @@ extern __attribute__((nothrow))
      *  CLOCK_start_app_ringtone_cb() / CLOCK_stop_app_ringtone_cb()
     */
 extern __attribute__((nothrow))
-    void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx);
+    int CLOCK_start_app_ringtone_cb(uint8_t alarm_idx);
 extern __attribute__((nothrow))
     void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx);
 

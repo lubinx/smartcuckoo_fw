@@ -2,9 +2,7 @@
 #include <audio/mynoise.h>
 #include <sys/errno.h>
 #include <sh/cmdline.h>
-
 #include <audio/renderer.h>
-#include <audio/mplayer.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -30,19 +28,22 @@ struct noise_ringtone_nvm_t
 /******************************************************************************
  *  @implements
  *****************************************************************************/
-void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
+int CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
 {
     struct noise_ringtone_nvm_t *nvm_ptr;
     char scenario[MYNOISE_FOLDER_MAX];
 
-    mplayer_stop();
-    AUDIO_renderer_stop();
+    if (! AUDIO_renderer_is_idle())
+        return EAGAIN;
 
     unsigned nvm_id = NOISE_RINGTONE_NVM_ID + (alarm_idx - 10) / lengthof(nvm_ptr->item);
     unsigned idx = (alarm_idx - 10) % lengthof(nvm_ptr->item);
 
     nvm_ptr = NVM_get_ptr(nvm_id, sizeof(*nvm_ptr));
-    if (NULL != nvm_ptr)
+    int err = NULL == nvm_ptr ? ENOENT : 0;
+    uint32_t off_seconds = 0;
+
+    if (0 == err)
     {
         char *theme = NULL;
         struct noise_ringtone_t *ringtone = &nvm_ptr->item[idx];
@@ -62,18 +63,22 @@ void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
                 strncpy(scenario, ringtone->noise, sizeof(scenario) - 1);
         }
 
-        int err = MYNOISE_start_scenario(scenario, theme);
-        if (0 != err)   // REVIEW: fallback
-            err = MYNOISE_start();
-
-        if (0 == err)
-        {
-            MYNOISE_no_store_stat();
-
-            if (0 != ringtone->off_seconds)
-                MYNOISE_power_off_seconds(ringtone->off_seconds);
-        }
+        off_seconds = ringtone->off_seconds;
+        err = MYNOISE_start_scenario(scenario, theme);
     }
+
+    if (0 != err)   // REVIEW: fallback to default noise
+        err = MYNOISE_start();
+
+    if (0 == err)
+    {
+        MYNOISE_no_store_stat();
+
+        if (0 != off_seconds)
+            MYNOISE_power_off_seconds(off_seconds);
+    }
+
+    return err;
 }
 
 void CLOCK_stop_app_ringtone_cb(uint8_t alarm_idx)

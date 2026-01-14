@@ -768,7 +768,6 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                 case MSG_POWER_BUTTON:
                     MSG_power_button(runtime, false);
-                    CLOCK_dismiss();
 
                     if (0 == GPIO_peek(PIN_POWER_BUTTON))
                     {
@@ -781,7 +780,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
                         }
                         else
-                            MSG_power_button(runtime, true);
+                        {
+                            if (! CLOCK_dismiss())
+                                MSG_power_button(runtime, true);
+                        }
                     }
                     else
                         MSG_mynoise_toggle(true);

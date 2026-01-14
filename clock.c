@@ -488,9 +488,10 @@ int CLOCK_set_app_ringtone_cb(uint8_t alarm_idx, char *str)
 }
 
 __attribute__((weak))
-void CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
+int CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
 {
     ARG_UNUSED(alarm_idx);
+    return ENOSYS;
 }
 
 __attribute__((weak))
@@ -648,8 +649,16 @@ static int8_t CLOCK_peek_start_alarms(struct CLOCK_setting_t const *nvm_ptr)
     {
         if (old_alarming_idx == clock_runtime.alarming_idx)
         {
-            if (ALARM_RINGTONE_ID_APP_SPECIFY != current_alarm->ringtone_id && mplayer_is_idle())
-                VOICE_play_ringtone(current_alarm->ringtone_id);
+            if (ALARM_RINGTONE_ID_APP_SPECIFY != current_alarm->ringtone_id)
+            {
+                if (mplayer_is_idle())
+                    VOICE_play_ringtone(current_alarm->ringtone_id);
+            }
+            else
+            {
+                if (AUDIO_renderer_is_idle())
+                    CLOCK_start_app_ringtone_cb((uint8_t)clock_runtime.alarming_idx);
+            }
         }
         else
         {
