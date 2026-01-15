@@ -166,6 +166,18 @@ extern __attribute__((nothrow))
     void CLOCK_update_alarms(void);
 
     /**
+     *  CLOCK_dismiss_alarm()
+    */
+extern __attribute__((nothrow))
+    bool CLOCK_dismiss_alarm(bool snooze);
+
+    /**
+     *  CLOCK_dismiss_reminder();
+    */
+extern __attribute__((nothrow))
+    void CLOCK_dismiss_reminder(void);
+
+    /**
      *  CLOCK_snooze() / CLOCK_dismiss()
      *  @returns
      *      false if no alarming is ringing

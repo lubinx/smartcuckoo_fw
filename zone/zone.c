@@ -49,7 +49,7 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
 static void SETTING_volume_intv(enum zone_message_t);
 static void SETTING_timeout_cb(struct zone_runtime_t *runtime);
 
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
 // var
 static struct zone_runtime_t zone = {0};
@@ -203,13 +203,23 @@ void mplayer_idle_callback(void)
         CLOCK_schedule();
 }
 
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain)
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping)
 {
     GPIO_set(LED1);
     GPIO_set(LED2);
     GPIO_set(LED3);
 
-    if (0 != power_off_seconds_remain)
+    if (0 == power_off_seconds_remain)
+    {
+        if (stopping)
+        {
+            struct CLOCK_moment_t *alarm = CLOCK_get_current_alarm();
+
+            if (CLOCK_get_alarm_is_app_specify(alarm))
+                CLOCK_dismiss();
+        }
+    }
+    else
     {
         GPIO_clear(LED1);
 
@@ -331,6 +341,7 @@ static void SETTING_volume_intv(enum zone_message_t msg_button)
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
     // LOG_debug("alive");
+    /*
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {
         runtime->batt_last_ts = time(NULL);
@@ -346,6 +357,7 @@ static void MSG_alive(struct zone_runtime_t *runtime)
         }
     }
     else
+    */
     {
         if (! runtime->setting)
             CLOCK_schedule();
@@ -780,13 +792,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
                         }
                         else
-                        {
-                            if (! CLOCK_dismiss())
-                                MSG_power_button(runtime, true);
-                        }
+                            MSG_power_button(runtime, true);
                     }
                     else
-                        MSG_mynoise_toggle(true);
+                    {
+                        if (! CLOCK_dismiss())
+                            MSG_mynoise_toggle(true);
+                    }
                     break;
 
                 case MSG_PREV_BUTTON:

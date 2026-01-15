@@ -390,7 +390,7 @@ void CLOCK_update_alarms(void)
     NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
 }
 
-static inline bool CLOCK_dismiss_alarm(bool snooze)
+bool CLOCK_dismiss_alarm(bool snooze)
 {
     // TODO: clock snooze
     (void)snooze;
@@ -412,7 +412,7 @@ static inline bool CLOCK_dismiss_alarm(bool snooze)
         return false;
 }
 
-static inline void CLOCK_dismiss_reminder(void)
+void CLOCK_dismiss_reminder(void)
 {
     // stop activity reminders
     if (timeout_is_running(&clock_runtime.intv_next))
