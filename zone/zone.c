@@ -341,7 +341,6 @@ static void SETTING_volume_intv(enum zone_message_t msg_button)
 static void MSG_alive(struct zone_runtime_t *runtime)
 {
     // LOG_debug("alive");
-    /*
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {
         runtime->batt_last_ts = time(NULL);
@@ -357,7 +356,6 @@ static void MSG_alive(struct zone_runtime_t *runtime)
         }
     }
     else
-    */
     {
         if (! runtime->setting)
             CLOCK_schedule();
@@ -406,7 +404,7 @@ static void MSG_setting(struct zone_runtime_t *runtime, enum zone_message_t msg_
     PMU_power_lock();
     mplayer_playlist_clear();
 
-    // any button will stop alarming & snooze reminders
+    // any button will stop alarming & reminders
     CLOCK_dismiss();
 
     if (MSG_POWER_BUTTON == msg_button)
@@ -752,7 +750,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_TOP_BUTTON:
                     if (CLOCK_is_reminding())
                     {
-                        CLOCK_snooze();
+                        CLOCK_snooze();     // snooze alarming & dismiss reminder
                         MSG_voice_button(runtime);
                     }
                     else if (0 == GPIO_peek(PIN_TOP_BUTTON))
