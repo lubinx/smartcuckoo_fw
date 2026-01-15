@@ -145,6 +145,18 @@ extern __attribute__((nothrow, pure))
     struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx);
 
     /**
+     *  CLOCK_get_current_alarm()
+    */
+extern __attribute__((nothrow, pure))
+    struct CLOCK_moment_t *CLOCK_get_current_alarm(void);
+
+    /**
+     *  CLOCK_get_alarm_is_app_specify()
+    */
+extern __attribute__((nothrow, const))
+    bool CLOCK_get_alarm_is_app_specify(struct CLOCK_moment_t *alarm);
+
+    /**
      *  CLOCK_update_alarms()
      *      store external modified alarms parameters into nvm
      *

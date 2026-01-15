@@ -372,12 +372,25 @@ struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
     return &alarms[idx];
 }
 
+struct CLOCK_moment_t *CLOCK_get_current_alarm(void)
+{
+    if (-1 == clock_runtime.alarming_idx)
+        return NULL;
+    else
+        return &alarms[clock_runtime.alarming_idx];
+}
+
+bool CLOCK_get_alarm_is_app_specify(struct CLOCK_moment_t *alarm)
+{
+    return NULL != alarm && ALARM_RINGTONE_ID_APP_SPECIFY == alarm->ringtone_id;
+}
+
 void CLOCK_update_alarms(void)
 {
     NVM_set(CLOCK_ALARM_NVM_ID, sizeof(alarms), &alarms);
 }
 
-static bool CLOCK_canceling(bool snooze)
+static inline bool CLOCK_dismiss_alarm(bool snooze)
 {
     // TODO: clock snooze
     (void)snooze;
@@ -396,28 +409,31 @@ static bool CLOCK_canceling(bool snooze)
         return true;
     }
     else
-    {
-        // stop activity reminders
-        if (timeout_is_running(&clock_runtime.intv_next))
-        {
-            timeout_stop(&clock_runtime.intv_next);
-
-            struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
-            clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
-        }
-
         return false;
+}
+
+static inline void CLOCK_dismiss_reminder(void)
+{
+    // stop activity reminders
+    if (timeout_is_running(&clock_runtime.intv_next))
+    {
+        timeout_stop(&clock_runtime.intv_next);
+
+        struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
+        clock_runtime.ts_reminder_slient_end = time(NULL) + nvm_ptr->reminder_seconds;
     }
 }
 
 bool CLOCK_dismiss(void)
 {
-    return CLOCK_canceling(false);
+    CLOCK_dismiss_reminder();
+    return CLOCK_dismiss_alarm(false);
 }
 
 bool CLOCK_snooze(void)
 {
-    return CLOCK_canceling(true);
+    CLOCK_dismiss_reminder();
+    return CLOCK_dismiss_alarm(true);
 }
 
 static unsigned CLOCK_reminders(struct tm const *dt, bool ignore_snooze, bool saying)
@@ -1072,6 +1088,17 @@ static int SHELL_alarm(struct UCSH_env *env)
         writebuf(env->fd, env->buf, (unsigned)pos);
         return 0;
     }
+    else if (2 == env->argc)
+    {
+        if (0 == strcasecmp("dismiss", env->argv[1]))
+            CLOCK_dismiss_alarm(false);
+        else if (0 == strcasecmp("snooze", env->argv[1]))
+            CLOCK_dismiss_alarm(true);
+        else
+            return EINVAL;
+
+        return 0;
+    }
     else if (3 == env->argc)
     {
         // alarm ctrl on/off
@@ -1290,6 +1317,15 @@ static int SHELL_reminder(struct UCSH_env *env)
         pos += sprintf(env->buf + pos, "\t\"reminder_count\": %d\n}\n", lengthof(reminders));
 
         writebuf(env->fd, env->buf, (unsigned)pos);
+        return 0;
+    }
+    else if (2 == env->argc)
+    {
+        if (0 == strcasecmp("dismiss", env->argv[1]))
+            CLOCK_dismiss_reminder();
+        else
+            return EINVAL;
+
         return 0;
     }
     else if (3 == env->argc)    // rmd <1~COUNT> <enable/disable>
