@@ -209,17 +209,7 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
     GPIO_set(LED2);
     GPIO_set(LED3);
 
-    if (0 == power_off_seconds_remain)
-    {
-        if (stopping)
-        {
-            struct CLOCK_moment_t *alarm = CLOCK_get_current_alarm();
-
-            if (CLOCK_get_alarm_is_app_specify(alarm))
-                CLOCK_dismiss();
-        }
-    }
-    else
+    if (0 != power_off_seconds_remain)
     {
         GPIO_clear(LED1);
 
@@ -228,6 +218,18 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
         if (2U * POWER_OFF_STEP_SECONDS < power_off_seconds_remain)
             GPIO_clear(LED3);
     }
+
+    if (stopping)
+    {
+        struct CLOCK_moment_t *alarm = CLOCK_get_current_alarm();
+
+        if (CLOCK_get_alarm_is_app_specify(alarm))
+            CLOCK_dismiss();
+
+        GPIO_set(LED_POWER);
+    }
+    else
+        GPIO_clear(LED_POWER);
 }
 
 /****************************************************************************
@@ -657,8 +659,13 @@ static void MSG_mynoise_toggle(bool step)
         }
         else
         {
+            GPIO_set(LED_POWER);
+
             if (0 != (err = MYNOISE_start()))
+            {
+                GPIO_clear(LED_POWER);
                 LOG_error("%s", AUDIO_strerror(err));
+            }
         }
     }
 }

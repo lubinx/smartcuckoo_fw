@@ -64,7 +64,7 @@ static void SETTING_timeout_release(void);
 static void SETTING_timeout_cb(struct zinc_runtime_t *runtime);
 static void SETTING_volume_intv(enum zinc_message_t msg_button);
 
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain);
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
 static struct zinc_runtime_t zinc = {0};
 __THREAD_STACK static uint32_t zinc_stack[1280 / sizeof(uint32_t)];
@@ -202,9 +202,10 @@ void mplayer_idle_callback(void)
         CLOCK_schedule();
 }
 
-static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain)
+static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping)
 {
     (void)power_off_seconds_remain;
+    (void)stopping;
 }
 
 static void SETTING_blinky(struct zinc_runtime_t *runtime)
@@ -590,7 +591,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     SETTING_timeout_release();
     mplayer_playlist_clear();
 
-    // any button will stop alarming & snooze reminders
+    // any button will stop alarming & reminders
     CLOCK_dismiss();
 
     if (MSG_TIMER_BUTTON == msg_button)
