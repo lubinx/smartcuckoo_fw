@@ -712,6 +712,7 @@ static void CLOCK_intv_next_callback(void *arg)
 static int SHELL_clock(struct UCSH_env *env)
 {
     struct CLOCK_setting_t const *nvm_ptr = NVM_get_ptr(CLOCK_SETTING_NVM_ID, sizeof(*nvm_ptr));
+    bool no_nvm_update = false;
 
     if (1 == env->argc)
     {
@@ -865,7 +866,10 @@ static int SHELL_clock(struct UCSH_env *env)
             err = EINVAL;
 
         if (0 == err)
+        {
+            no_nvm_update = true;
             CLOCK_shell_set_dim_percent((uint8_t)dim);
+        }
     }
 // REVIEW: clock timezone & dst
     else if (0 == strcmp("tz", env->argv[1]))
@@ -1022,7 +1026,7 @@ static int SHELL_clock(struct UCSH_env *env)
     else
         err = EINVAL;
 
-    if (0 == err)
+    if (0 == err && ! no_nvm_update)
     {
         NVM_set(CLOCK_SETTING_NVM_ID, sizeof(*nvm), nvm);
         VOICE_say_setting(VOICE_SETTING_DONE);
