@@ -800,8 +800,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                                 MSG_power_button(runtime, true);
                         }
                         else
+                        {
                             MSG_mynoise_toggle(true);
+                            mqueue_flush(runtime->mqd);
+                        }
                     }
+                    else
+                        mqueue_flush(runtime->mqd);
                     break;
 
                 case MSG_PREV_BUTTON:
@@ -843,6 +848,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             mqueue_flush(runtime->mqd);
                         }
                     }
+                    else
+                        mqueue_flush(runtime->mqd);
                     break;
 
                 case MSG_NEXT_BUTTON:
@@ -884,6 +891,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             mqueue_flush(runtime->mqd);
                         }
                     }
+                    else
+                        mqueue_flush(runtime->mqd);
                     break;
 
                 case MSG_VOLUME_UP_BUTTON:
