@@ -287,7 +287,7 @@ void CLOCK_update_display_callback(struct tm const *dt)
         {
             zinc.display_mtime = mtime;
 
-            uint32_t mask = SMART_LED_time_mask_digit(mtime, false) | SMART_LED_TIME_MASK_IND;
+            uint32_t mask = SMART_LED_time_mask_digit(mtime, true) | SMART_LED_TIME_MASK_IND;
             SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
         }
 
@@ -300,10 +300,9 @@ void CLOCK_update_display_callback(struct tm const *dt)
             uint8_t alarms = 0;
 
             uint32_t flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms);
+
             if (flags != zinc.display_flags)
-            {
                 SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
-            }
         }
     }
 }

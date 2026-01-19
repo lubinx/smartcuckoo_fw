@@ -113,6 +113,10 @@ static void SHELL_register(void)
                 if (0 > volume || 100 < volume)
                     return EINVAL;
 
+                #ifdef VOLUME_MIN_PERCENT
+                    volume = MAX(VOLUME_MIN_PERCENT, volume);
+                #endif
+
                 if (volume != AUDIO_get_volume_percent())
                 {
                     AUDIO_set_volume_percent((uint8_t)volume);
