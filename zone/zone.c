@@ -774,7 +774,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             }
                         }
                         else
+                        {
                             MSG_mynoise_toggle(false);
+                            mqueue_flush(runtime->mqd);
+                        }
                     }
                     break;
 
@@ -826,6 +829,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                         else if (MYNOISE_is_running())
                         {
+                            GPIO_set(LED_POWER);
+
                             unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
                             MYNOISE_power_off_tickdown_cb(NULL);
 
@@ -834,6 +839,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                             if (0 == err)
                                 MYNOISE_power_off_seconds(power_off_seconds);
+
+                            mqueue_flush(runtime->mqd);
                         }
                     }
                     break;
@@ -863,6 +870,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                         }
                         else if (MYNOISE_is_running())
                         {
+                            GPIO_set(LED_POWER);
+
                             unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
                             MYNOISE_power_off_tickdown_cb(NULL);
 
@@ -871,6 +880,8 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
 
                             if (0 == err)
                                 MYNOISE_power_off_seconds(power_off_seconds);
+
+                            mqueue_flush(runtime->mqd);
                         }
                     }
                     break;
