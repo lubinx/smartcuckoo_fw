@@ -1,13 +1,4 @@
-#include <ultracore/nvm.h>
-#include <audio/mynoise.h>
-#include <sys/errno.h>
-#include <sh/cmdline.h>
-#include <audio/renderer.h>
-
-#include <stdlib.h>
-#include <string.h>
-
-#include "clock.h"
+#include "smartcuckoo.h"
 
 /******************************************************************************
  *  @def
@@ -75,9 +66,14 @@ int CLOCK_start_app_ringtone_cb(uint8_t alarm_idx)
         MYNOISE_no_store_stat();
 
         if (0 != off_seconds)
+        {
             MYNOISE_power_off_seconds(off_seconds);
-    }
 
+            char buf[32];
+            int len = sprintf(buf, "noise: off_seconds=%u\n", (unsigned)off_seconds);
+            SHELL_notification(buf, (unsigned)len);
+        }
+    }
     return err;
 }
 
