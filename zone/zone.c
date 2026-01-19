@@ -755,30 +755,25 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 switch ((enum zone_message_t)msg->msgid)
                 {
                 case MSG_TOP_BUTTON:
-                    if (CLOCK_is_reminding())
+                    if (! CLOCK_snooze())
                     {
-                        CLOCK_snooze();     // snooze alarming & dismiss reminder
-                        MSG_voice_button(runtime);
-                    }
-                    else if (0 == GPIO_peek(PIN_TOP_BUTTON))
-                    {
-                        if (0 == runtime->top_button_stick)
-                            runtime->top_button_stick = clock();
-
-                        if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
+                        if (0 == GPIO_peek(PIN_TOP_BUTTON))
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
+                            if (0 == runtime->top_button_stick)
+                                runtime->top_button_stick = clock();
+
+                            if (LONG_PRESS_VOICE > clock() - runtime->top_button_stick)
+                            {
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, MSG_TOP_BUTTON, 0, 0);
+                            }
+                            else
+                            {
+                                CLOCK_dismiss();
+                                MSG_voice_button(runtime);
+                            }
                         }
                         else
-                        {
-                            if (! CLOCK_dismiss())
-                                MSG_voice_button(runtime);
-                        }
-                    }
-                    else
-                    {
-                        if (! CLOCK_snooze())
                             MSG_mynoise_toggle(false);
                     }
                     break;
@@ -786,109 +781,97 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                 case MSG_POWER_BUTTON:
                     MSG_power_button(runtime, false);
 
-                    if (0 == GPIO_peek(PIN_POWER_BUTTON))
+                    if (! CLOCK_dismiss())
                     {
-                        if (0 == runtime->power_button_stick)
-                            runtime->power_button_stick = clock();
-
-                        if (LONG_PRESS_POWER_DOWN > clock() - runtime->power_button_stick)
+                        if (0 == GPIO_peek(PIN_POWER_BUTTON))
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                            if (0 == runtime->power_button_stick)
+                                runtime->power_button_stick = clock();
+
+                            if (LONG_PRESS_POWER_DOWN > clock() - runtime->power_button_stick)
+                            {
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, MSG_POWER_BUTTON, 0, 0);
+                            }
+                            else
+                                MSG_power_button(runtime, true);
                         }
                         else
-                            MSG_power_button(runtime, true);
-                    }
-                    else
-                    {
-                        if (! CLOCK_dismiss())
                             MSG_mynoise_toggle(true);
                     }
                     break;
 
                 case MSG_PREV_BUTTON:
-                    CLOCK_dismiss();
-
-                    if (0 == GPIO_peek(PIN_PREV_BUTTON))
+                    if (! CLOCK_dismiss())
                     {
-                        if (0 == runtime->prev_next_button_stick)
-                            runtime->prev_next_button_stick = clock();
-
-                        if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_NEXT_BUTTON))
+                        if (0 == GPIO_peek(PIN_PREV_BUTTON))
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
-                        }
-                        else
-                        {
-                            MYNOISE_stop();
+                            if (0 == runtime->prev_next_button_stick)
+                                runtime->prev_next_button_stick = clock();
 
-                            if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                            if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_NEXT_BUTTON))
                             {
-                                mqueue_flush(runtime->mqd);
-                                MSG_alarm_toggle(runtime);
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
                             }
                             else
-                                MSG_setting(runtime, MSG_POWER_BUTTON);
+                            {
+                                MYNOISE_stop();
+
+                                if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                                    MSG_alarm_toggle(runtime);
+                                else
+                                    MSG_setting(runtime, MSG_POWER_BUTTON);
+                            }
                         }
-                    }
-                    else
-                    {
-                        unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
-                        MYNOISE_power_off_tickdown_cb(NULL);
+                        else if (MYNOISE_is_running())
+                        {
+                            unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
+                            MYNOISE_power_off_tickdown_cb(NULL);
 
-                        int err = MYNOISE_prev();
-                        MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+                            int err = MYNOISE_prev();
+                            MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 
-                        if (0 == err)
-                            MYNOISE_power_off_seconds(power_off_seconds);
-                        else
-                            MYNOISE_power_off_seconds(0);
-
-                        mqueue_flush(runtime->mqd);
+                            if (0 == err)
+                                MYNOISE_power_off_seconds(power_off_seconds);
+                        }
                     }
                     break;
 
                 case MSG_NEXT_BUTTON:
-                    CLOCK_dismiss();
-
-                    if (0 == GPIO_peek(PIN_NEXT_BUTTON))
+                    if (! CLOCK_dismiss())
                     {
-                        if (0 == runtime->prev_next_button_stick)
-                            runtime->prev_next_button_stick = clock();
-
-                        if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_PREV_BUTTON))
+                        if (0 == GPIO_peek(PIN_NEXT_BUTTON))
                         {
-                            thread_yield();
-                            mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
-                        }
-                        else
-                        {
-                            MYNOISE_stop();
+                            if (0 == runtime->prev_next_button_stick)
+                                runtime->prev_next_button_stick = clock();
 
-                            if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                            if (LONG_PRESS_SETTING > clock() - runtime->prev_next_button_stick && 0 != GPIO_peek(PIN_PREV_BUTTON))
                             {
-                                mqueue_flush(runtime->mqd);
-                                MSG_alarm_toggle(runtime);
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
                             }
                             else
-                                MSG_setting(runtime, MSG_POWER_BUTTON);
+                            {
+                                MYNOISE_stop();
+
+                                if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                                    MSG_alarm_toggle(runtime);
+                                else
+                                    MSG_setting(runtime, MSG_POWER_BUTTON);
+                            }
                         }
-                    }
-                    else
-                    {
-                        unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
-                        MYNOISE_power_off_tickdown_cb(NULL);
+                        else if (MYNOISE_is_running())
+                        {
+                            unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
+                            MYNOISE_power_off_tickdown_cb(NULL);
 
-                        int err = MYNOISE_next();
-                        MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+                            int err = MYNOISE_next();
+                            MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 
-                        if (0 == err)
-                            MYNOISE_power_off_seconds(power_off_seconds);
-                        else
-                            MYNOISE_power_off_seconds(0);
-
-                        mqueue_flush(runtime->mqd);
+                            if (0 == err)
+                                MYNOISE_power_off_seconds(power_off_seconds);
+                        }
                     }
                     break;
 
