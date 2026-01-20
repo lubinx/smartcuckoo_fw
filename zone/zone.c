@@ -827,7 +827,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                                 MYNOISE_stop();
 
                                 if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                                {
+                                    mqueue_flush(runtime->mqd);
                                     MSG_alarm_toggle(runtime);
+                                }
                                 else
                                     MSG_setting(runtime, MSG_POWER_BUTTON);
                             }
@@ -870,7 +873,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                                 MYNOISE_stop();
 
                                 if (0 == GPIO_peek(PIN_PREV_BUTTON | PIN_NEXT_BUTTON))
+                                {
+                                    mqueue_flush(runtime->mqd);
                                     MSG_alarm_toggle(runtime);
+                                }
                                 else
                                     MSG_setting(runtime, MSG_POWER_BUTTON);
                             }
