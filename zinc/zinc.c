@@ -57,7 +57,7 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime);
 static void GPIO_button_filter_callback(enum zinc_message_t msg_button);
 static bool GPIO_button_is_down(enum zinc_message_t msg_button);
 
-static void DISPLAY_update(struct zinc_runtime_t *runtime, bool masked);
+static void PANEL_update(struct zinc_runtime_t *runtime, bool masked);
 
 static void SETTING_timeout_create(void);
 static void SETTING_timeout_release(void);
@@ -126,7 +126,7 @@ void PERIPHERAL_init(void)
 
         smartcuckoo.dim = SMART_LED_MAX_DIM / 2;
     }
-    DISPLAY_update(&zinc, false);
+    PANEL_update(&zinc, false);
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
     AUDIO_renderer_set_volume_percent(smartcuckoo.volume);
@@ -194,6 +194,12 @@ int CLOCK_alarm_switch(bool en)
     return NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
+void CLOCK_shell_set_dim_percent(uint8_t dim_percent)
+{
+    ARG_UNUSED(dim_percent);
+    LOG_debug("dim: %d", dim_percent);
+}
+
 void mplayer_idle_callback(void)
 {
     if (zinc.setting)
@@ -208,7 +214,40 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
     (void)stopping;
 }
 
-static void SETTING_blinky(struct zinc_runtime_t *runtime)
+void CLOCK_update_display_callback(struct tm const *dt)
+{
+    if (! zinc.setting)
+    {
+        uint16_t mtime = (uint16_t)(dt->tm_hour * 100 + dt->tm_min);
+
+        if (zinc.display_mtime != mtime)
+        {
+            zinc.display_mtime = mtime;
+
+            uint32_t mask = SMART_LED_time_mask_digit(mtime, true) | SMART_LED_TIME_MASK_IND;
+            SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
+        }
+
+        if (1)
+        {
+            smartcuckoo.led_color.am = LED_GREEN;
+            smartcuckoo.led_color.pm = LED_BLUE;
+
+            uint8_t wdays = 1U << dt->tm_wday;
+            uint8_t alarms = 0;
+
+            uint32_t flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms);
+
+            if (flags != zinc.display_flags)
+                SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+        }
+    }
+}
+
+/****************************************************************************
+ *  @private: panel
+ ****************************************************************************/
+static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
 {
     uint32_t mask = 0;
     bool update = true;
@@ -258,13 +297,13 @@ static void SETTING_blinky(struct zinc_runtime_t *runtime)
     }
 }
 
-static void DISPLAY_update(struct zinc_runtime_t *runtime, bool masked)
+static void PANEL_update(struct zinc_runtime_t *runtime, bool masked)
 {
     if (zinc.setting)
     {
         runtime->setting_blinky = masked;
 
-        SETTING_blinky(runtime);
+        PANEL_setting_blinky(runtime);
         timeout_start(runtime->setting_blinky_intv, runtime);
     }
     else
@@ -277,35 +316,6 @@ static void DISPLAY_update(struct zinc_runtime_t *runtime, bool masked)
     }
 }
 
-void CLOCK_update_display_callback(struct tm const *dt)
-{
-    if (! zinc.setting)
-    {
-        uint16_t mtime = (uint16_t)(dt->tm_hour * 100 + dt->tm_min);
-
-        if (zinc.display_mtime != mtime)
-        {
-            zinc.display_mtime = mtime;
-
-            uint32_t mask = SMART_LED_time_mask_digit(mtime, true) | SMART_LED_TIME_MASK_IND;
-            SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
-        }
-
-        if (1)
-        {
-            smartcuckoo.led_color.am = LED_GREEN;
-            smartcuckoo.led_color.pm = LED_BLUE;
-
-            uint8_t wdays = 1U << dt->tm_wday;
-            uint8_t alarms = 0;
-
-            uint32_t flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms);
-
-            if (flags != zinc.display_flags)
-                SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
-        }
-    }
-}
 
 /****************************************************************************
  *  @private: buttons
@@ -502,7 +512,7 @@ static void SETTING_timeout_cb(struct zinc_runtime_t *runtime)
         VOICE_say_setting(VOICE_SETTING_DONE);
 
         runtime->setting = false;
-        DISPLAY_update(runtime, false);
+        PANEL_update(runtime, false);
     }
 
     if (runtime->setting_alarm_is_modified)
@@ -607,10 +617,10 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
                 time_t ts = time(NULL);
                 localtime_r(&ts, &runtime->setting_dt);
 
-                runtime->setting_blinky_intv = timeout_create(SETTING_BLINKY_INTV, (void *)SETTING_blinky, TIMEOUT_FLAG_REPEAT);
+                runtime->setting_blinky_intv = timeout_create(SETTING_BLINKY_INTV, (void *)PANEL_setting_blinky, TIMEOUT_FLAG_REPEAT);
                 timeout_start(runtime->setting_blinky_intv, runtime);
 
-                SETTING_blinky(runtime);
+                PANEL_setting_blinky(runtime);
             }
 
             goto say_setting_part;
@@ -626,7 +636,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
                 zinc.setting_blinky_intv = NULL;
             }
 
-            DISPLAY_update(runtime, false);
+            PANEL_update(runtime, false);
         }
     }
     else if (MSG_PREV_BUTTON == msg_button || MSG_NEXT_BUTTON == msg_button)
@@ -680,15 +690,15 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         case VOICE_SETTING_MONTH:
         case VOICE_SETTING_MDAY:
         case VOICE_SETTING_ALARM_RINGTONE:
-            DISPLAY_update(runtime, false);
+            PANEL_update(runtime, false);
             break;
 
         case VOICE_SETTING_ALARM_HOUR:
-            DISPLAY_update(runtime, MSG_NEXT_BUTTON != msg_button);
+            PANEL_update(runtime, MSG_NEXT_BUTTON != msg_button);
             break;
 
         default:
-            DISPLAY_update(runtime, true);
+            PANEL_update(runtime, true);
             break;
         }
     }
@@ -836,7 +846,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         if (smartcuckoo.voice_enabled)
             VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
 
-        DISPLAY_update(runtime, false);
+        PANEL_update(runtime, false);
     }
 
     SETTING_timeout_create();
@@ -984,13 +994,13 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                 case MSG_LAMP_BUTTON:
                     smartcuckoo.led_color.time = SMART_LED_prev_color(smartcuckoo.led_color.time);
                     runtime->display_mtime = 0;
-                    DISPLAY_update(runtime, false);
+                    PANEL_update(runtime, false);
                     break;
 
                 case MSG_DIMMER_BUTTON:
                     smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
                     runtime->display_mtime = 0;
-                    DISPLAY_update(runtime, false);
+                    PANEL_update(runtime, false);
                     break;
                 }
             }
