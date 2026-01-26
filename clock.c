@@ -176,13 +176,13 @@ void CLOCK_update_display_callback(struct tm const *dt)
 }
 
 __attribute__((weak))
-uint8_t CLOCK_get_dim_percent(void)
+uint8_t CLOCK_get_dim_value(void)
 {
     return 0;
 }
 
 __attribute__((weak))
-void CLOCK_shell_set_dim_percent(uint8_t dim_percent)
+void CLOCK_shell_set_dim_value(uint8_t dim_percent)
 {
     ARG_UNUSED(dim_percent);
 }
@@ -727,7 +727,7 @@ static int SHELL_clock(struct UCSH_env *env)
             pos += sprintf(env->buf + pos, ",\n\t\"snooze\": %d", nvm_ptr->ring_snooze_seconds);
             pos += sprintf(env->buf + pos, ",\n\t\"reminder\": %d", nvm_ptr->reminder_seconds);
             pos += sprintf(env->buf + pos, ",\n\t\"reminder_intv\": %d", nvm_ptr->reminder_intv_seconds);
-            pos += sprintf(env->buf + pos, ",\n\t\"dim\": %d", CLOCK_get_dim_percent());
+            pos += sprintf(env->buf + pos, ",\n\t\"dim\": %d", CLOCK_get_dim_value());
 
             if (flush_bytes < pos)
             {
@@ -862,13 +862,13 @@ static int SHELL_clock(struct UCSH_env *env)
             err = EINVAL;
 
         int dim = strtol(env->argv[2], NULL, 10);
-        if ((0 > dim || 100 < dim))
+        if (0 > dim)
             err = EINVAL;
 
         if (0 == err)
         {
             no_nvm_update = true;
-            CLOCK_shell_set_dim_percent((uint8_t)dim);
+            CLOCK_shell_set_dim_value((uint8_t)dim);
         }
     }
 // REVIEW: clock timezone & dst

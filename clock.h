@@ -105,16 +105,16 @@ extern __attribute__((nothrow))
     void CLOCK_update_display_callback(struct tm const *dt);
 
     /**
-     *  CLOCK_get_dim_percent()
+     *  CLOCK_get_dim_value()
     */
 extern __attribute__((nothrow, pure))
-    uint8_t CLOCK_get_dim_percent(void);
+    uint8_t CLOCK_get_dim_value(void);
 
     /**
-     *  CLOCK_shell_set_dim_percent()
+     *  CLOCK_shell_set_dim_value()
     */
 extern __attribute__((nothrow))
-    void CLOCK_shell_set_dim_percent(uint8_t dim_percent);
+    void CLOCK_shell_set_dim_value(uint8_t dim_percent);
 
  /***************************************************************************
  * @def: alarms & reminders
