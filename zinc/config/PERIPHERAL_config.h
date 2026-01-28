@@ -46,12 +46,20 @@
 // ampifier
     #define AMPIFIER_PIN                PB14
     #define AMPIFIER_EN_PULL            PUSH_PULL_DOWN
+    #define EAR_PIN                     PA04
 
 // LEDs
     #define LED_TIME_DAT                PC07
-    #define LED_WDAYS_DAT               PC10
+    #define LED_WDAYS_DAT               PC08
+    #define LED_LAMP_DAT                PA06
+
+    #define LED_CLOCK_DIS               PB06
+    #define LED_LAMP_DIS                PB05
 
     #define POWER_OFF_STEP_SECONDS      (1800U)
+
+// light sensor
+    #define LIGHT_SENSOR_AD             PA03
 
 // buttons
     #define PIN_ROW_1                   PC09
@@ -63,10 +71,12 @@
 
     #define GPIO_FILTER_INTV            (50)
     #define SETTING_VOLUME_ADJ_INTV     (60)
+    #define SETTING_LAMP_DIM_INTV       (50)
     #define SETTING_BLINKY_INTV         (500)
 
     #define LONG_PRESS_VOICE            (1000)
     #define LONG_PRESS_SETTING          (3000)
+    #define LONG_PRESS_DIM              (380)
 
 // volume
     #define VOLUME_MAX_PERCENT          (100)

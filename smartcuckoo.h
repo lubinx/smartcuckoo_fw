@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <stropts.h>
 
+#include <adc.h>
 #include <pmu.h>
 #include <rtc.h>
 #include <uart.h>
@@ -76,7 +77,7 @@
         uint8_t dim;
 
         uint8_t volume;
-        bytebool_t fixed_ringtone_volume;
+        uint8_t rsv;
 
         int16_t voice_sel_id;
         struct LOCALE_t locale;
@@ -91,6 +92,12 @@
             enum SMART_LED_color_t alarm[4];
             enum SMART_LED_color_t wdays[7];
         } led_color;
+
+        struct
+        {
+            enum SMART_LED_color_t color;
+            uint8_t dim;
+        } lamp;
     };
     extern struct SMARTCUCKOO_t smartcuckoo;
 

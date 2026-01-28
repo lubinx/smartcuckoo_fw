@@ -3,7 +3,6 @@
 #include <usb/usbd_scsi.h>
 #include <fs/fat.h>
 
-#include <adc.h>
 #include <dac.h>
 #include <i2c.h>
 #include <sdmmc.h>
@@ -77,6 +76,7 @@ static struct PMU_attr_t pmu_attr;
 #ifdef PIN_BATT_ADC
 struct batt_ad_t
 {
+    struct ADC_attr_t attr;
     int value;
 
     struct
@@ -84,9 +84,6 @@ struct batt_ad_t
         int cumul;
         int cumul_count;
     };
-
-    struct ADC_attr_t attr;
-    struct timeout_t lowbatt_intv;
 };
 
 static struct batt_ad_t batt_ad;

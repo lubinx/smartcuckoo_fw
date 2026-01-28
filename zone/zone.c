@@ -3,9 +3,10 @@
 /****************************************************************************
  *  @def
  ****************************************************************************/
-#define MQUEUE_ALIVE_INTV               (2500)
 #define MQUEUE_PAYLOAD_SIZE             (0)
 #define MQUEUE_LENGTH                   (8)
+
+#define MQUEUE_ALIVE_INTV               (2500)
 
 enum zone_message_t
 {
@@ -46,7 +47,7 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
-static void SETTING_volume_intv(enum zone_message_t);
+static void SETTING_volume_intv_cb(enum zone_message_t);
 static void SETTING_timeout_cb(struct zone_runtime_t *runtime);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
@@ -114,7 +115,7 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zone.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv, 0);
+    timeout_init(&zone.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_cb, 0);
     timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_cb, 0);
 
     zone.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
@@ -125,8 +126,11 @@ void PERIPHERAL_init(void)
     {
         memset(&smartcuckoo, 0, sizeof(smartcuckoo));
 
-        smartcuckoo.alarm_is_on = true;
-        smartcuckoo.volume = 30;
+        if (0 != NVM_get(NVM_SETTING, offsetof(struct SMARTCUCKOO_t, lamp), &smartcuckoo))
+        {
+            smartcuckoo.alarm_is_on = true;
+            smartcuckoo.volume = 30;
+        }
     }
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
@@ -283,7 +287,7 @@ static void SETTING_timeout_cb(struct zone_runtime_t *runtime)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-static void SETTING_volume_intv(enum zone_message_t msg_button)
+static void SETTING_volume_intv_cb(enum zone_message_t msg_button)
 {
     static clock_t tick = 0;
     timeout_stop(&zone.setting_timeo);

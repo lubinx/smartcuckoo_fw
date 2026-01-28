@@ -1,7 +1,6 @@
 #include "led_flags.h"
-#include "clock.h"
 
-uint32_t SMART_LED_flags_mask(uint8_t hour, uint8_t wdays, uint8_t alarms)
+uint32_t SMART_LED_flags_mask(uint8_t hour, uint8_t wdays, uint8_t alarms, bool dst)
 {
     uint32_t mask = 0;
 
@@ -10,7 +9,7 @@ uint32_t SMART_LED_flags_mask(uint8_t hour, uint8_t wdays, uint8_t alarms)
     else
         mask |= SMART_LED_FLAGS_MASK_PM;
 
-    if (CLOCK_get_dst_is_active())
+    if (dst)
         mask |= SMART_LED_FLAGS_MASK_DST;
 
     for (unsigned i = 0; i < 8; i ++)

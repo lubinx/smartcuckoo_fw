@@ -9,7 +9,7 @@
 #define MQUEUE_PAYLOAD_SIZE             (4)
 #define MQUEUE_LENGTH                   (8)
 
-#define MQUEUE_ALIVE_INTV_SECONDS       (5)
+#define MQUEUE_ALIVE_INTV               (2500)
 
 enum zinc_message_t
 {
@@ -20,8 +20,13 @@ enum zinc_message_t
     MSG_PREV_BUTTON,
     MSG_NEXT_BUTTON,
     MSG_TIMER_BUTTON            = 0x31,
+    MSG_COLOR_BUTTON,
     MSG_LAMP_BUTTON,
-    MSG_DIMMER_BUTTON,
+    MSG_LAMP_LONG_PRESS         = 0xF0,
+    MSG_LAMP_LONG_PRESS_OFF,
+
+    MSG_LAMP_DIM_UP = MSG_COLOR_BUTTON,
+    MSG_LAMP_DIM_DOWN = MSG_LAMP_BUTTON
 };
 
 struct zinc_runtime_t
@@ -32,20 +37,30 @@ struct zinc_runtime_t
     timeout_t *setting_timeo;
     timeout_t *setting_volume_intv;
     timeout_t *setting_blinky_intv;
+    timeout_t *setting_dim_intv;
 
     bytebool_t setting;
     bytebool_t setting_is_modified;
     bytebool_t setting_alarm_is_modified;
     bytebool_t setting_blinky;
 
-    enum VOICE_setting_t setting_part;
     struct tm setting_dt;
+    enum VOICE_setting_t setting_part;
+
+    bytebool_t lamp_on;
     uint16_t display_mtime;
     uint32_t display_flags;
 
     clock_t voice_last_tick;
     clock_t timer_button_stick;
+    clock_t dim_stick;
     time_t batt_last_ts;
+};
+
+struct light_sensor_ad_t
+{
+    struct ADC_attr_t attr;
+    int value;
 };
 
 /****************************************************************************
@@ -57,31 +72,40 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime);
 static void GPIO_button_filter_callback(enum zinc_message_t msg_button);
 static bool GPIO_button_is_down(enum zinc_message_t msg_button);
 
-static void PANEL_update(struct zinc_runtime_t *runtime, bool masked);
+static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky);
+static void LIGHT_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr);
 
 static void SETTING_timeout_create(void);
 static void SETTING_timeout_release(void);
 static void SETTING_timeout_cb(struct zinc_runtime_t *runtime);
-static void SETTING_volume_intv(enum zinc_message_t msg_button);
+static void SETTING_volume_intv_cb(enum zinc_message_t msg_button);
+static void SETTING_dim_intv_cb(enum zinc_message_t msg_button);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
 static struct zinc_runtime_t zinc = {0};
 __THREAD_STACK static uint32_t zinc_stack[1280 / sizeof(uint32_t)];
+static struct light_sensor_ad_t light_sensor = {0};
 
 struct SMART_LED_attr_t const LED_time = SMART_LED_INITIALIZER(&GPIO_PORT(LED_TIME_DAT)->POD, LED_TIME_DAT, 30);
-struct SMART_LED_attr_t const LED_flags = SMART_LED_INITIALIZER(&GPIO_PORT(LED_WDAYS_DAT)->POD, LED_WDAYS_DAT, 15);
+struct SMART_LED_attr_t const LED_flags = SMART_LED_INITIALIZER(&GPIO_PORT(LED_WDAYS_DAT)->POD, LED_WDAYS_DAT, 14);
+struct SMART_LED_attr_t const LED_lamp = SMART_LED_INITIALIZER(&GPIO_PORT(LED_LAMP_DAT)->POD, LED_LAMP_DAT, 7);
 
 /****************************************************************************
  *  @implements
  ****************************************************************************/
 void PERIPHERAL_gpio_init(void)
 {
+    GPIO_setdir_output(PUSH_PULL_UP, LED_LAMP_DIS);
+
     GPIO_setdir_output(PUSH_PULL_DOWN, LED_time.pin_alias);
     GPIO_output_alt_speed(LED_time.pin_alias, GPIO_SPEED_10M);
 
     GPIO_setdir_output(PUSH_PULL_DOWN, LED_flags.pin_alias);
     GPIO_output_alt_speed(LED_flags.pin_alias, GPIO_SPEED_10M);
+
+    GPIO_setdir_output(PUSH_PULL_DOWN, LED_lamp.pin_alias);
+    GPIO_output_alt_speed(LED_lamp.pin_alias, GPIO_SPEED_10M);
 
     GPIO_setdir_output(PUSH_PULL_UP, PIN_ROW_1);
     GPIO_setdir_output(PUSH_PULL_UP, PIN_ROW_2);
@@ -124,22 +148,27 @@ void PERIPHERAL_init(void)
         smartcuckoo.alarm_is_on = true;
         smartcuckoo.volume = 30;
 
-        smartcuckoo.dim = SMART_LED_MAX_DIM / 2;
+        smartcuckoo.led_color.am = LED_GREEN;
+        smartcuckoo.led_color.pm = LED_BLUE;
+        smartcuckoo.led_color.dst = LED_ORANGE;
+
+        smartcuckoo.dim = SMART_LED_CENTER_DIM / 2;
+        smartcuckoo.lamp.dim = SMART_LED_CENTER_DIM;
     }
-    PANEL_update(&zinc, false);
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
     AUDIO_renderer_set_volume_percent(smartcuckoo.volume);
     AUDIO_renderer_master_volume_balance(0, 30);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
+    PANEL_update(&zinc, false);
 
     MQUEUE_INIT(&zinc.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     PERIPHERAL_gpio_intr_enable();
 
     if (true)
     {
-        uint32_t timeout = 1000 * MQUEUE_ALIVE_INTV_SECONDS;
+        uint32_t timeout = MQUEUE_ALIVE_INTV;
         ioctl(zinc.mqd, OPT_RD_TIMEO, &timeout);
 
         pthread_attr_t attr;
@@ -181,6 +210,14 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
+    if (1)
+    {
+        ADC_attr_init(&light_sensor.attr, 1, (void *)LIGHT_ad_callback);
+        ADC_attr_positive_input(&light_sensor.attr, LIGHT_SENSOR_AD);
+
+        ADC_start_convert(&light_sensor.attr, &light_sensor);
+    }
+
     MYNOISE_init();
     MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 }
@@ -194,10 +231,21 @@ int CLOCK_alarm_switch(bool en)
     return NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-void CLOCK_shell_set_dim_percent(uint8_t dim_percent)
+uint8_t CLOCK_get_dim_value(void)
 {
-    ARG_UNUSED(dim_percent);
-    LOG_debug("dim: %d", dim_percent);
+    return smartcuckoo.dim;
+}
+
+void CLOCK_shell_set_dim_value(uint8_t dim)
+{
+    if (dim != smartcuckoo.dim)
+    {
+        zinc.setting_is_modified = true;
+        SETTING_timeout_create();
+
+        smartcuckoo.dim = dim;
+        PANEL_update(&zinc, false);
+    }
 }
 
 void mplayer_idle_callback(void)
@@ -216,11 +264,28 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 
 void CLOCK_update_display_callback(struct tm const *dt)
 {
+    static uint8_t dim = 0;
+
     if (! zinc.setting)
     {
-        uint16_t mtime = (uint16_t)(dt->tm_hour * 100 + dt->tm_min);
+        uint16_t mtime;
+        uint32_t flags;
 
-        if (zinc.display_mtime != mtime)
+        enum LOCALE_hfmt_t fmt = smartcuckoo.locale.hfmt;
+        if (HFMT_DEFAULT == fmt)
+            fmt = VOICE_get_default_hfmt();
+
+        if (HFMT_12 == fmt)
+        {
+            int hour = dt->tm_hour % 12;
+            if (12 == dt->tm_hour) hour = 12;
+
+            mtime = (uint16_t)(hour * 100 + dt->tm_min);
+        }
+        else
+            mtime =  (uint16_t)(dt->tm_hour * 100 + dt->tm_min);
+
+        if (zinc.display_mtime != mtime || dim != smartcuckoo.dim)
         {
             zinc.display_mtime = mtime;
 
@@ -230,17 +295,18 @@ void CLOCK_update_display_callback(struct tm const *dt)
 
         if (1)
         {
-            smartcuckoo.led_color.am = LED_GREEN;
-            smartcuckoo.led_color.pm = LED_BLUE;
-
             uint8_t wdays = 1U << dt->tm_wday;
             uint8_t alarms = 0;
-
-            uint32_t flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms);
-
-            if (flags != zinc.display_flags)
-                SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+            flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms, CLOCK_get_dst_is_active());
         }
+
+        if (flags != zinc.display_flags || dim != smartcuckoo.dim)
+        {
+            zinc.display_flags = flags;
+            SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+        }
+
+        dim = smartcuckoo.dim;
     }
 }
 
@@ -249,73 +315,106 @@ void CLOCK_update_display_callback(struct tm const *dt)
  ****************************************************************************/
 static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
 {
-    uint32_t mask = 0;
-    bool update = true;
-
-    if (VOICE_SETTING_HOUR == runtime->setting_part || VOICE_SETTING_ALARM_HOUR == runtime->setting_part)
+    if (runtime->setting)
     {
-        mask = SMART_LED_time_mask_tm(&runtime->setting_dt);
+        uint32_t mask = 0;
+        bool update = true;
 
-        if (0x1 & runtime->setting_blinky)
-            mask &= ~(SMART_LED_TIME_MASK_HOUR);
-    }
-    else if (VOICE_SETTING_MINUTE == runtime->setting_part || VOICE_SETTING_ALARM_MIN == runtime->setting_part)
-    {
-        mask = SMART_LED_time_mask_tm(&runtime->setting_dt);
+        if (VOICE_SETTING_HOUR == runtime->setting_part || VOICE_SETTING_ALARM_HOUR == runtime->setting_part)
+        {
+            mask = SMART_LED_time_mask_tm(&runtime->setting_dt);
 
-        if (0x1 & runtime->setting_blinky)
-            mask &= ~(SMART_LED_TIME_MASK_MINUTE);
-    }
-    else if (VOICE_SETTING_YEAR == runtime->setting_part)
-    {
-        mask = SMART_LED_time_mask_digit(runtime->setting_dt.tm_year + 1900, false);
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~(SMART_LED_TIME_MASK_HOUR);
+        }
+        else if (VOICE_SETTING_MINUTE == runtime->setting_part || VOICE_SETTING_ALARM_MIN == runtime->setting_part)
+        {
+            mask = SMART_LED_time_mask_tm(&runtime->setting_dt);
 
-        if (0x1 & runtime->setting_blinky)
-            mask &= ~(SMART_LED_TIME_MASK_HOUR | SMART_LED_TIME_MASK_MINUTE);
-    }
-    else if (VOICE_SETTING_MONTH == runtime->setting_part)
-    {
-        mask = SMART_LED_time_mask_digit(runtime->setting_dt.tm_mon + 1, false);
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~SMART_LED_TIME_MASK_MINUTE;
+        }
+        else if (VOICE_SETTING_YEAR == runtime->setting_part)
+        {
+            mask = SMART_LED_time_mask_digit(runtime->setting_dt.tm_year + 1900, false);
 
-        if (0x1 & runtime->setting_blinky)
-            mask &= ~(SMART_LED_TIME_MASK_HOUR | SMART_LED_TIME_MASK_MINUTE);
-    }
-    else if (VOICE_SETTING_MDAY == runtime->setting_part)
-    {
-        mask = SMART_LED_time_mask_digit(runtime->setting_dt.tm_mday, false);
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~(SMART_LED_TIME_MASK_HOUR | SMART_LED_TIME_MASK_MINUTE);
+        }
+        else if (VOICE_SETTING_MONTH == runtime->setting_part)
+        {
+            int val = (runtime->setting_dt.tm_mon + 1) * 100 + runtime->setting_dt.tm_mday;
+            mask = SMART_LED_time_mask_digit(val, true);
 
-        if (0x1 & runtime->setting_blinky)
-            mask &= ~(SMART_LED_TIME_MASK_HOUR | SMART_LED_TIME_MASK_MINUTE);
-    }
-    else
-        update = false;
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~SMART_LED_TIME_MASK_HOUR;
+        }
+        else if (VOICE_SETTING_MDAY == runtime->setting_part)
+        {
+            int val = (runtime->setting_dt.tm_mon + 1) * 100 + runtime->setting_dt.tm_mday;
+            mask = SMART_LED_time_mask_digit(val, true);
 
-    if (update)
-    {
-        SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
-        runtime->setting_blinky ++;
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~SMART_LED_TIME_MASK_MINUTE;
+        }
+        else if (VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
+        {
+            struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
+            mask = SMART_LED_time_mask_digit(alarm0->ringtone_id + 1, false);
+
+            if (0x1 & runtime->setting_blinky)
+                mask &= ~SMART_LED_TIME_MASK_MINUTE;
+        }
+        else
+            update = false;
+
+        if (update)
+        {
+            SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
+            runtime->setting_blinky ++;
+
+            if (1)
+            {
+                uint8_t wdays = 1U << runtime->setting_dt.tm_wday;
+                uint8_t alarms = 0;
+                uint32_t flags = SMART_LED_flags_mask((uint8_t)runtime->setting_dt.tm_hour, wdays, alarms, CLOCK_get_dst_is_active());
+
+                if (flags != zinc.display_flags)
+                {
+                    zinc.display_flags = flags;
+                    SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+                }
+            }
+        }
     }
 }
 
-static void PANEL_update(struct zinc_runtime_t *runtime, bool masked)
+static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky)
 {
     if (zinc.setting)
     {
-        runtime->setting_blinky = masked;
+        runtime->setting_blinky = blinky;
 
         PANEL_setting_blinky(runtime);
         timeout_start(runtime->setting_blinky_intv, runtime);
     }
     else
     {
-        runtime->display_mtime = 0;
-        runtime->display_flags = 0;
+        runtime->display_mtime = (uint16_t)-1;
+        runtime->display_flags = (uint16_t)-1;
 
         time_t ts = time(NULL);
         CLOCK_update_display_callback(localtime(&ts));
     }
 }
 
+static void LIGHT_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr)
+{
+    (void)volt;
+    (void)raw;
+    (void)attr;
+    // LOG_verbose("%d: %dv", raw, volt);
+}
 
 /****************************************************************************
  *  @private: buttons
@@ -390,14 +489,18 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
         GPIO_clear(PIN_ROW_2);  usleep(1);
         if (0 == GPIO_peek(PIN_COL_3))
         {
-            msg_button = MSG_LAMP_BUTTON;
+            runtime->dim_stick = 0;
+
+            msg_button = MSG_COLOR_BUTTON;
             goto gpio_send_filter;
         }
 
         GPIO_clear(PIN_ROW_3);  usleep(1);
         if (0 == GPIO_peek(PIN_COL_3))
         {
-            msg_button = MSG_DIMMER_BUTTON;
+            runtime->dim_stick = 0;
+
+            msg_button = MSG_LAMP_BUTTON;
             goto gpio_send_filter;
         }
     }
@@ -522,7 +625,7 @@ static void SETTING_timeout_cb(struct zinc_runtime_t *runtime)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-static void SETTING_volume_intv(enum zinc_message_t msg_button)
+static void SETTING_volume_intv_cb(enum zinc_message_t msg_button)
 {
     static clock_t tick = 0;
     SETTING_timeout_release();
@@ -551,11 +654,30 @@ static void SETTING_volume_intv(enum zinc_message_t msg_button)
             timeout_destroy(zinc.setting_volume_intv);
             zinc.setting_volume_intv = NULL;
         }
-        SETTING_timeout_create();
 
         zinc.setting_is_modified = true;
+        SETTING_timeout_create();
+
         smartcuckoo.volume = AUDIO_get_volume_percent();
         goto volume_notification_2;
+    }
+}
+
+static void SETTING_dim_intv_cb(enum zinc_message_t msg_button)
+{
+    if (0 == GPIO_peek(LED_LAMP_DIS) && GPIO_button_is_down(msg_button))
+    {
+        if (MSG_LAMP_DIM_UP == msg_button)
+            smartcuckoo.lamp.dim = MIN(128, smartcuckoo.lamp.dim + 2);
+        else
+            smartcuckoo.lamp.dim = MAX(8, smartcuckoo.lamp.dim - 2);
+
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+    }
+    else if (NULL != zinc.setting_dim_intv)
+    {
+        timeout_destroy(zinc.setting_dim_intv);
+        zinc.setting_dim_intv = NULL;
     }
 }
 
@@ -917,9 +1039,9 @@ static void MSG_mynoise(enum zinc_message_t msg_button)
         LOG_error("%s", AUDIO_strerror(err));
 }
 
-static void MSG_timer_button(enum zinc_message_t msg_button)
+static void MSG_timer_button(struct zinc_runtime_t *runtime)
 {
-    (void)msg_button;
+    MSG_setting(runtime, MSG_TIMER_BUTTON);
 }
 
 static void MSG_volume(struct zinc_runtime_t *runtime, enum zinc_message_t msg_button)
@@ -936,10 +1058,59 @@ static void MSG_volume(struct zinc_runtime_t *runtime, enum zinc_message_t msg_b
 
     if (NULL == runtime->setting_volume_intv)
     {
-        zinc.setting_volume_intv = timeout_create(SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv, TIMEOUT_FLAG_REPEAT);
+        zinc.setting_volume_intv = timeout_create(SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_cb, TIMEOUT_FLAG_REPEAT);
 
         if (NULL != zinc.setting_volume_intv)
             timeout_start(runtime->setting_volume_intv, (void *)msg_button);
+    }
+}
+
+static void MSG_update_led_color(struct zinc_runtime_t *runtime)
+{
+    if (runtime->setting)
+    {
+        smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
+        PANEL_update(runtime, false);
+    }
+    else if (runtime->lamp_on)
+    {
+        smartcuckoo.lamp.color = SMART_LED_next_color(smartcuckoo.lamp.color);
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+    }
+}
+
+static void MSG_lamp_start_dim(struct zinc_runtime_t *runtime, enum zinc_message_t msg_button)
+{
+    if (NULL == runtime->setting_dim_intv)
+    {
+        zinc.setting_dim_intv = timeout_create(SETTING_LAMP_DIM_INTV, (void *)SETTING_dim_intv_cb, TIMEOUT_FLAG_REPEAT);
+
+        if (NULL != zinc.setting_dim_intv)
+            timeout_start(runtime->setting_dim_intv, (void *)msg_button);
+    }
+}
+
+static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
+{
+    runtime->lamp_on = ! runtime->lamp_on;
+
+    if (runtime->lamp_on)
+    {
+        GPIO_clear(LED_LAMP_DIS);
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+
+        MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_DOWN);
+    }
+    else
+    {
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0);
+        GPIO_set(LED_LAMP_DIS);
+
+        if (NULL != runtime->setting_dim_intv)
+        {
+            timeout_destroy(zinc.setting_dim_intv);
+            zinc.setting_dim_intv = NULL;
+        }
     }
 }
 
@@ -971,7 +1142,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                     break;
 
                 case MSG_TIMER_BUTTON:
-                    MSG_setting(runtime, MSG_TIMER_BUTTON);
+                    MSG_timer_button(runtime);
                     /*
                     if (GPIO_button_is_down(MSG_TIMER_BUTTON))
                     {
@@ -987,20 +1158,68 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                             MSG_setting(runtime, MSG_TIMER_BUTTON);
                     }
                     else
-                        MSG_timer_button(true);
+                        MSG_timer_button(runtime);
                     */
                     break;
 
-                case MSG_LAMP_BUTTON:
-                    smartcuckoo.led_color.time = SMART_LED_prev_color(smartcuckoo.led_color.time);
-                    runtime->display_mtime = 0;
-                    PANEL_update(runtime, false);
+                case MSG_COLOR_BUTTON:
+                    if (! runtime->setting)
+                    {
+                        if (GPIO_button_is_down(MSG_COLOR_BUTTON))
+                        {
+                            if (0 == runtime->dim_stick)
+                                runtime->dim_stick = clock();
+
+                            if (LONG_PRESS_DIM > clock() - runtime->dim_stick)
+                            {
+                                thread_yield();
+                                mqueue_postv(runtime->mqd, MSG_COLOR_BUTTON, 0, 0);
+                            }
+                            else
+                                MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_UP);
+                        }
+                        else
+                            MSG_update_led_color(runtime);
+                    }
+                    else
+                        MSG_update_led_color(runtime);
                     break;
 
-                case MSG_DIMMER_BUTTON:
-                    smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
-                    runtime->display_mtime = 0;
-                    PANEL_update(runtime, false);
+                case MSG_LAMP_BUTTON:
+                    if (! runtime->setting)
+                    {
+                        if (! runtime->lamp_on)
+                        {
+                            MSG_lamp_toggle(runtime);
+
+                            mqueue_flush(runtime->mqd);
+                            mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS, 0, 0);
+                        }
+                        else
+                            mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS_OFF, 0, 0);
+                    }
+                    break;
+
+                case MSG_LAMP_LONG_PRESS:
+                case MSG_LAMP_LONG_PRESS_OFF:
+                    if (GPIO_button_is_down(MSG_LAMP_BUTTON))
+                    {
+                        if (0 == runtime->dim_stick)
+                            runtime->dim_stick = clock();
+
+                        if (LONG_PRESS_DIM > clock() - runtime->dim_stick)
+                        {
+                            thread_yield();
+                            mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
+                        }
+                        else
+                            MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_DOWN);
+                    }
+                    else if (MSG_LAMP_LONG_PRESS_OFF == msg->msgid)
+                    {
+                        runtime->lamp_on = true;    // force to toggle off
+                        MSG_lamp_toggle(runtime);
+                    }
                     break;
                 }
             }

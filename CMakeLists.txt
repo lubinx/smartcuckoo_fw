@@ -9,6 +9,7 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
+    "ultracore/src/fs/fat.c"
     "ultracore/src/usb/*.c"
 )
 
@@ -109,7 +110,7 @@ build_target(zinc
         "smart_led/led_flags.c"
     DEFINITIONS
         NVM_TAG="zinc"
-        ADC_VREF=0
+        ADC_VREF=3300
         CLOCK_DEF_RING_SECONDS=300
         CLOCK_DEF_RING_FADE_SECONDS=50
     DEPENDENCIES
