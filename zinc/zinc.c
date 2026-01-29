@@ -22,11 +22,13 @@ enum zinc_message_t
     MSG_TIMER_BUTTON            = 0x31,
     MSG_COLOR_BUTTON,
     MSG_LAMP_BUTTON,
+
     MSG_LAMP_LONG_PRESS         = 0xF0,
     MSG_LAMP_LONG_PRESS_OFF,
 
     MSG_LAMP_DIM_UP = MSG_COLOR_BUTTON,
-    MSG_LAMP_DIM_DOWN = MSG_LAMP_BUTTON
+    MSG_LAMP_DIM_DOWN = MSG_LAMP_BUTTON,
+    MSG_SETTING_DIM = MSG_LAMP_BUTTON
 };
 
 struct zinc_runtime_t
@@ -47,7 +49,7 @@ struct zinc_runtime_t
     struct tm setting_dt;
     enum VOICE_setting_t setting_part;
 
-    bytebool_t lamp_on;
+    uint8_t light_sensor_dim;
     uint16_t display_mtime;
     uint32_t display_flags;
 
@@ -70,17 +72,19 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
 
 static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime);
 static void GPIO_button_filter_callback(enum zinc_message_t msg_button);
+static void GPIO_earphone_det_callback(uint32_t pins, struct zinc_runtime_t *runtime);
+
 static bool GPIO_button_is_down(enum zinc_message_t msg_button);
 
 static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky);
-static void LIGHT_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr);
 
 static void SETTING_timeout_create(void);
 static void SETTING_timeout_release(void);
-static void SETTING_timeout_cb(struct zinc_runtime_t *runtime);
-static void SETTING_volume_intv_cb(enum zinc_message_t msg_button);
-static void SETTING_dim_intv_cb(enum zinc_message_t msg_button);
+static void SETTING_timeout_callback(struct zinc_runtime_t *runtime);
+static void SETTING_volume_intv_callback(enum zinc_message_t msg_button);
+static void SETTING_dim_intv_callback(enum zinc_message_t msg_button);
 
+static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr);
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
 static struct zinc_runtime_t zinc = {0};
@@ -96,7 +100,8 @@ struct SMART_LED_attr_t const LED_lamp = SMART_LED_INITIALIZER(&GPIO_PORT(LED_LA
  ****************************************************************************/
 void PERIPHERAL_gpio_init(void)
 {
-    GPIO_setdir_output(PUSH_PULL_UP, LED_LAMP_DIS);
+    GPIO_setdir_output(PUSH_PULL_DOWN, LED_CLOCK_DIS_PIN);
+    GPIO_setdir_output(PUSH_PULL_UP, LED_LAMP_DIS_PIN);
 
     GPIO_setdir_output(PUSH_PULL_DOWN, LED_time.pin_alias);
     GPIO_output_alt_speed(LED_time.pin_alias, GPIO_SPEED_10M);
@@ -107,20 +112,22 @@ void PERIPHERAL_gpio_init(void)
     GPIO_setdir_output(PUSH_PULL_DOWN, LED_lamp.pin_alias);
     GPIO_output_alt_speed(LED_lamp.pin_alias, GPIO_SPEED_10M);
 
-    GPIO_setdir_output(PUSH_PULL_UP, PIN_ROW_1);
-    GPIO_setdir_output(PUSH_PULL_UP, PIN_ROW_2);
-    GPIO_setdir_output(PUSH_PULL_UP, PIN_ROW_3);
+    GPIO_setdir_output(PUSH_PULL_UP, KPAD_ROW_1_PIN);
+    GPIO_setdir_output(PUSH_PULL_UP, KPAD_ROW_2_PIN);
+    GPIO_setdir_output(PUSH_PULL_UP, KPAD_ROW_3_PIN);
 
-    GPIO_setdir_input_pp(PULL_DOWN, PIN_COL_1, true);
-    GPIO_setdir_input_pp(PULL_DOWN, PIN_COL_2, true);
-    GPIO_setdir_input_pp(PULL_DOWN, PIN_COL_3, true);
+    GPIO_setdir_input_pp(PULL_DOWN, KPAD_COL_1_PIN, true);
+    GPIO_setdir_input_pp(PULL_DOWN, KPAD_COL_2_PIN, true);
+    GPIO_setdir_input_pp(PULL_DOWN, KPAD_COL_3_PIN, true);
+
+    GPIO_setdir_input_pp(PULL_UP, EARPHONE_DET_PIN, true);
 }
 
-void PERIPHERAL_gpio_intr_enable(void)
+void PERIPHERAL_kpad_gpio_intr_enable(void)
 {
-    GPIO_intr_enable(PIN_COL_1, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
-    GPIO_intr_enable(PIN_COL_2, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
-    GPIO_intr_enable(PIN_COL_3, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
+    GPIO_intr_enable(KPAD_COL_1_PIN, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
+    GPIO_intr_enable(KPAD_COL_2_PIN, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
+    GPIO_intr_enable(KPAD_COL_3_PIN, TRIG_BY_RISING_EDGE, (void *)GPIO_button_callback, &zinc);
 }
 
 bool PERIPHERAL_is_enable_usb(void)
@@ -164,7 +171,8 @@ void PERIPHERAL_init(void)
     PANEL_update(&zinc, false);
 
     MQUEUE_INIT(&zinc.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
-    PERIPHERAL_gpio_intr_enable();
+    PERIPHERAL_kpad_gpio_intr_enable();
+    GPIO_intr_enable(EARPHONE_DET_PIN, TRIG_BY_BOTH_EDGE, (void *)GPIO_earphone_det_callback, &zinc);
 
     if (true)
     {
@@ -212,14 +220,14 @@ void PERIPHERAL_init(void)
 
     if (1)
     {
-        ADC_attr_init(&light_sensor.attr, 1, (void *)LIGHT_ad_callback);
+        ADC_attr_init(&light_sensor.attr, 1, (void *)LIGHT_sensor_ad_callback);
         ADC_attr_positive_input(&light_sensor.attr, LIGHT_SENSOR_AD);
 
         ADC_start_convert(&light_sensor.attr, &light_sensor);
     }
 
     MYNOISE_init();
-    MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+    MYNOISE_power_off_set_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 }
 
 /****************************************************************************
@@ -238,13 +246,15 @@ uint8_t CLOCK_get_dim_value(void)
 
 void CLOCK_shell_set_dim_value(uint8_t dim)
 {
+    dim = MAX(SMART_LED_MINAL_DIM, dim);
+
     if (dim != smartcuckoo.dim)
     {
-        zinc.setting_is_modified = true;
-        SETTING_timeout_create();
-
         smartcuckoo.dim = dim;
         PANEL_update(&zinc, false);
+
+        zinc.setting_is_modified = true;
+        SETTING_timeout_create();
     }
 }
 
@@ -408,7 +418,7 @@ static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky)
     }
 }
 
-static void LIGHT_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr)
+static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr)
 {
     (void)volt;
     (void)raw;
@@ -423,62 +433,62 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
 {
     enum zinc_message_t msg_button;
 
-    GPIO_intr_disable(PIN_COL_1);
-    GPIO_intr_disable(PIN_COL_2);
-    GPIO_intr_disable(PIN_COL_3);
+    GPIO_intr_disable(KPAD_COL_1_PIN);
+    GPIO_intr_disable(KPAD_COL_2_PIN);
+    GPIO_intr_disable(KPAD_COL_3_PIN);
 
-    if (PIN_COL_1 == (PIN_COL_1 & pins))
+    if (KPAD_COL_1_PIN == (KPAD_COL_1_PIN & pins))
     {
-        GPIO_clear(PIN_ROW_1);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_1))
+        GPIO_clear(KPAD_ROW_1_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_1_PIN))
         {
             msg_button = MSG_NOISE_BUTTON;
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_2);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_1))
+        GPIO_clear(KPAD_ROW_2_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_1_PIN))
         {
             msg_button = MSG_VOLUME_UP_BUTTON;
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_3);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_1))
+        GPIO_clear(KPAD_ROW_3_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_1_PIN))
         {
             msg_button = MSG_VOLUME_DOWN_BUTTON;
             goto gpio_send_filter;
         }
     }
 
-    if (PIN_COL_2 == (PIN_COL_2 & pins))
+    if (KPAD_COL_2_PIN == (KPAD_COL_2_PIN & pins))
     {
-        GPIO_clear(PIN_ROW_1);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_2))
+        GPIO_clear(KPAD_ROW_1_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_2_PIN))
         {
             msg_button = MSG_SNOOZE_BUTTON;
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_2);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_2))
+        GPIO_clear(KPAD_ROW_2_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_2_PIN))
         {
             msg_button = MSG_PREV_BUTTON;
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_3);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_2))
+        GPIO_clear(KPAD_ROW_3_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_2_PIN))
         {
             msg_button = MSG_NEXT_BUTTON;
             goto gpio_send_filter;
         }
     }
 
-    if (PIN_COL_3 == (PIN_COL_3 & pins))
+    if (KPAD_COL_3_PIN == (KPAD_COL_3_PIN & pins))
     {
-        GPIO_clear(PIN_ROW_1);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_3))
+        GPIO_clear(KPAD_ROW_1_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_3_PIN))
         {
             runtime->timer_button_stick = 0;
 
@@ -486,8 +496,8 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_2);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_3))
+        GPIO_clear(KPAD_ROW_2_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_3_PIN))
         {
             runtime->dim_stick = 0;
 
@@ -495,8 +505,8 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
             goto gpio_send_filter;
         }
 
-        GPIO_clear(PIN_ROW_3);  usleep(1);
-        if (0 == GPIO_peek(PIN_COL_3))
+        GPIO_clear(KPAD_ROW_3_PIN);  usleep(1);
+        if (0 == GPIO_peek(KPAD_COL_3_PIN))
         {
             runtime->dim_stick = 0;
 
@@ -511,11 +521,17 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
         timeout_start(&runtime->gpio_filter_timeo, (void *)msg_button);
     }
     else
-        PERIPHERAL_gpio_intr_enable();
+        PERIPHERAL_kpad_gpio_intr_enable();
 
-    GPIO_set(PIN_ROW_1);
-    GPIO_set(PIN_ROW_2);
-    GPIO_set(PIN_ROW_3);
+    GPIO_set(KPAD_ROW_1_PIN);
+    GPIO_set(KPAD_ROW_2_PIN);
+    GPIO_set(KPAD_ROW_3_PIN);
+}
+
+static void GPIO_earphone_det_callback(uint32_t pins, struct zinc_runtime_t *runtime)
+{
+    (void)runtime;
+    LOG_verbose("earphone: 0x%x", pins);
 }
 
 static void GPIO_button_filter_callback(enum zinc_message_t msg_button)
@@ -536,13 +552,13 @@ static bool GPIO_button_is_down(enum zinc_message_t msg_button)
         return false;
 
     case 1:
-        pin_column = PIN_COL_1;
+        pin_column = KPAD_COL_1_PIN;
         break;
     case 2:
-        pin_column = PIN_COL_2;
+        pin_column = KPAD_COL_2_PIN;
         break;
     case 3:
-        pin_column = PIN_COL_3;
+        pin_column = KPAD_COL_3_PIN;
         break;
     }
 
@@ -557,38 +573,37 @@ static bool GPIO_button_is_down(enum zinc_message_t msg_button)
             break;
 
         case 1:
-            GPIO_clear(PIN_ROW_1);  usleep(1);
+            GPIO_clear(KPAD_ROW_1_PIN);  usleep(1);
             is_down = 0 == GPIO_peek(pin_column);
-            GPIO_set(PIN_ROW_1);    usleep(1);
+            GPIO_set(KPAD_ROW_1_PIN);    usleep(1);
             break;
 
         case 2:
-            GPIO_clear(PIN_ROW_2);  usleep(1);
+            GPIO_clear(KPAD_ROW_2_PIN);  usleep(1);
             is_down = 0 == GPIO_peek(pin_column);
-            GPIO_set(PIN_ROW_2);    usleep(1);
+            GPIO_set(KPAD_ROW_2_PIN);    usleep(1);
             break;
 
         case 3:
-            GPIO_clear(PIN_ROW_3);  usleep(1);
+            GPIO_clear(KPAD_ROW_3_PIN);  usleep(1);
             is_down = 0 == GPIO_peek(pin_column);
-            GPIO_set(PIN_ROW_3);    usleep(1);
+            GPIO_set(KPAD_ROW_3_PIN);    usleep(1);
             break;
         }
     }
     else
         is_down = false;
 
-    PERIPHERAL_gpio_intr_enable();
+    PERIPHERAL_kpad_gpio_intr_enable();
     return is_down;
 }
 
 static void SETTING_timeout_create(void)
 {
     if (NULL == zinc.setting_timeo)
-    {
-        zinc.setting_timeo = timeout_create(SETTING_TIMEOUT, (void *)SETTING_timeout_cb, 0);
-        timeout_start(zinc.setting_timeo, &zinc);
-    }
+        zinc.setting_timeo = timeout_create(SETTING_TIMEOUT, (void *)SETTING_timeout_callback, 0);
+
+    timeout_start(zinc.setting_timeo, &zinc);
 }
 
 static void SETTING_timeout_release(void)
@@ -600,7 +615,7 @@ static void SETTING_timeout_release(void)
     }
 }
 
-static void SETTING_timeout_cb(struct zinc_runtime_t *runtime)
+static void SETTING_timeout_callback(struct zinc_runtime_t *runtime)
 {
     SETTING_timeout_release();
 
@@ -610,22 +625,22 @@ static void SETTING_timeout_cb(struct zinc_runtime_t *runtime)
         zinc.setting_blinky_intv = NULL;
     }
 
-    if (runtime->setting)
-    {
-        VOICE_say_setting(VOICE_SETTING_DONE);
-
-        runtime->setting = false;
-        PANEL_update(runtime, false);
-    }
-
     if (runtime->setting_alarm_is_modified)
         CLOCK_update_alarms();
 
     if (runtime->setting_is_modified)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
+
+    if (runtime->setting)   //  REVIEW: exit from setting
+    {
+        runtime->setting = false;
+
+        VOICE_say_setting(VOICE_SETTING_DONE);
+        PANEL_update(runtime, false);
+    }
 }
 
-static void SETTING_volume_intv_cb(enum zinc_message_t msg_button)
+static void SETTING_volume_intv_callback(enum zinc_message_t msg_button)
 {
     static clock_t tick = 0;
     SETTING_timeout_release();
@@ -663,9 +678,9 @@ static void SETTING_volume_intv_cb(enum zinc_message_t msg_button)
     }
 }
 
-static void SETTING_dim_intv_cb(enum zinc_message_t msg_button)
+static void SETTING_dim_intv_callback(enum zinc_message_t msg_button)
 {
-    if (0 == GPIO_peek(LED_LAMP_DIS) && GPIO_button_is_down(msg_button))
+    if (0 == GPIO_peek(LED_LAMP_DIS_PIN) && GPIO_button_is_down(msg_button))
     {
         if (MSG_LAMP_DIM_UP == msg_button)
             smartcuckoo.lamp.dim = MIN(128, smartcuckoo.lamp.dim + 2);
@@ -970,6 +985,22 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
 
         PANEL_update(runtime, false);
     }
+    else if (MSG_SETTING_DIM == msg_button)
+    {
+        // if (smartcuckoo.lamp.dim)
+        LOG_warning("impl: dim");
+    }
+    else if (MSG_COLOR_BUTTON == msg_button)
+    {
+        smartcuckoo.led_color.wdays[0] = smartcuckoo.led_color.wdays[1] = smartcuckoo.led_color.wdays[2] =
+            smartcuckoo.led_color.wdays[3] = smartcuckoo.led_color.wdays[4] = smartcuckoo.led_color.wdays[5] =
+            smartcuckoo.led_color.wdays[6] =
+            smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
+        runtime->display_flags = 0;
+        PANEL_update(runtime, false);
+
+        runtime->setting_is_modified = true;
+    }
 
     SETTING_timeout_create();
     PMU_power_unlock();
@@ -1058,24 +1089,10 @@ static void MSG_volume(struct zinc_runtime_t *runtime, enum zinc_message_t msg_b
 
     if (NULL == runtime->setting_volume_intv)
     {
-        zinc.setting_volume_intv = timeout_create(SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_cb, TIMEOUT_FLAG_REPEAT);
+        zinc.setting_volume_intv = timeout_create(SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_callback, TIMEOUT_FLAG_REPEAT);
 
         if (NULL != zinc.setting_volume_intv)
             timeout_start(runtime->setting_volume_intv, (void *)msg_button);
-    }
-}
-
-static void MSG_update_led_color(struct zinc_runtime_t *runtime)
-{
-    if (runtime->setting)
-    {
-        smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
-        PANEL_update(runtime, false);
-    }
-    else if (runtime->lamp_on)
-    {
-        smartcuckoo.lamp.color = SMART_LED_next_color(smartcuckoo.lamp.color);
-        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
     }
 }
 
@@ -1083,7 +1100,7 @@ static void MSG_lamp_start_dim(struct zinc_runtime_t *runtime, enum zinc_message
 {
     if (NULL == runtime->setting_dim_intv)
     {
-        zinc.setting_dim_intv = timeout_create(SETTING_LAMP_DIM_INTV, (void *)SETTING_dim_intv_cb, TIMEOUT_FLAG_REPEAT);
+        zinc.setting_dim_intv = timeout_create(SETTING_LAMP_DIM_INTV, (void *)SETTING_dim_intv_callback, TIMEOUT_FLAG_REPEAT);
 
         if (NULL != zinc.setting_dim_intv)
             timeout_start(runtime->setting_dim_intv, (void *)msg_button);
@@ -1092,11 +1109,10 @@ static void MSG_lamp_start_dim(struct zinc_runtime_t *runtime, enum zinc_message
 
 static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
 {
-    runtime->lamp_on = ! runtime->lamp_on;
-
-    if (runtime->lamp_on)
+    if (GPIO_peek_output(LED_LAMP_DIS_PIN))
     {
-        GPIO_clear(LED_LAMP_DIS);
+        GPIO_clear(LED_LAMP_DIS_PIN);
+        msleep(5);
         SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
 
         MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_DOWN);
@@ -1104,7 +1120,7 @@ static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
     else
     {
         SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0);
-        GPIO_set(LED_LAMP_DIS);
+        GPIO_set(LED_LAMP_DIS_PIN);
 
         if (NULL != runtime->setting_dim_intv)
         {
@@ -1163,41 +1179,42 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                     break;
 
                 case MSG_COLOR_BUTTON:
-                    if (! runtime->setting)
+                    if (GPIO_button_is_down(MSG_COLOR_BUTTON))
                     {
-                        if (GPIO_button_is_down(MSG_COLOR_BUTTON))
-                        {
-                            if (0 == runtime->dim_stick)
-                                runtime->dim_stick = clock();
+                        if (0 == runtime->dim_stick)
+                            runtime->dim_stick = clock();
 
-                            if (LONG_PRESS_DIM > clock() - runtime->dim_stick)
-                            {
-                                thread_yield();
-                                mqueue_postv(runtime->mqd, MSG_COLOR_BUTTON, 0, 0);
-                            }
-                            else
-                                MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_UP);
+                        if (LONG_PRESS_DIM > clock() - runtime->dim_stick)
+                        {
+                            thread_yield();
+                            mqueue_postv(runtime->mqd, MSG_COLOR_BUTTON, 0, 0);
                         }
                         else
-                            MSG_update_led_color(runtime);
+                            MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_UP);
                     }
                     else
-                        MSG_update_led_color(runtime);
+                    {
+                        if (! GPIO_peek_output(LED_LAMP_DIS_PIN))
+                        {
+                            smartcuckoo.lamp.color = SMART_LED_next_color(smartcuckoo.lamp.color);
+                            SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+
+                            runtime->setting_is_modified = true;
+                            SETTING_timeout_create();
+                        }
+                    }
                     break;
 
                 case MSG_LAMP_BUTTON:
-                    if (! runtime->setting)
+                    if (GPIO_peek_output(LED_LAMP_DIS_PIN))
                     {
-                        if (! runtime->lamp_on)
-                        {
-                            MSG_lamp_toggle(runtime);
+                        MSG_lamp_toggle(runtime);
 
-                            mqueue_flush(runtime->mqd);
-                            mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS, 0, 0);
-                        }
-                        else
-                            mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS_OFF, 0, 0);
+                        mqueue_flush(runtime->mqd);
+                        mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS, 0, 0);
                     }
+                    else
+                        mqueue_postv(runtime->mqd, MSG_LAMP_LONG_PRESS_OFF, 0, 0);
                     break;
 
                 case MSG_LAMP_LONG_PRESS:
@@ -1217,7 +1234,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                     }
                     else if (MSG_LAMP_LONG_PRESS_OFF == msg->msgid)
                     {
-                        runtime->lamp_on = true;    // force to toggle off
+                        GPIO_clear(LED_LAMP_DIS_PIN);   // force to toggle off
                         MSG_lamp_toggle(runtime);
                     }
                     break;

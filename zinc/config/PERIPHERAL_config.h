@@ -46,28 +46,28 @@
 // ampifier
     #define AMPIFIER_PIN                PB14
     #define AMPIFIER_EN_PULL            PUSH_PULL_DOWN
-    #define EAR_PIN                     PA04
+// earphone
+    #define EARPHONE_EN_PIN             PA04
+    #define EARPHONE_DET_PIN            PC04
 
 // LEDs
     #define LED_TIME_DAT                PC07
     #define LED_WDAYS_DAT               PC08
     #define LED_LAMP_DAT                PA06
 
-    #define LED_CLOCK_DIS               PB06
-    #define LED_LAMP_DIS                PB05
-
-    #define POWER_OFF_STEP_SECONDS      (1800U)
+    #define LED_CLOCK_DIS_PIN           PB06
+    #define LED_LAMP_DIS_PIN            PB05
 
 // light sensor
     #define LIGHT_SENSOR_AD             PA03
 
 // buttons
-    #define PIN_ROW_1                   PC09
-    #define PIN_ROW_2                   PD15
-    #define PIN_ROW_3                   PC11
-    #define PIN_COL_1                   PC01
-    #define PIN_COL_2                   PA02
-    #define PIN_COL_3                   PD00
+    #define KPAD_ROW_1_PIN              PC09
+    #define KPAD_ROW_2_PIN              PD15
+    #define KPAD_ROW_3_PIN              PC11
+    #define KPAD_COL_1_PIN              PC01
+    #define KPAD_COL_2_PIN              PA02
+    #define KPAD_COL_3_PIN              PD00
 
     #define GPIO_FILTER_INTV            (50)
     #define SETTING_VOLUME_ADJ_INTV     (60)

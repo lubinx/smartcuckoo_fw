@@ -47,8 +47,8 @@ struct zone_runtime_t
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime);
-static void SETTING_volume_intv_cb(enum zone_message_t);
-static void SETTING_timeout_cb(struct zone_runtime_t *runtime);
+static void SETTING_timeout_callback(struct zone_runtime_t *runtime);
+static void SETTING_volume_intv_callback(enum zone_message_t);
 
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
@@ -115,8 +115,8 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zone.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_cb, 0);
-    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_cb, 0);
+    timeout_init(&zone.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_callback, 0);
+    timeout_init(&zone.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_callback, 0);
 
     zone.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
     zone.batt_last_ts = time(NULL);
@@ -187,7 +187,7 @@ void PERIPHERAL_init(void)
     }
 
     MYNOISE_init();
-    MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+    MYNOISE_power_off_set_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 }
 
 /****************************************************************************
@@ -273,21 +273,21 @@ static void GPIO_button_callback(uint32_t pins, struct zone_runtime_t *runtime)
         timeout_start(&runtime->setting_volume_intv, (void *)MSG_VOLUME_DOWN_BUTTON);
 }
 
-static void SETTING_timeout_cb(struct zone_runtime_t *runtime)
+static void SETTING_timeout_callback(struct zone_runtime_t *runtime)
 {
-    if (runtime->setting)
-    {
-        VOICE_say_setting(VOICE_SETTING_DONE);
-        runtime->setting = false;
-    }
-
     if (runtime->setting_alarm_is_modified)
         CLOCK_update_alarms();
     if (runtime->setting_is_modified)
         NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
+
+    if (runtime->setting)   // REVIEW: exit from setting
+    {
+        runtime->setting = false;
+        VOICE_say_setting(VOICE_SETTING_DONE);
+    }
 }
 
-static void SETTING_volume_intv_cb(enum zone_message_t msg_button)
+static void SETTING_volume_intv_callback(enum zone_message_t msg_button)
 {
     static clock_t tick = 0;
     timeout_stop(&zone.setting_timeo);
@@ -844,10 +844,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             GPIO_set(LED_POWER);
 
                             unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
-                            MYNOISE_power_off_tickdown_cb(NULL);
+                            MYNOISE_power_off_set_tickdown_cb(NULL);
 
                             int err = MYNOISE_prev();
-                            MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+                            MYNOISE_power_off_set_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 
                             if (0 == err)
                                 MYNOISE_power_off_seconds(power_off_seconds);
@@ -890,10 +890,10 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zone_runtime_t
                             GPIO_set(LED_POWER);
 
                             unsigned power_off_seconds = MYNOISE_get_power_off_seconds();
-                            MYNOISE_power_off_tickdown_cb(NULL);
+                            MYNOISE_power_off_set_tickdown_cb(NULL);
 
                             int err = MYNOISE_next();
-                            MYNOISE_power_off_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+                            MYNOISE_power_off_set_tickdown_cb(MYNOISE_power_off_tickdown_callback);
 
                             if (0 == err)
                                 MYNOISE_power_off_seconds(power_off_seconds);

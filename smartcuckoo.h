@@ -49,7 +49,7 @@
 #endif
 
 #ifndef SETTING_TIMEOUT
-    #define SETTING_TIMEOUT             (6000)
+    #define SETTING_TIMEOUT             (10000)
 #endif
 
 #ifndef RTC_CALIBRATION_SECONDS
@@ -86,11 +86,12 @@
         struct
         {
             enum SMART_LED_color_t time;
+
             enum SMART_LED_color_t am;
             enum SMART_LED_color_t pm;
             enum SMART_LED_color_t dst;
-            enum SMART_LED_color_t alarm[4];
             enum SMART_LED_color_t wdays[7];
+            enum SMART_LED_color_t alarm[4];
         } led_color;
 
         struct
