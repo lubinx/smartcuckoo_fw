@@ -1043,6 +1043,7 @@ static void MSG_mynoise(enum zinc_message_t msg_button)
 {
     int err = 0;
 
+    /*
     switch (msg_button)
     {
     default:
@@ -1056,13 +1057,29 @@ static void MSG_mynoise(enum zinc_message_t msg_button)
         break;
 
     case MSG_NEXT_BUTTON:
-        if (MYNOISE_is_running())
-            err = MYNOISE_next_indir();
+        err = MYNOISE_next_indir();
         break;
 
     case MSG_PREV_BUTTON:
-        if (MYNOISE_is_running())
-            err = MYNOISE_prev_indir();
+        err = MYNOISE_prev_indir();
+        break;
+    }
+    */
+    switch (msg_button)
+    {
+    default:
+        break;
+
+    case MSG_NOISE_BUTTON:
+        err = MYNOISE_toggle();
+        break;
+
+    case MSG_NEXT_BUTTON:
+        err = MYNOISE_next();
+        break;
+
+    case MSG_PREV_BUTTON:
+        err = MYNOISE_prev();
         break;
     }
 
@@ -1114,8 +1131,6 @@ static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
         GPIO_clear(LED_LAMP_DIS_PIN);
         msleep(5);
         SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
-
-        MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_DOWN);
     }
     else
     {
