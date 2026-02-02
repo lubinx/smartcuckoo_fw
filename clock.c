@@ -369,7 +369,10 @@ int CLOCK_get_ringtone_id(void)
 
 struct CLOCK_moment_t *CLOCK_get_alarm(uint8_t idx)
 {
-    return &alarms[idx];
+    if (ALARM_COUNT > idx)
+        return &alarms[idx];
+    else
+        return NULL;
 }
 
 struct CLOCK_moment_t *CLOCK_get_current_alarm(void)

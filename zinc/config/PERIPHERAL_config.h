@@ -59,6 +59,7 @@
     #define LED_LAMP_DIS_PIN            PB05
 
 // light sensor
+    #define LIGHT_SENSITIVE_SECONDS     (1)
     #define LIGHT_SENSOR_AD             PA03
 
 // buttons

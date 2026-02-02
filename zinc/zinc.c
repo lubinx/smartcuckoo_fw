@@ -23,7 +23,8 @@ enum zinc_message_t
     MSG_COLOR_BUTTON,
     MSG_LAMP_BUTTON,
 
-    MSG_LAMP_LONG_PRESS         = 0xF0,
+    MSG_EARPHONE_DET            = 0x80,
+    MSG_LAMP_LONG_PRESS,
     MSG_LAMP_LONG_PRESS_OFF,
 
     MSG_LAMP_DIM_UP = MSG_COLOR_BUTTON,
@@ -31,25 +32,35 @@ enum zinc_message_t
     MSG_SETTING_DIM = MSG_LAMP_BUTTON
 };
 
+struct light_sensor_ad_t
+{
+    struct ADC_attr_t attr;
+    int value;
+};
+
 struct zinc_runtime_t
 {
     int mqd;
     timeout_t gpio_filter_timeo;
+    struct light_sensor_ad_t light_sensor;
 
     timeout_t *setting_timeo;
-    timeout_t *setting_volume_intv;
     timeout_t *setting_blinky_intv;
+    timeout_t *setting_volume_intv;
     timeout_t *setting_dim_intv;
+
+    struct tm setting_dt;
+    enum VOICE_setting_t setting_part;
 
     bytebool_t setting;
     bytebool_t setting_is_modified;
     bytebool_t setting_alarm_is_modified;
     bytebool_t setting_blinky;
+    int8_t setting_alarm_idx;
 
-    struct tm setting_dt;
-    enum VOICE_setting_t setting_part;
-
+    bytebool_t earphone_en;
     uint8_t light_sensor_dim;
+
     uint16_t display_mtime;
     uint32_t display_flags;
 
@@ -59,21 +70,14 @@ struct zinc_runtime_t
     time_t batt_last_ts;
 };
 
-struct light_sensor_ad_t
-{
-    struct ADC_attr_t attr;
-    int value;
-};
-
 /****************************************************************************
  *  @private
  ****************************************************************************/
 static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t *runtime);
 
 static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime);
-static void GPIO_button_filter_callback(enum zinc_message_t msg_button);
+static void GPIO_filter_callback(enum zinc_message_t msg_button);
 static void GPIO_earphone_det_callback(uint32_t pins, struct zinc_runtime_t *runtime);
-
 static bool GPIO_button_is_down(enum zinc_message_t msg_button);
 
 static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky);
@@ -89,7 +93,6 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 
 static struct zinc_runtime_t zinc = {0};
 __THREAD_STACK static uint32_t zinc_stack[1280 / sizeof(uint32_t)];
-static struct light_sensor_ad_t light_sensor = {0};
 
 struct SMART_LED_attr_t const LED_time = SMART_LED_INITIALIZER(&GPIO_PORT(LED_TIME_DAT)->POD, LED_TIME_DAT, 30);
 struct SMART_LED_attr_t const LED_flags = SMART_LED_INITIALIZER(&GPIO_PORT(LED_WDAYS_DAT)->POD, LED_WDAYS_DAT, 14);
@@ -141,7 +144,7 @@ void PERIPHERAL_ota_init(void)
 
 void PERIPHERAL_init(void)
 {
-    timeout_init(&zinc.gpio_filter_timeo, GPIO_FILTER_INTV, (void *)GPIO_button_filter_callback, 0);
+    timeout_init(&zinc.gpio_filter_timeo, GPIO_FILTER_INTV, (void *)GPIO_filter_callback, 0);
 
     zinc.display_mtime = 0xFFFFU;
     zinc.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
@@ -172,7 +175,6 @@ void PERIPHERAL_init(void)
 
     MQUEUE_INIT(&zinc.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
     PERIPHERAL_kpad_gpio_intr_enable();
-    GPIO_intr_enable(EARPHONE_DET_PIN, TRIG_BY_BOTH_EDGE, (void *)GPIO_earphone_det_callback, &zinc);
 
     if (true)
     {
@@ -220,14 +222,19 @@ void PERIPHERAL_init(void)
 
     if (1)
     {
-        ADC_attr_init(&light_sensor.attr, 1, (void *)LIGHT_sensor_ad_callback);
-        ADC_attr_positive_input(&light_sensor.attr, LIGHT_SENSOR_AD);
-
-        ADC_start_convert(&light_sensor.attr, &light_sensor);
+        ADC_attr_init(&zinc.light_sensor.attr, LIGHT_SENSITIVE_SECONDS, (void *)LIGHT_sensor_ad_callback);
+        ADC_attr_positive_input(&zinc.light_sensor.attr, LIGHT_SENSOR_AD);
+        ADC_start_convert(&zinc.light_sensor.attr, &zinc.light_sensor);
     }
 
     MYNOISE_init();
     MYNOISE_power_off_set_tickdown_cb(MYNOISE_power_off_tickdown_callback);
+
+    GPIO_intr_enable(EARPHONE_DET_PIN, TRIG_BY_BOTH_EDGE, (void *)GPIO_earphone_det_callback, &zinc);
+    if (true == (zinc.earphone_en = 0 == GPIO_peek(EARPHONE_DET_PIN)))
+    {
+        // TODO: mute speaker
+    }
 }
 
 /****************************************************************************
@@ -307,6 +314,14 @@ void CLOCK_update_display_callback(struct tm const *dt)
         {
             uint8_t wdays = 1U << dt->tm_wday;
             uint8_t alarms = 0;
+
+            for (uint8_t i = 0; i < 2; i ++)
+            {
+                struct CLOCK_moment_t *alarm = CLOCK_get_alarm(i);
+                if (alarm->enabled)
+                    alarms |= 1U << i;
+            }
+
             flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms, CLOCK_get_dst_is_active());
         }
 
@@ -328,6 +343,7 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
     if (runtime->setting)
     {
         uint32_t mask = 0;
+        uint8_t alarms = 0;
         bool update = true;
 
         if (VOICE_SETTING_HOUR == runtime->setting_part || VOICE_SETTING_ALARM_HOUR == runtime->setting_part)
@@ -369,14 +385,30 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
         }
         else if (VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
         {
-            struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
-            mask = SMART_LED_time_mask_digit(alarm0->ringtone_id + 1, false);
+            struct CLOCK_moment_t *alarm = CLOCK_get_alarm((uint8_t)runtime->setting_alarm_idx);
+            mask = SMART_LED_time_mask_digit(alarm->ringtone_id + 1, false);
 
             if (0x1 & runtime->setting_blinky)
                 mask &= ~SMART_LED_TIME_MASK_MINUTE;
         }
         else
             update = false;
+
+
+        if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
+            VOICE_SETTING_ALARM_MIN == runtime->setting_part ||
+            VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
+        {
+            switch (runtime->setting_alarm_idx)
+            {
+            case 0:
+                alarms = 1 << 0;
+                break;
+            case 1:
+                alarms = 1 << 1;
+                break;
+            }
+        }
 
         if (update)
         {
@@ -386,7 +418,6 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
             if (1)
             {
                 uint8_t wdays = 1U << runtime->setting_dt.tm_wday;
-                uint8_t alarms = 0;
                 uint32_t flags = SMART_LED_flags_mask((uint8_t)runtime->setting_dt.tm_hour, wdays, alarms, CLOCK_get_dst_is_active());
 
                 if (flags != zinc.display_flags)
@@ -530,13 +561,23 @@ static void GPIO_button_callback(uint32_t pins, struct zinc_runtime_t *runtime)
 
 static void GPIO_earphone_det_callback(uint32_t pins, struct zinc_runtime_t *runtime)
 {
-    (void)runtime;
-    LOG_verbose("earphone: 0x%x", pins);
+    (void)pins;
+    timeout_start(&runtime->gpio_filter_timeo, (void *)MSG_EARPHONE_DET);
 }
 
-static void GPIO_button_filter_callback(enum zinc_message_t msg_button)
+static void GPIO_filter_callback(enum zinc_message_t msg_button)
 {
-    if (GPIO_button_is_down(msg_button))
+    if (MSG_EARPHONE_DET == msg_button)
+    {
+        bool det = 0 == GPIO_peek(EARPHONE_DET_PIN);
+
+        if (det != zinc.earphone_en)
+        {
+            zinc.earphone_en = det;
+            mqueue_postv(zinc.mqd, msg_button, 0, 0);
+        }
+    }
+    else if (GPIO_button_is_down(msg_button))
         mqueue_postv(zinc.mqd, msg_button, 0, 0);
 }
 
@@ -732,6 +773,7 @@ static void MSG_alive(struct zinc_runtime_t *runtime)
 
 static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_button)
 {
+    enum VOICE_setting_t old_setting_part = runtime->setting_part;
     PMU_power_lock();
 
     SETTING_timeout_release();
@@ -748,6 +790,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
             runtime->setting = true;
             runtime->setting_is_modified = false;
             runtime->setting_alarm_is_modified = false;
+            runtime->setting_alarm_idx = -1;
 
             if (NULL == runtime->setting_blinky_intv)
             {
@@ -778,8 +821,6 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     }
     else if (MSG_PREV_BUTTON == msg_button || MSG_NEXT_BUTTON == msg_button)
     {
-        struct CLOCK_moment_t *alarm0;
-
         if (MSG_PREV_BUTTON == msg_button)
             runtime->setting_part = VOICE_prev_setting(runtime->setting_part);
         else
@@ -796,13 +837,46 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
                     runtime->setting_part = VOICE_SETTING_ALARM_RINGTONE;
             }
         }
-        alarm0 = CLOCK_get_alarm(0);
+        struct CLOCK_moment_t *alarm = NULL;
+
+        if (MSG_NEXT_BUTTON == msg_button)
+        {
+            if (VOICE_SETTING_ALARM_RINGTONE == old_setting_part)
+            {
+                runtime->setting_alarm_idx ++;
+
+                if (2 > runtime->setting_alarm_idx)
+                    runtime->setting_part = VOICE_SETTING_ALARM_HOUR;
+            }
+        }
+        else
+        {
+            if (VOICE_SETTING_ALARM_HOUR == old_setting_part)
+            {
+                runtime->setting_alarm_idx --;
+
+                if (0 <= runtime->setting_alarm_idx)
+                    runtime->setting_part = VOICE_SETTING_ALARM_RINGTONE;
+            }
+        }
 
         if (VOICE_SETTING_ALARM_HOUR == runtime->setting_part ||
             VOICE_SETTING_ALARM_MIN == runtime->setting_part ||
             VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
         {
-            time_t ts = mtime2time(alarm0->mtime);
+            if (MSG_NEXT_BUTTON == msg_button)
+            {
+                if (0 > runtime->setting_alarm_idx)
+                    runtime->setting_alarm_idx = 0;
+            }
+            else
+            {
+                if (0 > runtime->setting_alarm_idx)
+                    runtime->setting_alarm_idx = 1;
+            }
+
+            alarm = CLOCK_get_alarm((uint8_t)runtime->setting_alarm_idx);
+            time_t ts = mtime2time(alarm->mtime);
 
             localtime_r(&ts, &runtime->setting_dt);
             runtime->setting_dt.tm_sec = 0;
@@ -810,15 +884,16 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         else
         {
             time_t ts = time(NULL);
-
             localtime_r(&ts, &runtime->setting_dt);
+
             runtime->setting_dt.tm_sec = 0;
+            runtime->setting_alarm_idx = -1;
         }
 
         if (smartcuckoo.voice_enabled)
         {
             VOICE_say_setting(runtime->setting_part);
-            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
+            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm->ringtone_id);
         }
 
         switch (runtime->setting_part)
@@ -842,7 +917,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     else if (MSG_VOLUME_UP_BUTTON == msg_button || MSG_VOLUME_DOWN_BUTTON == msg_button)
     {
         int16_t old_voice_id;
-        struct CLOCK_moment_t *alarm0 = CLOCK_get_alarm(0);
+        struct CLOCK_moment_t *alarm = CLOCK_get_alarm((uint8_t)runtime->setting_alarm_idx);
 
         switch (runtime->setting_part)
         {
@@ -932,9 +1007,9 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
 
         case VOICE_SETTING_ALARM_RINGTONE:
             if (MSG_VOLUME_UP_BUTTON == msg_button)
-                alarm0->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm0->ringtone_id);
+                alarm->ringtone_id = (uint8_t)VOICE_next_ringtone(alarm->ringtone_id);
             else
-                alarm0->ringtone_id = (uint8_t)VOICE_prev_ringtone(alarm0->ringtone_id);
+                alarm->ringtone_id = (uint8_t)VOICE_prev_ringtone(alarm->ringtone_id);
             goto setting_modify_alarm;
 
         case VOICE_SETTING_COUNT:
@@ -972,16 +1047,16 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         {
         setting_modify_alarm:
             runtime->setting_alarm_is_modified = true;
-            alarm0->enabled = true;
-            alarm0->mtime = time2mtime(mktime(&runtime->setting_dt));
-            alarm0->mdate = 0;
-            alarm0->wdays = 0x7F;
+            alarm->enabled = true;
+            alarm->mtime = time2mtime(mktime(&runtime->setting_dt));
+            alarm->mdate = 0;
+            alarm->wdays = 0x7F;
         }
 
         mplayer_playlist_clear();
 
         if (smartcuckoo.voice_enabled)
-            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm0->ringtone_id);
+            VOICE_say_setting_part(runtime->setting_part, &runtime->setting_dt, alarm->ringtone_id);
 
         PANEL_update(runtime, false);
     }
@@ -1000,6 +1075,12 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         PANEL_update(runtime, false);
 
         runtime->setting_is_modified = true;
+    }
+
+    if (VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
+    {
+        struct CLOCK_moment_t *alarm = CLOCK_get_alarm((uint8_t)runtime->setting_alarm_idx);
+        VOICE_play_ringtone(alarm->ringtone_id);
     }
 
     SETTING_timeout_create();
@@ -1154,10 +1235,17 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
 
         if (msg)
         {
-            if (! runtime->setting)
+            if (MSG_EARPHONE_DET == msg->msgid)
+            {
+                LOG_verbose("%d", runtime->earphone_en);
+            }
+            else if (! runtime->setting)
             {
                 switch ((enum zinc_message_t)msg->msgid)
                 {
+                default:
+                    break;
+
                 case MSG_SNOOZE_BUTTON:
                     break;
 
