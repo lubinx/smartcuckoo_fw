@@ -162,8 +162,8 @@ void PERIPHERAL_init(void)
         smartcuckoo.led_color.pm = LED_BLUE;
         smartcuckoo.led_color.dst = LED_ORANGE;
 
-        smartcuckoo.dim = SMART_LED_CENTER_DIM / 2;
-        smartcuckoo.lamp.dim = SMART_LED_CENTER_DIM;
+        smartcuckoo.dim = CLOCK_DEFAULT_DIM;
+        smartcuckoo.lamp.dim = LAMP_DEFAULT_BRIGHTRESS;
     }
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
@@ -1062,8 +1062,24 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     }
     else if (MSG_SETTING_DIM == msg_button)
     {
-        // if (smartcuckoo.lamp.dim)
-        LOG_warning("impl: dim");
+        uint8_t const dim_tbl[] = CLOCK_DIM_TBL;
+
+        if (smartcuckoo.dim >= dim_tbl[lengthof(dim_tbl) - 1])
+            smartcuckoo.dim = dim_tbl[0];
+        else
+        {
+            for (int i = lengthof(dim_tbl) - 2; i >= 0; i --)
+            {
+                if (smartcuckoo.dim >= dim_tbl[i])
+                {
+                    smartcuckoo.dim = dim_tbl[i + 1];
+                    break;
+                }
+            }
+        }
+
+        runtime->setting_is_modified = true;
+        PANEL_update(runtime, false);
     }
     else if (MSG_COLOR_BUTTON == msg_button)
     {

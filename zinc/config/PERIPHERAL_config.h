@@ -59,8 +59,12 @@
     #define LED_LAMP_DIS_PIN            PB05
 
 // light sensor
-    #define LIGHT_SENSITIVE_SECONDS     (1)
     #define LIGHT_SENSOR_AD             PA03
+    #define LIGHT_SENSITIVE_SECONDS     (1)
+
+    #define CLOCK_DEFAULT_DIM           (8)
+    #define CLOCK_DIM_TBL               {4, CLOCK_DEFAULT_DIM, 16, 24, 32}
+    #define LAMP_DEFAULT_BRIGHTRESS     SMART_LED_CENTER_DIM
 
 // buttons
     #define KPAD_ROW_1_PIN              PC09
