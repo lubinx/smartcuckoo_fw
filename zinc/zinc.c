@@ -59,7 +59,7 @@ struct zinc_runtime_t
     int8_t setting_alarm_idx;
 
     bytebool_t earphone_en;
-    uint8_t light_sensor_dim;
+    uint8_t light_sensor_shift_dim;
 
     uint16_t display_mtime;
     uint32_t display_flags;
@@ -88,7 +88,7 @@ static void SETTING_timeout_callback(struct zinc_runtime_t *runtime);
 static void SETTING_volume_intv_callback(enum zinc_message_t msg_button);
 static void SETTING_dim_intv_callback(enum zinc_message_t msg_button);
 
-static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr);
+static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *light_sensor);
 static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remain, bool stopping);
 
 static struct zinc_runtime_t zinc = {0};
@@ -222,9 +222,8 @@ void PERIPHERAL_init(void)
 
     if (1)
     {
-        ADC_attr_init(&zinc.light_sensor.attr, LIGHT_SENSITIVE_SECONDS, (void *)LIGHT_sensor_ad_callback);
+        ADC_attr_init(&zinc.light_sensor.attr, ADC_MAX_SPS, (void *)LIGHT_sensor_ad_callback);
         ADC_attr_positive_input(&zinc.light_sensor.attr, LIGHT_SENSOR_AD);
-        ADC_start_convert(&zinc.light_sensor.attr, &zinc.light_sensor);
     }
 
     MYNOISE_init();
@@ -281,10 +280,11 @@ static void MYNOISE_power_off_tickdown_callback(uint32_t power_off_seconds_remai
 
 void CLOCK_update_display_callback(struct tm const *dt)
 {
-    static uint8_t dim = 0;
+    static uint8_t old_dim = 0;
 
     if (! zinc.setting)
     {
+        uint8_t dim = smartcuckoo.dim + zinc.light_sensor_shift_dim;
         uint16_t mtime;
         uint32_t flags;
 
@@ -302,12 +302,12 @@ void CLOCK_update_display_callback(struct tm const *dt)
         else
             mtime =  (uint16_t)(dt->tm_hour * 100 + dt->tm_min);
 
-        if (zinc.display_mtime != mtime || dim != smartcuckoo.dim)
+        if (zinc.display_mtime != mtime || old_dim != dim)
         {
             zinc.display_mtime = mtime;
 
             uint32_t mask = SMART_LED_time_mask_digit(mtime, true) | SMART_LED_TIME_MASK_IND;
-            SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
+            SMART_LED_update(&LED_time, dim, smartcuckoo.led_color.time, mask);
         }
 
         if (1)
@@ -325,13 +325,13 @@ void CLOCK_update_display_callback(struct tm const *dt)
             flags = SMART_LED_flags_mask((uint8_t)dt->tm_hour, wdays, alarms, CLOCK_get_dst_is_active());
         }
 
-        if (flags != zinc.display_flags || dim != smartcuckoo.dim)
+        if (flags != zinc.display_flags || old_dim != dim)
         {
             zinc.display_flags = flags;
-            SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+            SMART_LED_update_color(&LED_flags, dim, &smartcuckoo.led_color.time + 1, flags);
         }
 
-        dim = smartcuckoo.dim;
+        old_dim = dim;
     }
 }
 
@@ -412,7 +412,9 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
 
         if (update)
         {
-            SMART_LED_update(&LED_time, smartcuckoo.dim, smartcuckoo.led_color.time, mask);
+            uint8_t dim = smartcuckoo.dim + zinc.light_sensor_shift_dim;
+
+            SMART_LED_update(&LED_time, dim, smartcuckoo.led_color.time, mask);
             runtime->setting_blinky ++;
 
             if (1)
@@ -423,7 +425,7 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
                 if (flags != zinc.display_flags)
                 {
                     zinc.display_flags = flags;
-                    SMART_LED_update_color(&LED_flags, smartcuckoo.dim, &smartcuckoo.led_color.time + 1, flags);
+                    SMART_LED_update_color(&LED_flags, dim, &smartcuckoo.led_color.time + 1, flags);
                 }
             }
         }
@@ -449,12 +451,26 @@ static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky)
     }
 }
 
-static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *attr)
+static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t *light_sensor)
 {
     (void)volt;
-    (void)raw;
-    (void)attr;
-    // LOG_verbose("%d: %dv", raw, volt);
+    raw = MIN(LIGHT_SENSOR_MAX_AD_VALUE, raw);
+
+    if (LIGHT_SENSITIVE < abs(raw - light_sensor->value))
+    {
+        light_sensor->value = raw;
+        volt = CLOCK_AUTO_DIM_RANGE - light_sensor->value * CLOCK_AUTO_DIM_RANGE / LIGHT_SENSOR_MAX_AD_VALUE;
+
+        if (volt != zinc.light_sensor_shift_dim)
+        {
+            /*
+            zinc.light_sensor_shift_dim = (uint8_t)volt;
+            PANEL_update(&zinc, false);
+            */
+        }
+        LOG_debug("%d: %d", raw, volt);
+    }
+    ADC_stop_convert(&light_sensor->attr);
 }
 
 /****************************************************************************
@@ -742,6 +758,8 @@ static void SETTING_dim_intv_callback(enum zinc_message_t msg_button)
  ****************************************************************************/
 static void MSG_alive(struct zinc_runtime_t *runtime)
 {
+    ADC_start_convert(&zinc.light_sensor.attr, &zinc.light_sensor);
+
     /*
     if (BATT_HINT_MV > PERIPHERAL_batt_volt())
     {

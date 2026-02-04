@@ -152,7 +152,7 @@ int main(void)
     #endif
 
     #ifdef PIN_BATT_ADC
-        ADC_attr_init(&batt_ad.attr, 3000, [](int volt, int raw, void *arg)-> void
+        ADC_attr_init(&batt_ad.attr, ADC_MAX_SPS, [](int volt, int raw, void *arg)-> void
         {
             ARG_UNUSED(raw);
             struct batt_ad_t *ad = (struct batt_ad_t *)arg;
