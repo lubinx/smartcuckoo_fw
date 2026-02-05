@@ -198,7 +198,7 @@ int main(void)
             goto sdmmc_print_err;
         if (0 != (err = SDMMC_card_insert(&sdmmc)))
             goto sdmmc_print_err;
-        if (0 != (err = FAT_mount_fs_root(&fat)))
+        if (0 != (err = FAT_mount_root(&fat)))
             goto sdmmc_print_err;
 
         #ifndef NDEBUG
@@ -219,7 +219,7 @@ int main(void)
 
         USBD_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
         {
-            if (0 == FAT_mount_fs_root(&fat))
+            if (0 == FAT_mount_root(&fat))
                 FAT_attr_print(&fat);
         });
     }
