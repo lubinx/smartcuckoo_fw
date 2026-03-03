@@ -59,7 +59,7 @@ struct zinc_runtime_t
     int8_t setting_alarm_idx;
 
     bytebool_t earphone_en;
-    uint8_t light_sensor_shift_dim;
+    uint8_t clock_dim_value;
 
     uint16_t display_mtime;
     uint32_t display_flags;
@@ -69,6 +69,8 @@ struct zinc_runtime_t
     clock_t dim_stick;
     time_t batt_last_ts;
 };
+
+uint8_t const dim_tbl[] = CLOCK_DIM_TBL;
 
 /****************************************************************************
  *  @private
@@ -135,7 +137,11 @@ void PERIPHERAL_kpad_gpio_intr_enable(void)
 
 bool PERIPHERAL_is_enable_usb(void)
 {
-    return false;
+#ifdef DEBUG
+    return true;
+#else
+    return GPIO_button_is_down(MSG_NOISE_BUTTON);
+#endif
 }
 
 void PERIPHERAL_ota_init(void)
@@ -162,8 +168,8 @@ void PERIPHERAL_init(void)
         smartcuckoo.led_color.pm = LED_BLUE;
         smartcuckoo.led_color.dst = LED_ORANGE;
 
-        smartcuckoo.dim = CLOCK_DEFAULT_DIM;
-        smartcuckoo.lamp.dim = LAMP_DEFAULT_BRIGHTRESS;
+        smartcuckoo.dim_percent = dim_tbl[lengthof(dim_tbl) / 2];
+        smartcuckoo.lamp.dim_value = SMART_LED_CENTER_DIM;
     }
 
     smartcuckoo.volume = MAX(VOLUME_MIN_PERCENT, smartcuckoo.volume);
@@ -220,6 +226,7 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
+    zinc.clock_dim_value = SMART_LED_CENTER_DIM;
     if (1)
     {
         ADC_attr_init(&zinc.light_sensor.attr, ADC_MAX_SPS, (void *)LIGHT_sensor_ad_callback);
@@ -245,18 +252,18 @@ int CLOCK_alarm_switch(bool en)
     return NVM_set(NVM_SETTING, sizeof(smartcuckoo), &smartcuckoo);
 }
 
-uint8_t CLOCK_get_dim_value(void)
+uint8_t CLOCK_get_dim_percent(void)
 {
-    return smartcuckoo.dim;
+    return smartcuckoo.dim_percent;
 }
 
-void CLOCK_shell_set_dim_value(uint8_t dim)
+void CLOCK_shell_set_dim_percent(uint8_t dim)
 {
     dim = MAX(SMART_LED_MINAL_DIM, dim);
 
-    if (dim != smartcuckoo.dim)
+    if (dim != smartcuckoo.dim_percent)
     {
-        smartcuckoo.dim = dim;
+        smartcuckoo.dim_percent = dim;
         PANEL_update(&zinc, false);
 
         zinc.setting_is_modified = true;
@@ -284,7 +291,7 @@ void CLOCK_update_display_callback(struct tm const *dt)
 
     if (! zinc.setting)
     {
-        uint8_t dim = smartcuckoo.dim + zinc.light_sensor_shift_dim;
+        uint8_t dim = (uint8_t)(zinc.clock_dim_value * smartcuckoo.dim_percent / 100);
         uint16_t mtime;
         uint32_t flags;
 
@@ -412,7 +419,7 @@ static void PANEL_setting_blinky(struct zinc_runtime_t *runtime)
 
         if (update)
         {
-            uint8_t dim = smartcuckoo.dim + zinc.light_sensor_shift_dim;
+            uint8_t dim = (uint8_t)(zinc.clock_dim_value * smartcuckoo.dim_percent / 100);
 
             SMART_LED_update(&LED_time, dim, smartcuckoo.led_color.time, mask);
             runtime->setting_blinky ++;
@@ -436,10 +443,13 @@ static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky)
 {
     if (zinc.setting)
     {
-        runtime->setting_blinky = blinky;
+        if (NULL != runtime->setting_blinky_intv)
+        {
+            runtime->setting_blinky = blinky;
+            PANEL_setting_blinky(runtime);
 
-        PANEL_setting_blinky(runtime);
-        timeout_start(runtime->setting_blinky_intv, runtime);
+            timeout_start(runtime->setting_blinky_intv, runtime);
+        }
     }
     else
     {
@@ -459,16 +469,14 @@ static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t
     if (LIGHT_SENSITIVE < abs(raw - light_sensor->value))
     {
         light_sensor->value = raw;
-        volt = CLOCK_AUTO_DIM_RANGE - light_sensor->value * CLOCK_AUTO_DIM_RANGE / LIGHT_SENSOR_MAX_AD_VALUE;
+        raw = CLOCK_AUTO_DIM_RANGE - raw * CLOCK_AUTO_DIM_RANGE / LIGHT_SENSOR_MAX_AD_VALUE + SMART_LED_CENTER_DIM;
 
-        if (volt != zinc.light_sensor_shift_dim)
+        if (raw != zinc.clock_dim_value)
         {
-            /*
-            zinc.light_sensor_shift_dim = (uint8_t)volt;
+            zinc.clock_dim_value = (uint8_t)raw;
             PANEL_update(&zinc, false);
-            */
         }
-        LOG_debug("%d: %d", raw, volt);
+        LOG_debug("%d%%: %d => %d", smartcuckoo.dim_percent, raw, raw *smartcuckoo.dim_percent / 100);
     }
     ADC_stop_convert(&light_sensor->attr);
 }
@@ -740,11 +748,11 @@ static void SETTING_dim_intv_callback(enum zinc_message_t msg_button)
     if (0 == GPIO_peek(LED_LAMP_DIS_PIN) && GPIO_button_is_down(msg_button))
     {
         if (MSG_LAMP_DIM_UP == msg_button)
-            smartcuckoo.lamp.dim = MIN(128, smartcuckoo.lamp.dim + 2);
+            smartcuckoo.lamp.dim_value = MIN(LAMP_MAX_BRIGHTRESS, smartcuckoo.lamp.dim_value + 2);
         else
-            smartcuckoo.lamp.dim = MAX(8, smartcuckoo.lamp.dim - 2);
+            smartcuckoo.lamp.dim_value = MAX(LAMP_MIN_BRIGHTRESS, smartcuckoo.lamp.dim_value - 2);
 
-        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
     }
     else if (NULL != zinc.setting_dim_intv)
     {
@@ -1080,17 +1088,17 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     }
     else if (MSG_SETTING_DIM == msg_button)
     {
-        uint8_t const dim_tbl[] = CLOCK_DIM_TBL;
-
-        if (smartcuckoo.dim >= dim_tbl[lengthof(dim_tbl) - 1])
-            smartcuckoo.dim = dim_tbl[0];
+        if (smartcuckoo.dim_percent >= dim_tbl[lengthof(dim_tbl) - 1])
+            smartcuckoo.dim_percent = dim_tbl[0];
+        else if (smartcuckoo.dim_percent < dim_tbl[0])
+            smartcuckoo.dim_percent = dim_tbl[lengthof(dim_tbl) - 1];
         else
         {
             for (int i = lengthof(dim_tbl) - 2; i >= 0; i --)
             {
-                if (smartcuckoo.dim >= dim_tbl[i])
+                if (smartcuckoo.dim_percent >= dim_tbl[i])
                 {
-                    smartcuckoo.dim = dim_tbl[i + 1];
+                    smartcuckoo.dim_percent = dim_tbl[i + 1];
                     break;
                 }
             }
@@ -1245,11 +1253,11 @@ static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
     {
         GPIO_clear(LED_LAMP_DIS_PIN);
         msleep(5);
-        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
     }
     else
     {
-        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0);
+        SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0);
         GPIO_set(LED_LAMP_DIS_PIN);
 
         if (NULL != runtime->setting_dim_intv)
@@ -1334,7 +1342,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                         if (! GPIO_peek_output(LED_LAMP_DIS_PIN))
                         {
                             smartcuckoo.lamp.color = SMART_LED_next_color(smartcuckoo.lamp.color);
-                            SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
+                            SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
 
                             runtime->setting_is_modified = true;
                             SETTING_timeout_create();
