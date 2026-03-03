@@ -173,7 +173,6 @@ static void SHELL_register(void)
             return 0;
         });
 
-#ifdef DEBUG
     // mplayer
     UCSH_REGISTER("mplay",
         [](struct UCSH_env *env)
@@ -184,6 +183,16 @@ static void SHELL_register(void)
                 return mplayer_play(env->argv[1]);
         }
     );
+
+    UCSH_REGISTER("mstop",
+        [](struct UCSH_env *env)
+        {
+            (void)env;
+            return mplayer_stop();
+        }
+    );
+
+#ifdef DEBUG
     UCSH_REGISTER("mqueue",
         [](struct UCSH_env *env)
         {
@@ -191,13 +200,6 @@ static void SHELL_register(void)
                 return EINVAL;
             else
                 return mplayer_playlist_queue(env->argv[1]);
-        }
-    );
-    UCSH_REGISTER("mstop",
-        [](struct UCSH_env *env)
-        {
-            (void)env;
-            return mplayer_stop();
         }
     );
 
