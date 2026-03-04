@@ -41,13 +41,14 @@ struct light_sensor_ad_t
 struct zinc_runtime_t
 {
     int mqd;
-    timeout_t gpio_filter_timeo;
-    struct light_sensor_ad_t light_sensor;
 
-    timeout_t *setting_timeo;
-    timeout_t *setting_blinky_intv;
-    timeout_t *setting_volume_intv;
-    timeout_t *setting_dim_intv;
+    timeout_t gpio_filter_timeo;
+    timeout_t setting_timeo;
+    timeout_t setting_blinky_intv;
+    timeout_t setting_volume_intv;
+    timeout_t setting_dim_intv;
+
+    struct light_sensor_ad_t light_sensor;
 
     struct tm setting_dt;
     enum VOICE_setting_t setting_part;
@@ -83,9 +84,8 @@ static void GPIO_earphone_det_callback(uint32_t pins, struct zinc_runtime_t *run
 static bool GPIO_button_is_down(enum zinc_message_t msg_button);
 
 static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky);
+static void PANEL_setting_blinky(struct zinc_runtime_t *runtime);
 
-static void SETTING_timeout_create(void);
-static void SETTING_timeout_release(void);
 static void SETTING_timeout_callback(struct zinc_runtime_t *runtime);
 static void SETTING_volume_intv_callback(enum zinc_message_t msg_button);
 static void SETTING_dim_intv_callback(enum zinc_message_t msg_button);
@@ -151,6 +151,10 @@ void PERIPHERAL_ota_init(void)
 void PERIPHERAL_init(void)
 {
     timeout_init(&zinc.gpio_filter_timeo, GPIO_FILTER_INTV, (void *)GPIO_filter_callback, 0);
+    timeout_init(&zinc.setting_timeo, SETTING_TIMEOUT, (void *)SETTING_timeout_callback, 0);
+    timeout_init(&zinc.setting_volume_intv, SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_callback, TIMEOUT_FLAG_REPEAT);
+    timeout_init(&zinc.setting_blinky_intv, SETTING_BLINKY_INTV, (void *)PANEL_setting_blinky, TIMEOUT_FLAG_REPEAT);
+    timeout_init(&zinc.setting_dim_intv, SETTING_LAMP_DIM_INTV, (void *)SETTING_dim_intv_callback, TIMEOUT_FLAG_REPEAT);
 
     zinc.display_mtime = 0xFFFFU;
     zinc.voice_last_tick = (clock_t)-SETTING_TIMEOUT;
@@ -177,6 +181,7 @@ void PERIPHERAL_init(void)
     AUDIO_renderer_master_volume_balance(0, 30);
 
     smartcuckoo.voice_sel_id = VOICE_init(smartcuckoo.voice_sel_id, &smartcuckoo.locale);
+    zinc.clock_dim_value = SMART_LED_CENTER_DIM;
     PANEL_update(&zinc, false);
 
     MQUEUE_INIT(&zinc.mqd, MQUEUE_PAYLOAD_SIZE, MQUEUE_LENGTH);
@@ -226,7 +231,6 @@ void PERIPHERAL_init(void)
         GPIO_disable(PIN_RTC_CAL_IN);
     }
 
-    zinc.clock_dim_value = SMART_LED_CENTER_DIM;
     if (1)
     {
         ADC_attr_init(&zinc.light_sensor.attr, ADC_MAX_SPS, (void *)LIGHT_sensor_ad_callback);
@@ -267,14 +271,14 @@ void CLOCK_shell_set_dim_percent(uint8_t dim)
         PANEL_update(&zinc, false);
 
         zinc.setting_is_modified = true;
-        SETTING_timeout_create();
+        timeout_start(&zinc.setting_timeo, &zinc);
     }
 }
 
 void mplayer_idle_callback(void)
 {
     if (zinc.setting)
-        SETTING_timeout_create();
+        timeout_start(&zinc.setting_timeo, &zinc);
     else
         CLOCK_schedule();
 }
@@ -443,13 +447,10 @@ static void PANEL_update(struct zinc_runtime_t *runtime, bool blinky)
 {
     if (zinc.setting)
     {
-        if (NULL != runtime->setting_blinky_intv)
-        {
-            runtime->setting_blinky = blinky;
-            PANEL_setting_blinky(runtime);
+        runtime->setting_blinky = blinky;
+        PANEL_setting_blinky(runtime);
 
-            timeout_start(runtime->setting_blinky_intv, runtime);
-        }
+        timeout_start(&runtime->setting_blinky_intv, runtime);
     }
     else
     {
@@ -663,32 +664,10 @@ static bool GPIO_button_is_down(enum zinc_message_t msg_button)
     return is_down;
 }
 
-static void SETTING_timeout_create(void)
-{
-    if (NULL == zinc.setting_timeo)
-        zinc.setting_timeo = timeout_create(SETTING_TIMEOUT, (void *)SETTING_timeout_callback, 0);
-
-    timeout_start(zinc.setting_timeo, &zinc);
-}
-
-static void SETTING_timeout_release(void)
-{
-    if (NULL != zinc.setting_timeo)
-    {
-        timeout_destroy(zinc.setting_timeo);
-        zinc.setting_timeo = NULL;
-    }
-}
-
 static void SETTING_timeout_callback(struct zinc_runtime_t *runtime)
 {
-    SETTING_timeout_release();
-
-    if (NULL != zinc.setting_blinky_intv)
-    {
-        timeout_destroy(zinc.setting_blinky_intv);
-        zinc.setting_blinky_intv = NULL;
-    }
+    timeout_stop(&runtime->setting_timeo);
+    timeout_stop(&runtime->setting_blinky_intv);
 
     if (runtime->setting_alarm_is_modified)
         CLOCK_update_alarms();
@@ -708,7 +687,9 @@ static void SETTING_timeout_callback(struct zinc_runtime_t *runtime)
 static void SETTING_volume_intv_callback(enum zinc_message_t msg_button)
 {
     static clock_t tick = 0;
-    SETTING_timeout_release();
+
+    zinc.setting_is_modified = true;
+    timeout_start(&zinc.setting_timeo, &zinc);
 
     if (GPIO_button_is_down(msg_button))
     {
@@ -728,15 +709,7 @@ static void SETTING_volume_intv_callback(enum zinc_message_t msg_button)
     else
     {
         tick = 0;
-
-        if (NULL != zinc.setting_volume_intv)
-        {
-            timeout_destroy(zinc.setting_volume_intv);
-            zinc.setting_volume_intv = NULL;
-        }
-
-        zinc.setting_is_modified = true;
-        SETTING_timeout_create();
+        timeout_stop(&zinc.setting_volume_intv);
 
         smartcuckoo.volume = AUDIO_get_volume_percent();
         goto volume_notification_2;
@@ -754,11 +727,8 @@ static void SETTING_dim_intv_callback(enum zinc_message_t msg_button)
 
         SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
     }
-    else if (NULL != zinc.setting_dim_intv)
-    {
-        timeout_destroy(zinc.setting_dim_intv);
-        zinc.setting_dim_intv = NULL;
-    }
+    else
+        timeout_stop(&zinc.setting_dim_intv);
 }
 
 /****************************************************************************
@@ -802,7 +772,9 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
     enum VOICE_setting_t old_setting_part = runtime->setting_part;
     PMU_power_lock();
 
-    SETTING_timeout_release();
+    // SETTING_timeout_release();
+
+    MYNOISE_stop();
     mplayer_playlist_clear();
 
     // any button will stop alarming & reminders
@@ -818,29 +790,20 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
             runtime->setting_alarm_is_modified = false;
             runtime->setting_alarm_idx = -1;
 
-            if (NULL == runtime->setting_blinky_intv)
-            {
-                time_t ts = time(NULL);
-                localtime_r(&ts, &runtime->setting_dt);
+            time_t ts = time(NULL);
+            localtime_r(&ts, &runtime->setting_dt);
 
-                runtime->setting_blinky_intv = timeout_create(SETTING_BLINKY_INTV, (void *)PANEL_setting_blinky, TIMEOUT_FLAG_REPEAT);
-                timeout_start(runtime->setting_blinky_intv, runtime);
-
-                PANEL_setting_blinky(runtime);
-            }
+            timeout_start(&runtime->setting_blinky_intv, runtime);
+            PANEL_setting_blinky(runtime);
 
             goto say_setting_part;
         }
         else
         {
+            timeout_stop(&zinc.setting_blinky_intv);
+
             runtime->setting = false;
             VOICE_say_setting(VOICE_SETTING_DONE);
-
-            if (NULL != zinc.setting_blinky_intv)
-            {
-                timeout_destroy(zinc.setting_blinky_intv);
-                zinc.setting_blinky_intv = NULL;
-            }
 
             PANEL_update(runtime, false);
         }
@@ -1125,7 +1088,7 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         VOICE_play_ringtone(alarm->ringtone_id);
     }
 
-    SETTING_timeout_create();
+    timeout_start(&runtime->setting_timeo, runtime);
     PMU_power_unlock();
 }
 
@@ -1165,6 +1128,7 @@ static void MSG_voice_button(struct zinc_runtime_t *runtime)
 static void MSG_mynoise(enum zinc_message_t msg_button)
 {
     int err = 0;
+    mplayer_stop();
 
     /*
     switch (msg_button)
@@ -1226,25 +1190,7 @@ static void MSG_volume(struct zinc_runtime_t *runtime, enum zinc_message_t msg_b
         AUDIO_dec_volume(VOLUME_MIN_PERCENT);
 
     LOG_info("volume: %d", AUDIO_get_volume_percent());
-
-    if (NULL == runtime->setting_volume_intv)
-    {
-        zinc.setting_volume_intv = timeout_create(SETTING_VOLUME_ADJ_INTV, (void *)SETTING_volume_intv_callback, TIMEOUT_FLAG_REPEAT);
-
-        if (NULL != zinc.setting_volume_intv)
-            timeout_start(runtime->setting_volume_intv, (void *)msg_button);
-    }
-}
-
-static void MSG_lamp_start_dim(struct zinc_runtime_t *runtime, enum zinc_message_t msg_button)
-{
-    if (NULL == runtime->setting_dim_intv)
-    {
-        zinc.setting_dim_intv = timeout_create(SETTING_LAMP_DIM_INTV, (void *)SETTING_dim_intv_callback, TIMEOUT_FLAG_REPEAT);
-
-        if (NULL != zinc.setting_dim_intv)
-            timeout_start(runtime->setting_dim_intv, (void *)msg_button);
-    }
+    timeout_start(&runtime->setting_volume_intv, (void *)msg_button);
 }
 
 static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
@@ -1257,14 +1203,10 @@ static void MSG_lamp_toggle(struct zinc_runtime_t *runtime)
     }
     else
     {
+        timeout_stop(&runtime->setting_dim_intv);
+
         SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0);
         GPIO_set(LED_LAMP_DIS_PIN);
-
-        if (NULL != runtime->setting_dim_intv)
-        {
-            timeout_destroy(zinc.setting_dim_intv);
-            zinc.setting_dim_intv = NULL;
-        }
     }
 }
 
@@ -1335,7 +1277,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                             mqueue_postv(runtime->mqd, MSG_COLOR_BUTTON, 0, 0);
                         }
                         else
-                            MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_UP);
+                            timeout_start(&runtime->setting_dim_intv, (void *)MSG_LAMP_DIM_UP);
                     }
                     else
                     {
@@ -1345,7 +1287,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                             SMART_LED_update(&LED_lamp, smartcuckoo.lamp.dim_value, smartcuckoo.lamp.color, 0xFFFFFFFFUL);
 
                             runtime->setting_is_modified = true;
-                            SETTING_timeout_create();
+                            timeout_start(&runtime->setting_timeo, &zinc);
                         }
                     }
                     break;
@@ -1375,7 +1317,7 @@ static __attribute__((noreturn)) void *MSG_dispatch_thread(struct zinc_runtime_t
                             mqueue_postv(runtime->mqd, msg->msgid, 0, 0);
                         }
                         else
-                            MSG_lamp_start_dim(runtime, MSG_LAMP_DIM_DOWN);
+                            timeout_start(&runtime->setting_dim_intv, (void *)MSG_LAMP_DIM_DOWN);
                     }
                     else if (MSG_LAMP_LONG_PRESS_OFF == msg->msgid)
                     {

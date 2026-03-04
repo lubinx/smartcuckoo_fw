@@ -74,7 +74,7 @@
     struct SMARTCUCKOO_t
     {
         bytebool_t alarm_is_on;         // hw alram switcher
-        uint8_t dim;
+        uint8_t dim_percent;
 
         uint8_t volume;
         uint8_t rsv;
@@ -97,7 +97,7 @@
         struct
         {
             enum SMART_LED_color_t color;
-            uint8_t dim;
+            uint8_t dim_value;
         } lamp;
     };
     extern struct SMARTCUCKOO_t smartcuckoo;

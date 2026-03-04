@@ -61,15 +61,13 @@
 // light sensor
     #define LIGHT_SENSOR_AD             PA03
     #define LIGHT_SENSOR_MAX_AD_VALUE   (4096 / 2)
-    #define LIGHT_SENSITIVE             (32)
+    #define CLOCK_AUTO_DIM_RANGE        (64)
+    #define LIGHT_SENSITIVE             (LIGHT_SENSOR_MAX_AD_VALUE / CLOCK_AUTO_DIM_RANGE)
 
-    #define CLOCK_DIM_TBL               {4, CLOCK_DEFAULT_DIM, 12, 16, CLOCK_MAX_DIM}
-    #define CLOCK_DEFAULT_DIM           (8)
-    #define CLOCK_MAX_DIM               (20)
-    #define CLOCK_MAX_BRIGHTLESS        (52)
-    #define CLOCK_AUTO_DIM_RANGE        (CLOCK_MAX_BRIGHTLESS - CLOCK_MAX_DIM)
+    #define CLOCK_DIM_TBL               {20, 35, 50, 75, 100}
 
-    #define LAMP_DEFAULT_BRIGHTRESS     SMART_LED_CENTER_DIM
+    #define LAMP_MIN_BRIGHTRESS         8
+    #define LAMP_MAX_BRIGHTRESS         160
 
 // buttons
     #define KPAD_ROW_1_PIN              PC09
