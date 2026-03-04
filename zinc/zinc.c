@@ -474,7 +474,9 @@ static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t
 
         if (raw != zinc.clock_dim_value)
         {
+            zinc.display_flags = 0;
             zinc.clock_dim_value = (uint8_t)raw;
+
             PANEL_update(&zinc, false);
         }
         LOG_debug("%d%%: %d => %d", smartcuckoo.dim_percent, raw, raw *smartcuckoo.dim_percent / 100);
@@ -1068,6 +1070,8 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
         }
 
         runtime->setting_is_modified = true;
+
+        zinc.display_flags = 0;
         PANEL_update(runtime, false);
     }
     else if (MSG_COLOR_BUTTON == msg_button)
@@ -1076,10 +1080,12 @@ static void MSG_setting(struct zinc_runtime_t *runtime, enum zinc_message_t msg_
             smartcuckoo.led_color.wdays[3] = smartcuckoo.led_color.wdays[4] = smartcuckoo.led_color.wdays[5] =
             smartcuckoo.led_color.wdays[6] =
             smartcuckoo.led_color.time = SMART_LED_next_color(smartcuckoo.led_color.time);
-        runtime->display_flags = 0;
-        PANEL_update(runtime, false);
 
         runtime->setting_is_modified = true;
+        runtime->display_flags = 0;
+
+        zinc.display_flags = 0;
+        PANEL_update(runtime, false);
     }
 
     if (VOICE_SETTING_ALARM_RINGTONE == runtime->setting_part)
