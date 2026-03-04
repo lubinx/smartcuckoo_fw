@@ -60,9 +60,10 @@
 
 // light sensor
     #define LIGHT_SENSOR_AD             PA03
-    #define LIGHT_SENSOR_MAX_AD_VALUE   (4096 / 2)
-    #define CLOCK_AUTO_DIM_RANGE        (64)
-    #define LIGHT_SENSITIVE             (LIGHT_SENSOR_MAX_AD_VALUE / CLOCK_AUTO_DIM_RANGE)
+    #define LIGHT_SENSOR_MAX_AD_VALUE   (4096 * 2 / 3)
+    #define CLOCK_DIM_AUTO_RANGE        (96)
+    #define CLOCK_DIM_MAX_VALUE         (CLOCK_DIM_AUTO_RANGE + 32)
+    #define LIGHT_SENSITIVE             (LIGHT_SENSOR_MAX_AD_VALUE / CLOCK_DIM_AUTO_RANGE)
 
     #define CLOCK_DIM_TBL               {20, 35, 50, 75, 100}
 

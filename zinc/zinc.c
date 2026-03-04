@@ -470,7 +470,7 @@ static void LIGHT_sensor_ad_callback(int volt, int raw, struct light_sensor_ad_t
     if (LIGHT_SENSITIVE < abs(raw - light_sensor->value))
     {
         light_sensor->value = raw;
-        raw = CLOCK_AUTO_DIM_RANGE - raw * CLOCK_AUTO_DIM_RANGE / LIGHT_SENSOR_MAX_AD_VALUE + SMART_LED_CENTER_DIM;
+        raw = CLOCK_DIM_AUTO_RANGE - raw * CLOCK_DIM_AUTO_RANGE / LIGHT_SENSOR_MAX_AD_VALUE + (CLOCK_DIM_MAX_VALUE - CLOCK_DIM_AUTO_RANGE);
 
         if (raw != zinc.clock_dim_value)
         {
