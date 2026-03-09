@@ -2,14 +2,16 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include <sh/ucsh.h>
+#include <fs/ultrafs.h>
+#include <hash/crc16.h>
+
 #include <pmu.h>
 #include <wdt.h>
 #include <flash.h>
 #include <gpio.h>
 #include <wdt.h>
-#include <sh/ucsh.h>
-#include <fs/ultrafs.h>
-#include <hash/crc_ccitt.h>
+
 
 extern void PERIPHERAL_ota_init(void);
 
@@ -26,13 +28,13 @@ int SHELL_ota(struct UCSH_env *env)
     struct OTA_packet
     {
         uint16_t Idx;
-        CRC_CCITT_t crc;
+        uint16_t crc;
         uint8_t Payload[16];
     };
 
     struct OTA_packet packet;
     uint32_t size;
-    CRC_CCITT_t crc;
+    uint16_t crc;
 
     int ota_fd;
     // parse command args
@@ -78,7 +80,7 @@ int SHELL_ota(struct UCSH_env *env)
             goto ota_io_error;
 
         // packet crc
-        uint16_t packet_crc = CRC_CCITT_hash(packet.Payload, sizeof(packet.Payload));
+        uint16_t packet_crc = CRC16_hash(CRC16_XMODEM, packet.Payload, sizeof(packet.Payload));
         if (packet_crc != packet.crc)
             goto ota_crc_error;
 
