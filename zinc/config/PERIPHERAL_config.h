@@ -79,7 +79,7 @@
     #define KPAD_COL_3_PIN              PD00
 
     #define GPIO_FILTER_INTV            (50)
-    #define SETTING_VOLUME_ADJ_INTV     (60)
+    #define SETTING_VOLUME_ADJ_INTV     (100)
     #define SETTING_LAMP_DIM_INTV       (50)
     #define SETTING_BLINKY_INTV         (500)
 
