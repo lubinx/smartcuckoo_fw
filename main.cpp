@@ -1,4 +1,4 @@
-#include <ultracore/diskio.h>
+#include <ultracore/kernel.h>
 #include <audio/lc3bin.h>
 #include <usb/usbd_scsi.h>
 #include <fs/fat.h>
@@ -35,6 +35,7 @@
  *  @public
  ****************************************************************************/
 struct SMARTCUCKOO_t smartcuckoo;
+static struct KERNEL_hdl smartcuckoo_ext_hdl[40];
 
 bool CLOCK_alarm_switch_is_on(void)
 {
@@ -107,6 +108,9 @@ void SDIO_power_ctrl(struct SDMMC_implement_t const *sdio_impl, bool en)
  ****************************************************************************/
 int main(void)
 {
+    // add more statical hdl to kernel
+    SYSCON_add_statical_hdl(smartcuckoo_ext_hdl, lengthof(smartcuckoo_ext_hdl));
+
     #ifndef NDEBUG
         LOG_set_level(LOG_VERBOSE);
     #endif
@@ -198,7 +202,7 @@ int main(void)
             goto sdmmc_print_err;
         if (0 != (err = SDMMC_card_insert(&sdmmc)))
             goto sdmmc_print_err;
-        if (0 != (err = FAT_mount_root(&fat)))
+        if (0 != (err = FAT_mount_rw_root(&fat)))
             goto sdmmc_print_err;
 
         #ifndef NDEBUG
@@ -212,6 +216,7 @@ int main(void)
             LOG_error("SDMMC error: %s", SDMMC_strerror(err));
         }
     }
+
     if (PERIPHERAL_is_enable_usb())
     {
         USBD_pin_mux(USB, USB_PINS);
@@ -219,7 +224,7 @@ int main(void)
 
         USBD_suspend_callback(&usbd_scsi.usbd_attr, [](struct USBD_attr_t *) -> void
         {
-            if (0 == FAT_mount_root(&fat))
+            if (0 == FAT_mount_rw_root(&fat))
                 FAT_attr_print(&fat);
         });
     }
