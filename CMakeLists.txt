@@ -9,7 +9,6 @@ set(COMMON_SRCS
     "main.cpp"
     "shell.cpp"
     "shell_ota.c"
-    "ultracore/src/fs/fat.c"
     "ultracore/src/usb/*.c"
 )
 
