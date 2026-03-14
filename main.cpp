@@ -183,7 +183,7 @@ int main(void)
             if (PMU_EVENT_SLEEP == event)
             {
                 SDMMC_card_remove(&sdmmc);
-                DISKIO_flush_cache(&sdmmc_diskio);
+                DISKIO_release(&sdmmc_diskio);
             }
         },
     NULL);
